@@ -1,0 +1,7 @@
+# Sample configuration for SOWLv2
+prompt: "plant"
+owl_model: "google/owlv2-base-patch16-ensemble"
+sam_model: "facebook/sam2.1-hiera-small"
+threshold: 0.1
+fps: 24
+device: "cuda"
