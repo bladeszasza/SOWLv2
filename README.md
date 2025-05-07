@@ -1,9 +1,9 @@
 # SOWLv2
 
-SOWLv2 is a tool for **text-prompted object segmentation** that combines Google’s OWLv2 (open-vocabulary object detector) with Meta’s SAM 2 (Segment Anything Model) to segment detected objects in images, frames, or videos. Given a text prompt (e.g. `"plant"`) and an input (image, folder of frames, or video), SOWLv2 will:
+SOWLv2 is a tool for **text-prompted object segmentation** that combines Google’s [OWLv2](https://huggingface.co/docs/transformers/en/model_doc/owlv2) (open-vocabulary object detector) with Meta’s [SAM 2](https://github.com/facebookresearch/sam2) (Segment Anything Model) to segment detected objects in images, frames, or videos. Given a text prompt (e.g. `"plant"`) and an input (image, folder of frames, or video), SOWLv2 will:
 
-- Use OWLv2 to detect bounding boxes for objects matching the text prompt:contentReference[oaicite:2]{index=2}.
-- Use SAM 2 to generate segmentation masks for each detected object:contentReference[oaicite:3]{index=3}.
+- Use OWLv2 to detect bounding boxes for objects matching the text prompt. Based on paper [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683)
+- Use SAM 2 to generate segmentation masks for each detected object. Based on paper [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714)
 - Save both the **binary masks** (foreground vs background) and **overlay images** (original image with mask overlaid) to the output directory.
 
 ## Installation
@@ -11,7 +11,7 @@ SOWLv2 is a tool for **text-prompted object segmentation** that combines Google�
 SOWLv2 can be installed via pip from the Git repository:
 
 ```
-pip install git+https://github.com/<username>/SOWLv2.git
+pip install git+https://github.com/bladeszasza/SOWLv2
 ```
 
 This will also install the required dependencies (transformers, sam2, opencv-python, etc.). Alternatively, install from the provided setup.py or use requirements.txt.
@@ -83,6 +83,9 @@ These are specified in setup.py and requirements.txt.
 
 ## Acknowledgments
 
-OWLv2 is based on the paper "Scaling Open-Vocabulary Object Detection"
+Our implementation is based on several awesome repositories:
 
-SAM 2 is based on Meta AI’s Segment Anything 2 (SAM 2) model
+- [OWLv2](https://huggingface.co/docs/transformers/en/model_doc/owlv2) 
+- [SAM 2](https://github.com/facebookresearch/sam2)
+
+We thank the respective authors for open-sourcing their code.
