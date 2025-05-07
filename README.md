@@ -11,7 +11,7 @@ SOWLv2 is a tool for **text-prompted object segmentation** that combines Googleâ
 SOWLv2 can be installed via pip from the Git repository:
 
 ```
-pip install git+https://github.com/<username>/SOWLv2.git
+pip install git+https://github.com/bladeszasza/SOWLv2
 ```
 
 This will also install the required dependencies (transformers, sam2, opencv-python, etc.). Alternatively, install from the provided setup.py or use requirements.txt.
