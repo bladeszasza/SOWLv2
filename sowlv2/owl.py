@@ -8,7 +8,7 @@ class OWLV2Wrapper:
         self.processor = Owlv2Processor.from_pretrained(model_name)
         self.model = Owlv2ForObjectDetection.from_pretrained(model_name).to(device)
 
-    def detect(self, image, prompt, threshold=0.1):
+    def detect(self, image, prompt, threshold=0.4):
         """
         Detect objects in the image matching the text prompt.
         Returns a list of dict with keys: box, score, label.

@@ -1,5 +1,7 @@
 import os
-import cv2
+import subprocess
+import shutil
+import tempfile
 import numpy as np
 from PIL import Image
 from sowlv2.owl import OWLV2Wrapper
@@ -45,41 +47,30 @@ class SOWLv2Pipeline:
             self.process_image(infile, prompt, output_dir)
 
     def process_video(self, video_path, prompt, output_dir):
-        """Process a video file by sampling frames."""
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            print(f"Failed to open video: {video_path}")
-            return
-        video_name = os.path.splitext(os.path.basename(video_path))[0]
-        orig_fps = cap.get(cv2.CAP_PROP_FPS)
-        frame_interval = int(round(orig_fps / self.fps)) if self.fps > 0 else 1
-        count = 0
-        frame_idx = 0
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            if frame_interval > 0 and (count % frame_interval == 0):
-                # Process this frame
-                img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                detections = self.owl.detect(img, prompt, self.threshold)
-                base_name = f"{video_name}_frame{frame_idx:06d}"
-                if not detections:
-                    print(f"No objects detected for prompt '{prompt}' in frame {frame_idx}.")
-                for idx, det in enumerate(detections):
-                    box = det["box"]
-                    mask = self.sam.segment(img, box)
-                    if mask is None:
-                        continue
-                    mask_img = Image.fromarray(mask * 255).convert("L")
-                    mask_file = os.path.join(output_dir, f"{base_name}_object{idx}_mask.png")
-                    mask_img.save(mask_file)
-                    overlay = self._create_overlay(img, mask)
-                    overlay_file = os.path.join(output_dir, f"{base_name}_object{idx}_overlay.png")
-                    overlay.save(overlay_file)
-                frame_idx += 1
-            count += 1
-        cap.release()
+        """
+        Fast video processing:
+        1) Extract frames via FFmpeg into a temp folder at self.fps.
+        2) Delegate to process_frames for OWLv2+SAM2 segmentation.
+        """
+
+        # 1️⃣ Dump frames with FFmpeg
+        tmpdir = tempfile.mkdtemp(prefix="sowlv2_frames_")
+        cmd = [
+            "ffmpeg", "-i", video_path,
+            "-r", str(self.fps),
+            os.path.join(tmpdir, "%06d.png"),
+            "-hide_banner", "-loglevel", "error"
+        ]
+        print(f"🔨 Extracting frames @ {self.fps} FPS → {tmpdir}")
+        subprocess.run(cmd, check=True)
+
+        # 2️⃣ Run OWLv2 + SAM2 on all extracted frames
+        print("🔍 Running OWLv2 + SAM2 on extracted frames …")
+        self.process_frames(tmpdir, prompt, output_dir)
+
+        # 3️⃣ Clean up
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        print(f"✅ Finished video segmentation; results in {output_dir}")
 
     def _create_overlay(self, image, mask):
         """Return an overlay image by blending a red mask with the original image."""
