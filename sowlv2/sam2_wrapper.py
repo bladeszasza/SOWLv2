@@ -1,6 +1,6 @@
 import os, tempfile, torch, numpy as np
 from huggingface_hub import hf_hub_download
-from sam2.build_sam import build_sam2, build_sam2_video_predictor
+from sam2.build_sam import build_sam2_video_predictor
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 _SAM_MODELS = {
@@ -27,7 +27,12 @@ class SAM2Wrapper:
         cfg_path  = hf_hub_download(model_name, cfg_rel, repo_type="model")
 
         self.device = torch.device(device)
-        self._img_pred = SAM2ImagePredictor(build_sam2(cfg_path, ckpt_path, device=self.device))
+        self._img_pred = SAM2ImagePredictor.from_pretrained(model_name)
+        if device == "cuda":
+            # Move SAM model to GPU if requested
+            self.predictor.model.to(torch.device("cuda"))
+
+        
         self._vid_pred = None  # lazy
 
     # ---------- single-image ----------
