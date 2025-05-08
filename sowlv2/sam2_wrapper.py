@@ -23,8 +23,8 @@ class SAM2Wrapper:
             raise ValueError(f"Unsupported SAM-2 model: {model_name}")
         ckpt_name, cfg_rel = _SAM_MODELS[model_name]
         # Download checkpoint if necessary (≈200 MB once)
-        ckpt_path = hf_hub_download(model_name, ckpt_name, repo_type="model")
-        cfg_path  = hf_hub_download(model_name, cfg_rel, repo_type="model")
+        self._ckpt_path = hf_hub_download(model_name, ckpt_name, repo_type="model")
+        self._cfg_path  = hf_hub_download(model_name, cfg_rel, repo_type="model")
 
         self.device = torch.device(device)
         self._img_pred = SAM2ImagePredictor.from_pretrained(model_name)
@@ -50,7 +50,5 @@ class SAM2Wrapper:
         """Lazily construct and cache a SAM-2 VideoPredictor."""
         if self._vid_pred is None:
             # Re-use same cfg & ckpt used for image predictor
-            cfg_path = self._img_pred.model.cfg_file
-            ckpt_path = self._img_pred.model.ckpt_path
-            self._vid_pred = build_sam2_video_predictor(cfg_path, ckpt_path, device=self.device)
+            self._vid_pred = build_sam2_video_predictor(self._cfg_path, self._ckpt_path, device=self.device)
         return self._vid_pred
