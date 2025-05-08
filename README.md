@@ -27,7 +27,7 @@ After installation, the command-line tool sowlv2-detect is available. Its basic 
 ```
 sowlv2-detect --prompt "text_prompt" --input <input_path> --output <output_dir> [options]
 ```
-
+```
 --prompt: The text query (string) for object detection (e.g. "cat", "tree", "red car").
 --input: Path to input. This can be:
     - A single image file (e.g. image.jpg).
@@ -39,7 +39,7 @@ sowlv2-detect --prompt "text_prompt" --input <input_path> --output <output_dir> 
 --threshold: (Optional) Detection confidence threshold (0 to 1). Default is 0.1.
 --fps: (Optional) Frame sampling rate for videos. Default is 24.
 --device: (Optional) Compute device ("cuda" or "cpu"). Default uses GPU if available.
-
+```
 For example, to segment all "dogs" in an image:
 ```
 sowlv2-detect --prompt "dog" --input dog.jpg --output results/
