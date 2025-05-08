@@ -85,8 +85,7 @@ class SOWLv2Pipeline:
                     obj_idx=obj_id_counter
                 )
                 obj_id_counter += 1
-    # for obj_id, mask_logit in zip(obj_ids, mask_logits):
-    #     mask = (mask_logit > 0.0).cpu().numpy().astype(np.uint8)
+
         for fidx, obj_ids, mask_logits in self.sam.propagate_in_video(state):
             frame_idx = fidx+1
             img = Image.open(os.path.join(tmp, f"{frame_idx:06d}.jpg")).convert("RGB")
