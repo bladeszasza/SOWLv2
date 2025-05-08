@@ -4,7 +4,8 @@ from sam2.build_sam import build_sam2, build_sam2_video_predictor
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 _SAM_MODELS = {
-    # model-id ➜ (checkpoint filename, cfg filename inside repo)
+    # model-id ➜ (checkpoint filename, cfg filename)
+    "facebook/sam2.1-hiera-tiny": ("sam2.1_hiera_tiny.pt", "sam2.1_hiera_t.yaml"),
     "facebook/sam2.1-hiera-small": ("sam2.1_hiera_small.pt", "sam2.1_hiera_s.yaml"),
     "facebook/sam2.1-hiera-base-plus":  ("sam2.1_hiera_base_plus.pt", "sam2.1_hiera_b+.yaml"),
     "facebook/sam2.1-hiera-large": ("sam2.1_hiera_large.pt", "sam2.1_hiera_l.yaml")
