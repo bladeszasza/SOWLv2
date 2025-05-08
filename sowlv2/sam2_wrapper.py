@@ -47,7 +47,7 @@ class SAM2Wrapper:
         """Return state for SAM 2, load all frames"""
         return self._vid_pred.init_state(frames_dir)
 
-    def add_new_box(self, state, frame_idx=0, boxes):
+    def add_new_box(self, state, frame_idx, boxes):
         """Adds new boxes"""
         return self._vid_pred.add_new_points_or_box(state, frame_idx, boxes)
 
