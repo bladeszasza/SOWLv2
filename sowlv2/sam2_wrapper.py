@@ -22,7 +22,7 @@ class SAM2Wrapper:
         if model_name not in _SAM_MODELS:
             raise ValueError(f"Unsupported SAM-2 model: {model_name}")
         ckpt_name, cfg_rel, vid_cfg_rel = _SAM_MODELS[model_name]
-        # Download checkpoint if necessary (≈200 MB once)
+        
         self._ckpt_path = hf_hub_download(model_name, ckpt_name, repo_type="model")
         self._cfg_path  = hf_hub_download(model_name, cfg_rel, repo_type="model")
 
