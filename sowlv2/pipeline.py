@@ -83,8 +83,6 @@ class SOWLv2Pipeline:
                     obj_idx=obj_id_counter
                 )
                 obj_id_counter += 1
-                
-        self._save_masks_and_overlays(first_img, frame_idx, obj_ids, masks, output_dir)
 
         for fidx, obj_ids, masks in self.sam.propagate_in_video(state):
             img = Image.open(os.path.join(tmp, f"{fidx:06d}.jpg")).convert("RGB")
