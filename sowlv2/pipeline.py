@@ -72,13 +72,8 @@ class SOWLv2Pipeline:
         shutil.rmtree(tmpdir, ignore_errors=True)
         print(f"✅ Finished video segmentation; results in {output_dir}")
 
-    def process_video(self, video_path, prompt, output_dir):
-        """
-        Video processing by SAM 2:
-        1) Extract frames via FFmpeg into a temp folder at self.fps.
-        2) Delegate to OWLv2 to find the first boxes.
-        3) Delegate to SAM 2 to get the segmented mask
-        """
+    def process_video(self, image_path, prompt, output_dir):
+        """Process a single video file with SAM 2."""
         tmp = tempfile.mkdtemp(prefix="sowlv2_frames_")
         subprocess.run(
             ["ffmpeg", "-i", video_path, "-r", str(self.fps),
