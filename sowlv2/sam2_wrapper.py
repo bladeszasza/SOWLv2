@@ -33,7 +33,7 @@ class SAM2Wrapper:
             self._img_pred.model.to(torch.device("cuda"))
 
         
-        self._vid_pred = None  # lazy
+        self._vid_pred = video_predictor(self) #TODO: re enable lazy loading
 
     # ---------- single-image ----------
     def segment(self, pil_image, box_xyxy):
@@ -47,7 +47,7 @@ class SAM2Wrapper:
 
     # ---------- video ----------
     def video_predictor(self):
-        """Lazily construct and cache a SAM-2 VideoPredictor."""
+        """Construct and cache a SAM-2 VideoPredictor."""
         if self._vid_pred is None:
             # Re-use same cfg & ckpt used for image predictor
             self._vid_pred = build_sam2_video_predictor(self._cfg_path, self._ckpt_path, device=self.device)
