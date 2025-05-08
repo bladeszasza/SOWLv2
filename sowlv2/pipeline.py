@@ -83,11 +83,12 @@ class SOWLv2Pipeline:
                     obj_idx=obj_id_counter
                 )
                 obj_id_counter += 1
-
-        for fidx, obj_ids, masks in self.sam.propagate_in_video(state):
+    # for obj_id, mask_logit in zip(obj_ids, mask_logits):
+    #     mask = (mask_logit > 0.0).cpu().numpy().astype(np.uint8)
+        for fidx, obj_ids, mask_logits in predictor.propagate_in_video(state):
             frame_idx = fidx+1
             img = Image.open(os.path.join(tmp, f"{frame_idx:06d}.jpg")).convert("RGB")
-            self._video_save_masks_and_overlays(img, frame_idx, obj_ids, masks, output_dir)
+            self._video_save_masks_and_overlays(img, frame_idx, obj_ids, mask_logits, output_dir)
 
         shutil.rmtree(tmp, ignore_errors=True)
         print(f"✅ Video segmentation finished; results in {output_dir}")
@@ -114,6 +115,12 @@ class SOWLv2Pipeline:
         for obj_id, mask in zip(obj_ids, masks):
             # Convert mask to binary
             mask_bin = ((mask > 0.5).cpu().numpy().astype(np.uint8)) * 255
+            mask_bin = np.squeeze(mask_bin)  # Removes dimensions of size 1
+
+            # Ensure mask_bin is 2D
+            if mask_bin.ndim != 2:
+                raise ValueError(f"mask_bin has unexpected number of dimensions: {mask_bin.ndim}")
+
             mask_pil = Image.fromarray(mask_bin)
     
             # Save individual mask image
