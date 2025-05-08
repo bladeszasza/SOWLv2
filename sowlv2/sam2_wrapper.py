@@ -28,7 +28,7 @@ class SAM2Wrapper:
 
         self.device = torch.device(device)
         self._img_pred = SAM2ImagePredictor.from_pretrained(model_name)
-        self._vid_pred = video_predictor()
+        self._vid_pred =  build_sam2_video_predictor(self._cfg_path, self._ckpt_path, device=self.device)
         if device == "cuda":
             # Move SAM2 model to GPU if requested
             self._img_pred.model.to(torch.device("cuda"))
@@ -44,10 +44,4 @@ class SAM2Wrapper:
             return None
         return (masks[0] > 0.5).astype(np.uint8)
 
-    # ---------- video ----------
-    def video_predictor(self):
-        """Construct and cache a SAM-2 VideoPredictor."""
-        if self._vid_pred is None:
-            # Re-use same cfg & ckpt used for image predictor
-            self._vid_pred = build_sam2_video_predictor(self._cfg_path, self._ckpt_path, device=self.device)
-        return self._vid_pred
+  
