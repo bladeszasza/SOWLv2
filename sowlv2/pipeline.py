@@ -72,80 +72,51 @@ class SOWLv2Pipeline:
         shutil.rmtree(tmpdir, ignore_errors=True)
         print(f"✅ Finished video segmentation; results in {output_dir}")
 
-        def process_video(self, video_path, prompt, output_dir):
-        """
-        Fast video segmentation via SAM 2’s VideoPredictor:
-          1) Extract frames (@ self.fps) to a temp folder
-          2) Init the SAM 2 video predictor on that folder
-          3) Add OWLv2 boxes as prompts on frame 0
-          4) Propagate masks through all frames in one go
-        """
-        import subprocess, tempfile, shutil, torch, os, numpy as np
-        from sam2.build_sam import build_sam2_video_predictor
 
-        # 1️⃣ dump frames
-        tmp = tempfile.mkdtemp(prefix="sowlv2_vid_")
-        subprocess.run([
-            "ffmpeg", "-i", video_path,
-            "-r", str(self.fps),
-            os.path.join(tmp, "%06d.png"),
-            "-hide_banner", "-loglevel", "error"
-        ], check=True)
-        print(f"🔨 frames → {tmp}")
-
-        # 2️⃣ build SAM2 video predictor
-        predictor = build_sam2_video_predictor(
-            "sam2/configs/sam2.1/sam2.1_hiera_s.yaml",
-            "/content/sam2.1_hiera_s.pt",
-            device=self.device
+    def process_video(self, video_path, prompt, output_dir):
+        """
+        Segment an entire video using one pass of SAM-2 VideoPredictor.
+        Steps:
+          1. Extract frames via ffmpeg at self.fps to a temp dir
+          2. Seed SAM-2 with OWLv2 boxes on the first frame
+          3. Propagate masks through the whole clip
+          4. Save binary masks + overlays
+        """
+        tmp = tempfile.mkdtemp(prefix="sowlv2_frames_")
+        subprocess.run(
+            ["ffmpeg", "-i", video_path, "-r", str(self.fps),
+             os.path.join(tmp, "%06d.png"), "-hide_banner", "-loglevel", "error"],
+            check=True
         )
-        print("🤖 SAM2 VideoPredictor ready")
 
-        # 3️⃣ initialize state on the frame folder
-        with torch.inference_mode(), torch.autocast(self.device, torch.bfloat16):
-            state = predictor.init_state(tmp)
+        vp = self.sam.video_predictor()               
+        state = vp.init_state(tmp)                    # load all frames
 
-            # detect on first frame only
-            first_img = Image.open(os.path.join(tmp, "000000.png")).convert("RGB")
-            dets = self.owl.detect(first_img, prompt, self.threshold)
-            boxes = [np.array(d["box"], dtype=float) for d in dets]
-            # feed boxes as new prompts
-            frame_idx, obj_ids, masks = predictor.add_new_points_or_box(
-                state, boxes=boxes
-            )
-            # save the masks for frame0
-            for obj_id, mask in zip(obj_ids, masks):
-                out_mask = (mask>0.5).astype(np.uint8)*255
-                Image.fromarray(out_mask).save(
-                  os.path.join(output_dir, f"{frame_idx:06d}_obj{obj_id}_mask.png"))
-                overlay = self._create_overlay(first_img, mask>0.5)
-                overlay.save(
-                  os.path.join(output_dir, f"{frame_idx:06d}_obj{obj_id}_overlay.png"))
+        first_img = Image.open(os.path.join(tmp, "000000.png")).convert("RGB")
+        dets = self.owl.detect(first_img, prompt, self.threshold)
+        boxes = [d["box"] for d in dets]
+        if not boxes:
+            print(f"No '{prompt}' found in the first frame; aborting video run.")
+            shutil.rmtree(tmp, ignore_errors=True)
+            return
 
-            # 4️⃣ propagate through remaining frames
-            for frame_idx, obj_ids, masks in predictor.propagate_in_video(state):
-                img = Image.open(os.path.join(tmp, f"{frame_idx:06d}.png")).convert("RGB")
-                for obj_id, mask in zip(obj_ids, masks):
-                    out_mask = (mask>0.5).astype(np.uint8)*255
-                    Image.fromarray(out_mask).save(
-                      os.path.join(output_dir, f"{frame_idx:06d}_obj{obj_id}_mask.png"))
-                    overlay = self._create_overlay(img, mask>0.5)
-                    overlay.save(
-                      os.path.join(output_dir, f"{frame_idx:06d}_obj{obj_id}_overlay.png"))
+        f0, obj_ids, masks = vp.add_new_points_or_box(state, boxes=boxes)
+        self._save_masks_and_overlays(first_img, f0, obj_ids, masks, output_dir)
 
-        # cleanup
+        for fidx, obj_ids, masks in vp.propagate_in_video(state):
+            img = Image.open(os.path.join(tmp, f"{fidx:06d}.png")).convert("RGB")
+            self._save_masks_and_overlays(img, fidx, obj_ids, masks, output_dir)
+
         shutil.rmtree(tmp, ignore_errors=True)
-        print(f"✅ video masks & overlays saved to {output_dir}")
+        print(f"✅ Video segmentation done → {output_dir}")
 
+    # helper: save masks + overlays
+    def _save_masks_and_overlays(self, pil_img, frame_idx, obj_ids, masks, out_dir):
+        base = f"{frame_idx:06d}"
+        for obj_id, mask in zip(obj_ids, masks):
+            bin_mask = (mask > 0.5).astype(np.uint8) * 255
+            Image.fromarray(bin_mask).save(os.path.join(out_dir, f"{base}_obj{obj_id}_mask.png"))
+            self._create_overlay(pil_img, mask > 0.5).save(
+                os.path.join(out_dir, f"{base}_obj{obj_id}_overlay.png")
+            )
 
-    def _create_overlay(self, image, mask):
-        """Return an overlay image by blending a red mask with the original image."""
-        image_np = np.array(image).astype(np.uint8)
-        mask_color = np.zeros_like(image_np)
-        mask_color[..., 0] = 255  # red color for mask
-        # Create a 3-channel boolean mask
-        mask_bool = np.stack([mask == 1]*3, axis=-1)
-        # Blend original and mask color
-        overlay_np = image_np.copy()
-        overlay_np[mask_bool] = (0.5 * overlay_np[mask_bool] + 0.5 * mask_color[mask_bool]).astype(np.uint8)
-        return Image.fromarray(overlay_np)
