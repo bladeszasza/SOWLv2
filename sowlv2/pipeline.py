@@ -79,8 +79,8 @@ class SOWLv2Pipeline:
                 frame_idx, obj_ids, masks = self.sam.add_new_box(
                     state=state,
                     frame_idx=frame_idx,
-                    boxes=box_array,
-                    obj_id=obj_id_counter
+                    box=box_array,
+                    obj_idx=obj_id_counter
                 )
                 obj_id_counter += 1
 
