@@ -96,6 +96,6 @@ Our implementation is based on several awesome repositories:
 We thank the respective authors for open-sourcing their code.
 
 ---
-### 7 · 🌟 **Created with enthusiasm by Csaba Bolyòs** 🚀  
+### 🌟 **Created with enthusiasm by Csaba Bolyòs** 🚀  
 
 [🔗 LinkedIn](https://www.linkedin.com/in/csaba-boly%C3%B2s-00a11767/) | [📓 Google Colab Demo](https://colab.research.google.com/drive/1vX6P4KNmWoisY-Vfq6bAVunsHaLrC-AO)  
