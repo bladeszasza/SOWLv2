@@ -5,6 +5,7 @@ import tempfile
 import torch
 import numpy as np
 from PIL import Image
+from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
 
@@ -90,9 +91,11 @@ class SOWLv2Pipeline:
             frame_idx = fidx+1
             img = Image.open(os.path.join(tmp, f"{frame_idx:06d}.jpg")).convert("RGB")
             self._video_save_masks_and_overlays(img, frame_idx, obj_ids, mask_logits, output_dir)
-
-        shutil.rmtree(tmp, ignore_errors=True)
         print(f"✅ Video segmentation finished; results in {output_dir}")
+        video_utils.generate_per_object_videos(output_dir, fps=24)
+        
+        shutil.rmtree(tmp, ignore_errors=True)
+        print(f"✅ Video generation finished; results in {output_dir}")
 
     def _save_masks_and_overlays(self, pil_img, frame_idx, obj_ids, masks, out_dir):
         """Write <frame>_obj<id>_mask.png and _overlay.png files."""
