@@ -51,14 +51,13 @@ class SOWLv2Pipeline:
         tmp = tempfile.mkdtemp(prefix="sowlv2_frames_")
         subprocess.run(
             ["ffmpeg", "-i", video_path, "-r", str(self.fps),
-             os.path.join(tmp, "%06d.png"), "-hide_banner", "-loglevel", "error"],
+             os.path.join(tmp, "%06d.jpg"), "-hide_banner", "-loglevel", "error"],
             check=True
         )
 
-        vp = self.sam.video_predictor()                      # cached, built once
-        state = vp.init_state(tmp)                           # load all frames
+        state = self.sam.init_state(tmp)           
 
-        first_img = Image.open(os.path.join(tmp, "000000.png")).convert("RGB")
+        first_img = Image.open(os.path.join(tmp, "000000.jpg")).convert("RGB")
         detections = self.owl.detect(first_img, prompt, self.threshold)
         boxes = [d["box"] for d in detections]
         if not boxes:
@@ -66,10 +65,10 @@ class SOWLv2Pipeline:
             shutil.rmtree(tmp, ignore_errors=True)
             return
 
-        frame_idx, obj_ids, masks = vp.add_new_points_or_box(state, boxes=boxes)
+        frame_idx, obj_ids, masks = self.sam.add_new_box(state, boxes=boxes)
         self._save_masks_and_overlays(first_img, frame_idx, obj_ids, masks, output_dir)
 
-        for fidx, obj_ids, masks in vp.propagate_in_video(state):
+        for fidx, obj_ids, masks in self.sam.propagate_in_video(state):
             img = Image.open(os.path.join(tmp, f"{fidx:06d}.png")).convert("RGB")
             self._save_masks_and_overlays(img, fidx, obj_ids, masks, output_dir)
 
@@ -100,31 +99,4 @@ class SOWLv2Pipeline:
         overlay_np = image_np.copy()
         overlay_np[mask_bool] = (0.5 * overlay_np[mask_bool] + 0.5 * mask_color[mask_bool]).astype(np.uint8)
         return Image.fromarray(overlay_np)
-    
-    def process_video_by_frames(self, video_path, prompt, output_dir):
-        """
-        Fast video processing:
-        1) Extract frames via FFmpeg into a temp folder at self.fps.
-        2) Delegate to process_frames for OWLv2+SAM2 segmentation.
-        """
-
-        # 1️⃣ Dump frames with FFmpeg
-        tmpdir = tempfile.mkdtemp(prefix="sowlv2_frames_")
-        cmd = [
-            "ffmpeg", "-i", video_path,
-            "-r", str(self.fps),
-            os.path.join(tmpdir, "%06d.png"),
-            "-hide_banner", "-loglevel", "error"
-        ]
-        print(f"🔨 Extracting frames @ {self.fps} FPS → {tmpdir}")
-        subprocess.run(cmd, check=True)
-
-        # 2️⃣ Run OWLv2 + SAM2 on all extracted frames
-        print("🔍 Running OWLv2 + SAM2 on extracted frames …")
-        self.process_frames(tmpdir, prompt, output_dir)
-
-        # 3️⃣ Clean up
-        shutil.rmtree(tmpdir, ignore_errors=True)
-        print(f"✅ Finished video segmentation; results in {output_dir}")
-
     
