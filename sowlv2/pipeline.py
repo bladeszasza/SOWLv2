@@ -85,8 +85,9 @@ class SOWLv2Pipeline:
                 obj_id_counter += 1
 
         for fidx, obj_ids, masks in self.sam.propagate_in_video(state):
-            img = Image.open(os.path.join(tmp, f"{fidx:06d}.jpg")).convert("RGB")
-            self._video_save_masks_and_overlays(img, fidx, obj_ids, masks, output_dir)
+            frame_idx = fidx+1
+            img = Image.open(os.path.join(tmp, f"{frame_idx:06d}.jpg")).convert("RGB")
+            self._video_save_masks_and_overlays(img, frame_idx, obj_ids, masks, output_dir)
 
         shutil.rmtree(tmp, ignore_errors=True)
         print(f"✅ Video segmentation finished; results in {output_dir}")
