@@ -77,11 +77,11 @@ class SOWLv2Pipeline:
         for detection in detections:
             boxes = detection["box"] if isinstance(detection["box"][0], (list, tuple)) else [detection["box"]]
             for box in boxes:
-                box_array = np.array(box, dtype=np.float32)
-                frame_idx, obj_ids, masks = self.sam.add_new_box(
+                # box_array = np.array(box, dtype=np.float32)
+                frame_idx, obj_ids, _ = self.sam.add_new_box(
                     state=state,
                     frame_idx=frame_idx,
-                    box=box_array,
+                    box=box,
                     obj_idx=obj_id_counter
                 )
                 obj_id_counter += 1
