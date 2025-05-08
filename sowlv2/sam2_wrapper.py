@@ -47,9 +47,9 @@ class SAM2Wrapper:
         """Return state for SAM 2, load all frames"""
         return self._vid_pred.init_state(frames_dir)
 
-    def add_new_box(self, state, boxes):
+    def add_new_box(self, state, frame_idx, boxes):
         """Adds new boxes"""
-        return self._vid_pred.add_new_points_or_box(state, boxes=boxes)
+        return self._vid_pred.add_new_points_or_box(state, frame_idx, boxes)
 
     def propagate_in_video(self, state):
         """Propagate the same selection int the whole video sequence"""
