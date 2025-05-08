@@ -28,12 +28,11 @@ class SAM2Wrapper:
 
         self.device = torch.device(device)
         self._img_pred = SAM2ImagePredictor.from_pretrained(model_name)
+        self._vid_pred = video_predictor()
         if device == "cuda":
             # Move SAM2 model to GPU if requested
             self._img_pred.model.to(torch.device("cuda"))
-
-        
-        self._vid_pred = self.video_predictor() #TODO: re enable lazy loading
+            self._vid_pred.model.to(torch.device("cuda"))
 
     # ---------- single-image ----------
     def segment(self, pil_image, box_xyxy):
