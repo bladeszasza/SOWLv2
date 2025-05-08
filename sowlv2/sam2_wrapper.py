@@ -29,8 +29,8 @@ class SAM2Wrapper:
         self.device = torch.device(device)
         self._img_pred = SAM2ImagePredictor.from_pretrained(model_name)
         if device == "cuda":
-            # Move SAM model to GPU if requested
-            self.predictor.model.to(torch.device("cuda"))
+            # Move SAM2 model to GPU if requested
+            self._img_pred.model.to(torch.device("cuda"))
 
         
         self._vid_pred = None  # lazy
