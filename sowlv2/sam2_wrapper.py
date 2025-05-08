@@ -45,7 +45,7 @@ class SAM2Wrapper:
 
     def init_state(frames_dir):
         """Return state for SAM 2, load all frames"""
-        return self._vid_pred.init_state(tmp)
+        return self._vid_pred.init_state(frames_dir)
 
     def add_new_box(state, boxes):
         """Adds new boxes"""
