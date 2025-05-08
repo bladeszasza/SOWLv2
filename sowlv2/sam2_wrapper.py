@@ -21,14 +21,14 @@ class SAM2Wrapper:
     def __init__(self, model_name="facebook/sam2.1-hiera-small", device="cpu"):
         if model_name not in _SAM_MODELS:
             raise ValueError(f"Unsupported SAM-2 model: {model_name}")
-        ckpt_name, cfg_rel = _SAM_MODELS[model_name]
+        ckpt_name, cfg_rel, vid_cfg_rel = _SAM_MODELS[model_name]
         # Download checkpoint if necessary (≈200 MB once)
         self._ckpt_path = hf_hub_download(model_name, ckpt_name, repo_type="model")
         self._cfg_path  = hf_hub_download(model_name, cfg_rel, repo_type="model")
 
         self.device = torch.device(device)
         self._img_pred = SAM2ImagePredictor.from_pretrained(model_name)
-        self._vid_pred = build_sam2_video_predictor(cfg_rel, self._ckpt_path, device=self.device)
+        self._vid_pred = build_sam2_video_predictor(vid_cfg_rel, self._ckpt_path, device=self.device)
         if device == "cuda":
             # Move SAM2 model to GPU if requested
             self._img_pred.model.to(torch.device("cuda"))
