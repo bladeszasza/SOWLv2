@@ -83,8 +83,7 @@ class SOWLv2Pipeline:
                     obj_idx=obj_id_counter
                 )
                 obj_id_counter += 1
-
-        frame_idx, obj_ids, masks = self.sam.add_new_box(state, _FIRST_FRAME_IDX, boxes)
+                
         self._save_masks_and_overlays(first_img, frame_idx, obj_ids, masks, output_dir)
 
         for fidx, obj_ids, masks in self.sam.propagate_in_video(state):
