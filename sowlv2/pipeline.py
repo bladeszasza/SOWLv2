@@ -7,8 +7,9 @@ from PIL import Image
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
 
+_FIRST_FRAME = "000001.jpg"
+
 class SOWLv2Pipeline:
-    _FIRST_FRAME = "000001.jpg"
     
     def __init__(self, owl_model, sam_model, threshold=0.4, fps=24, device="cuda"):
         self.owl = OWLV2Wrapper(model_name=owl_model, device=device)
