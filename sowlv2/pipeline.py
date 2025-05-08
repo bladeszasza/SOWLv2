@@ -8,7 +8,9 @@ from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
 
 class SOWLv2Pipeline:
-    def __init__(self, owl_model, sam_model, threshold=0.1, fps=24, device="cpu"):
+    _FIRST_FRAME = "000001.jpg"
+    
+    def __init__(self, owl_model, sam_model, threshold=0.4, fps=24, device="cuda"):
         self.owl = OWLV2Wrapper(model_name=owl_model, device=device)
         self.sam = SAM2Wrapper(model_name=sam_model, device=device)
         self.threshold = threshold
@@ -57,7 +59,7 @@ class SOWLv2Pipeline:
 
         state = self.sam.init_state(tmp)           
 
-        first_img = Image.open(os.path.join(tmp, "000000.jpg")).convert("RGB")
+        first_img = Image.open(os.path.join(tmp, _FIRST_FRAME)).convert("RGB")
         detections = self.owl.detect(first_img, prompt, self.threshold)
         boxes = [d["box"] for d in detections]
         if not boxes:
