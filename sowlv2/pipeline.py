@@ -140,23 +140,26 @@ class SOWLv2Pipeline:
 
             
     def _create_overlay(self, image, mask):
-        """Return an overlay image by blending a red mask with the original image."""
-        image_np = np.array(image).astype(np.uint8)
-    
-        # Ensure mask is on CPU and convert to NumPy
+        """
+        Blend a red mask with the input PIL.Image and return the overlay as a PIL.Image.
+        Works whether `mask` is NumPy or a PyTorch tensor and regardless of
+        leading singleton dimensions.
+        """
+        # 1. Make sure we have a NumPy binary mask on CPU and squeeze extra dims
         if isinstance(mask, torch.Tensor):
-            mask = mask.cpu().numpy()
+            mask = mask.detach().cpu().numpy()          # move off GPU
+        mask = np.squeeze(mask)                         # drop dimensions of size 1
+        if mask.ndim != 2:
+            raise ValueError(f"Expected 2-D mask, got shape {mask.shape}")
     
-        mask_color = np.zeros_like(image_np)
-        mask_color[..., 0] = 255  # Red color for mask
-    
-        # Create a 3-channel boolean mask
-        mask_bool = np.stack([mask == 1] * 3, axis=-1)
-    
-        # Blend original and mask color
+        # 2. Prepare image & output
+        image_np   = np.asarray(image, dtype=np.uint8)
         overlay_np = image_np.copy()
-        overlay_np[mask_bool] = (
-            0.5 * overlay_np[mask_bool] + 0.5 * mask_color[mask_bool]
+    
+        # 3. Boolean index with a 2-D mask – NumPy broadcasts the channel dim
+        red = np.array([255, 0, 0], dtype=np.uint8)
+        overlay_np[mask > 0] = (
+            0.5 * overlay_np[mask > 0] + 0.5 * red
         ).astype(np.uint8)
     
         return Image.fromarray(overlay_np)
