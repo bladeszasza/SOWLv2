@@ -1,5 +1,10 @@
 # SOWLv2
 
+  <div>
+    <a href="https://github.com/bladeszasza/SOWLv2/blob/main/notebooks/SOWLv2_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+  </div>
+  <br>
+
 SOWLv2 (**S**egmented**OWLv2**) is a tool for **text-prompted object segmentation** that combines Google’s [OWLv2](https://huggingface.co/docs/transformers/en/model_doc/owlv2) (open-vocabulary object detector) with Meta’s [SAM 2](https://github.com/facebookresearch/sam2) (Segment Anything Model) to segment detected objects in images, frames, or videos. Given a text prompt (e.g. `"plant"`) and an input (image, folder of frames, or video), SOWLv2 will:
 
 - Use OWLv2 to detect bounding boxes for objects matching the text prompt. Based on paper [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683)
@@ -22,7 +27,7 @@ After installation, the command-line tool sowlv2-detect is available. Its basic 
 ```
 sowlv2-detect --prompt "text_prompt" --input <input_path> --output <output_dir> [options]
 ```
-
+```
 --prompt: The text query (string) for object detection (e.g. "cat", "tree", "red car").
 --input: Path to input. This can be:
     - A single image file (e.g. image.jpg).
@@ -34,7 +39,7 @@ sowlv2-detect --prompt "text_prompt" --input <input_path> --output <output_dir> 
 --threshold: (Optional) Detection confidence threshold (0 to 1). Default is 0.1.
 --fps: (Optional) Frame sampling rate for videos. Default is 24.
 --device: (Optional) Compute device ("cuda" or "cpu"). Default uses GPU if available.
-
+```
 For example, to segment all "dogs" in an image:
 ```
 sowlv2-detect --prompt "dog" --input dog.jpg --output results/

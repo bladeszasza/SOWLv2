@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="sowlv2",
-    version="0.1.0",
+    version="1.0.0",
     description="SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2",
     author="Bolyos Csaba",
     author_email="bladeszasza@gmail.com",
