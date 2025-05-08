@@ -63,11 +63,26 @@ class SOWLv2Pipeline:
 
         first_img = Image.open(os.path.join(tmp, _FIRST_FRAME)).convert("RGB")
         detections = self.owl.detect(first_img, prompt, self.threshold)
-        boxes = [d["box"] for d in detections]
-        if not boxes:
+
+        if not detections:
             print(f"No '{prompt}' objects in first frame — aborting.")
             shutil.rmtree(tmp, ignore_errors=True)
             return
+            
+        frame_idx = _FIRST_FRAME_IDX
+        obj_id_counter = 1 
+        
+        for detection in detections:
+            boxes = detection["box"] if isinstance(detection["box"][0], (list, tuple)) else [detection["box"]]
+            for box in boxes:
+                box_array = np.array(box, dtype=np.float32)
+                frame_idx, obj_ids, masks = self.sam.add_new_box(
+                    state=state,
+                    frame_idx=frame_idx,
+                    boxes=box_array,
+                    obj_id=obj_id_counter
+                )
+                obj_id_counter += 1
 
         frame_idx, obj_ids, masks = self.sam.add_new_box(state, _FIRST_FRAME_IDX, boxes)
         self._save_masks_and_overlays(first_img, frame_idx, obj_ids, masks, output_dir)
