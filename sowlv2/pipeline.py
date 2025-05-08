@@ -97,7 +97,7 @@ class SOWLv2Pipeline:
         """Write <frame>_obj<id>_mask.png and _overlay.png files."""
         base = f"{frame_idx:06d}"
         for obj_id, mask in zip(obj_ids, masks):
-            mask_bin = (mask > 0.5).astype(np.uint8) * 255
+            mask_bin = ((mask > 0.5).cpu().numpy().astype(np.uint8)) * 255
             Image.fromarray(mask_bin).save(
                 os.path.join(out_dir, f"{base}_obj{obj_id}_mask.png")
             )
