@@ -2,6 +2,7 @@ import os
 import subprocess
 import shutil
 import tempfile
+import torch
 import numpy as np
 from PIL import Image
 from sowlv2.owl import OWLV2Wrapper
