@@ -33,7 +33,7 @@ class SAM2Wrapper:
             self._img_pred.model.to(torch.device("cuda"))
 
         
-        self._vid_pred = video_predictor(self) #TODO: re enable lazy loading
+        self._vid_pred = self.video_predictor() #TODO: re enable lazy loading
 
     # ---------- single-image ----------
     def segment(self, pil_image, box_xyxy):
