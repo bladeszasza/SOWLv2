@@ -11,7 +11,7 @@ def parse_args():
     parser.add_argument("--output", type=str, default="output", help="Directory to save output masks and overlays")
     parser.add_argument("--owl-model", type=str, default="google/owlv2-base-patch16-ensemble", help="OWLv2 model (HuggingFace name)")
     parser.add_argument("--sam-model", type=str, default="facebook/sam2.1-hiera-small", help="SAM2 model (HuggingFace name)")
-    parser.add_argument("--threshold", type=float, default=0.1, help="Detection confidence threshold")
+    parser.add_argument("--threshold", type=float, default=0.4, help="Detection confidence threshold")
     parser.add_argument("--fps", type=int, default=24, help="Sampling rate (frames per second) for video")
     parser.add_argument("--device", type=str, default="cuda", help="PyTorch device (cpu or cuda). Default uses GPU if available.")
     parser.add_argument("--config", type=str, default=None, help="Path to YAML config file (optional)")
