@@ -74,15 +74,10 @@ class SOWLv2Pipeline:
 
     def process_video(self, video_path, prompt, output_dir):
         """
-        Segment an entire video using one pass of SAM-2’s VideoPredictor.
-
-        Steps
-        -----
-        1. Extract frames at self.fps with ffmpeg into a temp directory.
-        2. Build (or reuse) the cached SAM-2 VideoPredictor.
-        3. Detect OWLv2 boxes on the first frame and feed them to SAM-2.
-        4. Propagate masks through the whole clip.
-        5. Save a binary mask and red overlay PNG for every object / frame.
+        Video processing by SAM 2:
+        1) Extract frames via FFmpeg into a temp folder at self.fps.
+        2) Delegate to OWLv2 to find the first boxes.
+        3) Delegate to SAM 2 to get the segmented mask
         """
         tmp = tempfile.mkdtemp(prefix="sowlv2_frames_")
         subprocess.run(
