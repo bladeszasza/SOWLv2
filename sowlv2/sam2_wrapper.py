@@ -32,7 +32,6 @@ class SAM2Wrapper:
         if device == "cuda":
             # Move SAM2 model to GPU if requested
             self._img_pred.model.to(torch.device("cuda"))
-            self._vid_pred.model.to(torch.device("cuda"))
 
     # ---------- single-image ----------
     def segment(self, pil_image, box_xyxy):
