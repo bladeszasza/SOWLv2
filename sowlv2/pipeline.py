@@ -8,6 +8,7 @@ from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
 
 _FIRST_FRAME = "000001.jpg"
+_FIRST_FRAME_IDX = 0
 
 class SOWLv2Pipeline:
     
@@ -68,11 +69,11 @@ class SOWLv2Pipeline:
             shutil.rmtree(tmp, ignore_errors=True)
             return
 
-        frame_idx, obj_ids, masks = self.sam.add_new_box(state, boxes=boxes)
+        frame_idx, obj_ids, masks = self.sam.add_new_box(state, _FIRST_FRAME_IDX, boxes)
         self._save_masks_and_overlays(first_img, frame_idx, obj_ids, masks, output_dir)
 
         for fidx, obj_ids, masks in self.sam.propagate_in_video(state):
-            img = Image.open(os.path.join(tmp, f"{fidx:06d}.png")).convert("RGB")
+            img = Image.open(os.path.join(tmp, f"{fidx:06d}.jpg")).convert("RGB")
             self._save_masks_and_overlays(img, fidx, obj_ids, masks, output_dir)
 
         shutil.rmtree(tmp, ignore_errors=True)
