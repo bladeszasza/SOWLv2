@@ -141,12 +141,23 @@ class SOWLv2Pipeline:
     def _create_overlay(self, image, mask):
         """Return an overlay image by blending a red mask with the original image."""
         image_np = np.array(image).astype(np.uint8)
+    
+        # Ensure mask is on CPU and convert to NumPy
+        if isinstance(mask, torch.Tensor):
+            mask = mask.cpu().numpy()
+    
         mask_color = np.zeros_like(image_np)
-        mask_color[..., 0] = 255  # red color for mask
+        mask_color[..., 0] = 255  # Red color for mask
+    
         # Create a 3-channel boolean mask
-        mask_bool = np.stack([mask == 1]*3, axis=-1)
+        mask_bool = np.stack([mask == 1] * 3, axis=-1)
+    
         # Blend original and mask color
         overlay_np = image_np.copy()
-        overlay_np[mask_bool] = (0.5 * overlay_np[mask_bool] + 0.5 * mask_color[mask_bool]).astype(np.uint8)
+        overlay_np[mask_bool] = (
+            0.5 * overlay_np[mask_bool] + 0.5 * mask_color[mask_bool]
+        ).astype(np.uint8)
+    
         return Image.fromarray(overlay_np)
+
     
