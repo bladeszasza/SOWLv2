@@ -88,7 +88,7 @@ class SOWLv2Pipeline:
 
         for fidx, obj_ids, masks in self.sam.propagate_in_video(state):
             img = Image.open(os.path.join(tmp, f"{fidx:06d}.jpg")).convert("RGB")
-            self._save_masks_and_overlays(img, fidx, obj_ids, masks, output_dir)
+            self._video_save_masks_and_overlays(img, fidx, obj_ids, masks, output_dir)
 
         shutil.rmtree(tmp, ignore_errors=True)
         print(f"✅ Video segmentation finished; results in {output_dir}")
@@ -97,7 +97,7 @@ class SOWLv2Pipeline:
         """Write <frame>_obj<id>_mask.png and _overlay.png files."""
         base = f"{frame_idx:06d}"
         for obj_id, mask in zip(obj_ids, masks):
-            mask_bin = ((mask > 0.5).cpu().numpy().astype(np.uint8)) * 255
+            mask_bin = ((mask > 0.5).astype(np.uint8)) * 255
             Image.fromarray(mask_bin).save(
                 os.path.join(out_dir, f"{base}_obj{obj_id}_mask.png")
             )
@@ -105,6 +105,33 @@ class SOWLv2Pipeline:
             overlay.save(
                 os.path.join(out_dir, f"{base}_obj{obj_id}_overlay.png")
             )
+            
+    def _video_save_masks_and_overlays(self, pil_img, frame_idx, obj_ids, masks, out_dir):
+        """Process and store masks and overlays for video generation."""
+        base = f"{frame_idx:06d}"
+        mask_frames = []
+        overlay_frames = []
+    
+        for obj_id, mask in zip(obj_ids, masks):
+            # Convert mask to binary
+            mask_bin = ((mask > 0.5).cpu().numpy().astype(np.uint8)) * 255
+            mask_pil = Image.fromarray(mask_bin)
+    
+            # Save individual mask image
+            mask_path = os.path.join(out_dir, f"{base}_obj{obj_id}_mask.png")
+            mask_pil.save(mask_path)
+    
+            # Create and save overlay image
+            overlay = self._create_overlay(pil_img, mask > 0.5)
+            overlay_path = os.path.join(out_dir, f"{base}_obj{obj_id}_overlay.png")
+            overlay.save(overlay_path)
+    
+            # Store frames for video
+            mask_frames.append(mask_pil)
+            overlay_frames.append(overlay)
+
+    return mask_frames, overlay_frames
+
             
     def _create_overlay(self, image, mask):
         """Return an overlay image by blending a red mask with the original image."""
