@@ -46,7 +46,7 @@ class SOWLv2Pipeline:
                 continue
             self.process_image(infile, prompt, output_dir)
             
-    def process_video(self, image_path, prompt, output_dir):
+    def process_video(self, video_path, prompt, output_dir):
         """Process a single video file with SAM 2."""
         tmp = tempfile.mkdtemp(prefix="sowlv2_frames_")
         subprocess.run(
@@ -88,7 +88,19 @@ class SOWLv2Pipeline:
             overlay.save(
                 os.path.join(out_dir, f"{base}_obj{obj_id}_overlay.png")
             )
-
+            
+    def _create_overlay(self, image, mask):
+        """Return an overlay image by blending a red mask with the original image."""
+        image_np = np.array(image).astype(np.uint8)
+        mask_color = np.zeros_like(image_np)
+        mask_color[..., 0] = 255  # red color for mask
+        # Create a 3-channel boolean mask
+        mask_bool = np.stack([mask == 1]*3, axis=-1)
+        # Blend original and mask color
+        overlay_np = image_np.copy()
+        overlay_np[mask_bool] = (0.5 * overlay_np[mask_bool] + 0.5 * mask_color[mask_bool]).astype(np.uint8)
+        return Image.fromarray(overlay_np)
+    
     def process_video_by_frames(self, video_path, prompt, output_dir):
         """
         Fast video processing:
