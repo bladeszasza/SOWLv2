@@ -45,33 +45,7 @@ class SOWLv2Pipeline:
             if ext not in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"]:
                 continue
             self.process_image(infile, prompt, output_dir)
-
-    def process_video_by_frames(self, video_path, prompt, output_dir):
-        """
-        Fast video processing:
-        1) Extract frames via FFmpeg into a temp folder at self.fps.
-        2) Delegate to process_frames for OWLv2+SAM2 segmentation.
-        """
-
-        # 1️⃣ Dump frames with FFmpeg
-        tmpdir = tempfile.mkdtemp(prefix="sowlv2_frames_")
-        cmd = [
-            "ffmpeg", "-i", video_path,
-            "-r", str(self.fps),
-            os.path.join(tmpdir, "%06d.png"),
-            "-hide_banner", "-loglevel", "error"
-        ]
-        print(f"🔨 Extracting frames @ {self.fps} FPS → {tmpdir}")
-        subprocess.run(cmd, check=True)
-
-        # 2️⃣ Run OWLv2 + SAM2 on all extracted frames
-        print("🔍 Running OWLv2 + SAM2 on extracted frames …")
-        self.process_frames(tmpdir, prompt, output_dir)
-
-        # 3️⃣ Clean up
-        shutil.rmtree(tmpdir, ignore_errors=True)
-        print(f"✅ Finished video segmentation; results in {output_dir}")
-
+            
     def process_video(self, image_path, prompt, output_dir):
         """Process a single video file with SAM 2."""
         tmp = tempfile.mkdtemp(prefix="sowlv2_frames_")
@@ -115,3 +89,30 @@ class SOWLv2Pipeline:
                 os.path.join(out_dir, f"{base}_obj{obj_id}_overlay.png")
             )
 
+    def process_video_by_frames(self, video_path, prompt, output_dir):
+        """
+        Fast video processing:
+        1) Extract frames via FFmpeg into a temp folder at self.fps.
+        2) Delegate to process_frames for OWLv2+SAM2 segmentation.
+        """
+
+        # 1️⃣ Dump frames with FFmpeg
+        tmpdir = tempfile.mkdtemp(prefix="sowlv2_frames_")
+        cmd = [
+            "ffmpeg", "-i", video_path,
+            "-r", str(self.fps),
+            os.path.join(tmpdir, "%06d.png"),
+            "-hide_banner", "-loglevel", "error"
+        ]
+        print(f"🔨 Extracting frames @ {self.fps} FPS → {tmpdir}")
+        subprocess.run(cmd, check=True)
+
+        # 2️⃣ Run OWLv2 + SAM2 on all extracted frames
+        print("🔍 Running OWLv2 + SAM2 on extracted frames …")
+        self.process_frames(tmpdir, prompt, output_dir)
+
+        # 3️⃣ Clean up
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        print(f"✅ Finished video segmentation; results in {output_dir}")
+
+    
