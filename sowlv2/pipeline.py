@@ -129,8 +129,7 @@ class SOWLv2Pipeline:
             # Store frames for video
             mask_frames.append(mask_pil)
             overlay_frames.append(overlay)
-
-    return mask_frames, overlay_frames
+        return mask_frames, overlay_frames
 
             
     def _create_overlay(self, image, mask):
