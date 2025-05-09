@@ -1,7 +1,7 @@
 # SOWLv2
 
   <div>
-    <a href="https://github.com/bladeszasza/SOWLv2/blob/main/notebooks/SOWLv2_demo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+    <a href="https://colab.research.google.com/drive/1vX6P4KNmWoisY-Vfq6bAVunsHaLrC-AO"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
   </div>
   <br>
 
