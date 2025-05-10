@@ -157,9 +157,8 @@ These dependencies are listed in `setup.py` and `requirements.txt` and will be i
 
 ## 📜 License
 
-This project is licensed under the [Specify Your License Here - e.g., MIT License, Apache 2.0 License].
+This project is licensed under the Apache 2.0 License.
 See the `LICENSE` file for more details.
-*(**Note**: You should add a LICENSE file to your repository, e.g., MIT, Apache 2.0)*
 
 ## 🤝 Contributing
 
