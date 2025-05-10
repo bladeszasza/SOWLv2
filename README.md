@@ -1,13 +1,17 @@
+<!-- # SOWLv2
 
-# SOWLv2: Text-Prompted Object Segmentation from video
+TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
 
-<div>
-  <a href="https://colab.research.google.com/drive/1vX6P4KNmWoisY-Vfq6bAVunsHaLrC-AO"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
-  <!-- Add other badges if you have them, e.g., PyPI version, license, build status -->
-  <!-- <a href="LINK_TO_PYPI"><img src="https://img.shields.io/pypi/v/sowlv2" alt="PyPI version"></a> -->
-  <!-- <a href="LINK_TO_LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a> -->
-</div>
-<br>
+<p align="center">
+  <h1 align="center">SOWLv2: Text-Prompted Object Segmentation from video</h2>
+  <div>
+    <a href="https://colab.research.google.com/drive/1vX6P4KNmWoisY-Vfq6bAVunsHaLrC-AO"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+    <!-- Add other badges if you have them, e.g., PyPI version, license, build status -->
+    <!-- <a href="LINK_TO_PYPI"><img src="https://img.shields.io/pypi/v/sowlv2" alt="PyPI version"></a> -->
+    <!-- <a href="LINK_TO_LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a> -->
+  </div>
+  <br>
+</p>
 
 SOWLv2 (**S**egmented**OWLv2**) is a powerful command-line tool for **text-prompted object segmentation**. It seamlessly integrates Google’s [OWLv2](https://huggingface.co/docs/transformers/en/model_doc/owlv2) open-vocabulary object detector with Meta’s [SAM 2](https://github.com/facebookresearch/sam2) (Segment Anything Model V2) to precisely segment objects in images, image sequences (frames), or videos based on natural language descriptions.
 
