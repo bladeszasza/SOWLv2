@@ -3,7 +3,7 @@
 TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
 
 <p align="center">
-  <img align="center" src="https://chatgpt.com/backend-api/public_content/enc/eyJpZCI6Im1fNjgxZjM5MWFmODk0ODE5MTkzMzk0NDNlNTk2ZmY2Njg6ZmlsZV8wMDAwMDAwMGMwYjQ2MWY0OGM0NmM2YWRmN2RlODA2OSIsInRzIjoiNDg1MjQzIiwicCI6InB5aSIsInNpZyI6IjYwZWViNjZkZjQ2NzRhZmI1OWUzZDFlZGYzYTc3MGJhYTUyZWNlMzNlYzcxNGI4Njg5MmUyYmI4M2YxMDYzY2EiLCJ2IjoiMCIsImdpem1vX2lkIjpudWxsfQ==" alt="SOWLv2 Logo">
+  <img align="center" style="width:10%;height:10%;" src="https://chatgpt.com/backend-api/public_content/enc/eyJpZCI6Im1fNjgxZjM5MWFmODk0ODE5MTkzMzk0NDNlNTk2ZmY2Njg6ZmlsZV8wMDAwMDAwMGMwYjQ2MWY0OGM0NmM2YWRmN2RlODA2OSIsInRzIjoiNDg1MjQzIiwicCI6InB5aSIsInNpZyI6IjYwZWViNjZkZjQ2NzRhZmI1OWUzZDFlZGYzYTc3MGJhYTUyZWNlMzNlYzcxNGI4Njg5MmUyYmI4M2YxMDYzY2EiLCJ2IjoiMCIsImdpem1vX2lkIjpudWxsfQ==" alt="SOWLv2 Logo">
   <h1 align="center">SOWLv2: Text-Prompted Object Segmentation from video</h2>
   <div align="center">
     <a href="https://colab.research.google.com/drive/1vX6P4KNmWoisY-Vfq6bAVunsHaLrC-AO"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
