@@ -3,6 +3,7 @@
 TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
 
 <p align="center">
+  <img align="center" src="https://chatgpt.com/s/m_681f391af89481919339443e596ff668" alt="SOWLv2 Logo">
   <h1 align="center">SOWLv2: Text-Prompted Object Segmentation from video</h2>
   <div align="center">
     <a href="https://colab.research.google.com/drive/1vX6P4KNmWoisY-Vfq6bAVunsHaLrC-AO"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
