@@ -4,7 +4,7 @@ TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
 
 <p align="center">
   <h1 align="center">SOWLv2: Text-Prompted Object Segmentation from video</h2>
-  <div>
+  <div align="center">
     <a href="https://colab.research.google.com/drive/1vX6P4KNmWoisY-Vfq6bAVunsHaLrC-AO"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
     <!-- Add other badges if you have them, e.g., PyPI version, license, build status -->
     <!-- <a href="LINK_TO_PYPI"><img src="https://img.shields.io/pypi/v/sowlv2" alt="PyPI version"></a> -->
