@@ -8,17 +8,23 @@ from PIL import Image
 from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
+import logging
 
-_FIRST_FRAME = "000001.jpg"
-_FIRST_FRAME_IDX = 0
+# Setup basic logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class SOWLv2Pipeline:
     
     def __init__(self, owl_model, sam_model, threshold=0.4, fps=24, device="cuda"):
+        """Initializes the pipeline with models and parameters."""
+        logging.info(f"Initializing OWLV2Wrapper with model: {owl_model}")
         self.owl = OWLV2Wrapper(model_name=owl_model, device=device)
+        logging.info(f"Initializing SAM2Wrapper with model: {sam_model}")
         self.sam = SAM2Wrapper(model_name=sam_model, device=device)
         self.threshold = threshold
-        self.fps = fps
+        self.fps = fps # Used for frame extraction
+        self.device = device
+        logging.info(f"Pipeline initialized on device: {self.device} with threshold: {self.threshold}")
 
     def process_image(self, image_path, prompt, output_dir):
         """Process a single image file."""
@@ -53,48 +59,148 @@ class SOWLv2Pipeline:
             self.process_image(infile, prompt, output_dir)
             
     def process_video(self, video_path, prompt, output_dir):
-        """Process a single video file with SAM 2."""
-        tmp = tempfile.mkdtemp(prefix="sowlv2_frames_")
-        subprocess.run(
-            ["ffmpeg", "-i", video_path, "-r", str(self.fps),
-             os.path.join(tmp, "%06d.jpg"), "-hide_banner", "-loglevel", "error"],
-            check=True
-        )
+        """
+        Process a single video file. Performs object detection on *each frame*
+        and uses SAM2 to segment and propagate masks based on all detections.
+        """
+        tmp_dir = None # Initialize tmp_dir to ensure it's available in finally block
+        try:
+            tmp_dir = tempfile.mkdtemp(prefix="sowlv2_frames_")
+            logging.info(f"Created temporary directory for frames: {tmp_dir}")
 
-        state = self.sam.init_state(tmp)           
+            # --- 1. Extract Frames ---
+            ffmpeg_cmd = [
+                "ffmpeg", "-i", video_path, "-r", str(self.fps),
+                os.path.join(tmp_dir, "%06d.jpg"), "-hide_banner", "-loglevel", "warning" # Changed loglevel
+            ]
+            logging.info(f"Running ffmpeg to extract frames at {self.fps} FPS...")
+            subprocess.run(ffmpeg_cmd, check=True)
+            logging.info("Frame extraction complete.")
 
-        first_img = Image.open(os.path.join(tmp, _FIRST_FRAME)).convert("RGB")
-        detections = self.owl.detect(first_img, prompt, self.threshold)
+            frame_files = sorted([f for f in os.listdir(tmp_dir) if f.lower().endswith(".jpg")])
+            if not frame_files:
+                logging.warning("No frames extracted. Aborting.")
+                return
 
-        if not detections:
-            print(f"No '{prompt}' objects in first frame — aborting.")
-            shutil.rmtree(tmp, ignore_errors=True)
-            return
-            
-        frame_idx = _FIRST_FRAME_IDX
-        obj_id_counter = 1 
-        
-        for detection in detections:
-            boxes = detection["box"] if isinstance(detection["box"][0], (list, tuple)) else [detection["box"]]
-            for box in boxes:
-                # box_array = np.array(box, dtype=np.float32)
-                frame_idx, obj_ids, _ = self.sam.add_new_box(
-                    state=state,
-                    frame_idx=frame_idx,
-                    box=box,
-                    obj_idx=obj_id_counter
-                )
-                obj_id_counter += 1
+            # --- 2. Initialize SAM2 State ---
+            logging.info("Initializing SAM2 video state...")
+            state = self.sam.init_state(tmp_dir)
+            logging.info("SAM2 state initialized.")
 
-        for fidx, obj_ids, mask_logits in self.sam.propagate_in_video(state):
-            frame_idx = fidx+1
-            img = Image.open(os.path.join(tmp, f"{frame_idx:06d}.jpg")).convert("RGB")
-            self._video_save_masks_and_overlays(img, frame_idx, obj_ids, mask_logits, output_dir)
-        print(f"✅ Video segmentation finished; results in {output_dir}")
-        video_utils.generate_per_object_videos(output_dir, fps=24)
-        
-        shutil.rmtree(tmp, ignore_errors=True)
-        print(f"✅ Video generation finished; results in {output_dir}")
+            # --- 3. Detect Objects Frame-by-Frame and Add to SAM2 State ---
+            obj_id_counter = 1
+            total_detections_added = 0
+            logging.info(f"Starting OWLv2 detection for prompt '{prompt}' on {len(frame_files)} frames...")
+
+            for frame_idx, frame_filename in enumerate(frame_files):
+                frame_path = os.path.join(tmp_dir, frame_filename)
+                try:
+                    # Ensure frame_idx matches the 0-based index SAM expects
+                    current_sam_frame_idx = frame_idx
+
+                    logging.debug(f"Processing frame {frame_idx+1}/{len(frame_files)} ({frame_filename})")
+                    image = Image.open(frame_path).convert("RGB")
+
+                    # Run OWLv2 detection on the current frame
+                    detections = self.owl.detect(image, prompt, self.threshold)
+
+                    if detections:
+                        logging.debug(f"  Found {len(detections)} potential objects in frame {frame_idx+1}.")
+                        for det in detections:
+                            # Handle potential multiple boxes per detection if OWLv2 returns structured results differently
+                            # Assuming det['box'] is [x1, y1, x2, y2]
+                            box = det["box"]
+                            score = det["score"]
+                            logging.debug(f"    Adding Box: {box} (Score: {score:.2f}) with tentative obj_id: {obj_id_counter}")
+
+                            # Add the detected box to SAM2 state for this specific frame
+                            # We assume add_new_box handles associating this box with the object ID
+                            # across frames if necessary internal logic exists in SAM2,
+                            # otherwise, it treats each add as a potential new track seed.
+                            _, _, _ = self.sam.add_new_box(
+                                state=state,
+                                frame_idx=current_sam_frame_idx, # Use 0-based index
+                                box=box,
+                                obj_idx=obj_id_counter
+                            )
+                            obj_id_counter += 1
+                            total_detections_added += 1
+                    else:
+                         logging.debug(f"  No objects found for prompt '{prompt}' in frame {frame_idx+1}.")
+
+                except Exception as e:
+                    logging.error(f"Error processing frame {frame_filename}: {e}", exc_info=True)
+                    # Decide if you want to continue or abort on frame error
+                    continue # Continue to next frame
+
+            logging.info(f"Finished OWLv2 detection. Added {total_detections_added} boxes across all frames using {obj_id_counter-1} unique IDs.")
+
+            if total_detections_added == 0:
+                logging.warning(f"No objects matching '{prompt}' detected in any frame. Aborting segmentation.")
+                return # Exit early if no detections were ever added
+
+            # --- 4. Propagate Masks using SAM2 ---
+            logging.info("Starting SAM2 mask propagation across video...")
+            propagation_results = []
+            try:
+                for fidx, obj_ids, mask_logits in self.sam.propagate_in_video(state):
+                    propagation_results.append((fidx, obj_ids, mask_logits))
+            except Exception as e:
+                 logging.error(f"Error during SAM2 propagation: {e}", exc_info=True)
+                 # Handle propagation error, maybe save partial results or abort
+                 return # Abort for now if propagation fails
+
+            logging.info(f"SAM2 propagation finished. Processing {len(propagation_results)} frames with masks.")
+
+
+            # --- 5. Save Masks and Overlays for each frame ---
+            # This loop now iterates through the results of the propagation
+            logging.info("Saving individual frame masks and overlays...")
+            for fidx, obj_ids, mask_logits in propagation_results:
+                # SAM's propagate_in_video likely returns 0-based fidx
+                # corresponding to the frame list order.
+                # Our frame files are named %06d starting from 1.
+                frame_num_for_filename = fidx + 1
+                frame_filename = f"{frame_num_for_filename:06d}.jpg"
+                frame_path = os.path.join(tmp_dir, frame_filename)
+
+                if not os.path.exists(frame_path):
+                     logging.warning(f"Frame file {frame_path} not found during saving. Skipping.")
+                     continue
+
+                try:
+                    img = Image.open(frame_path).convert("RGB")
+                    # Note: _video_save_masks_and_overlays saves individual pngs
+                    self._video_save_masks_and_overlays(img, frame_num_for_filename, obj_ids, mask_logits, output_dir)
+                except Exception as e:
+                    logging.error(f"Error saving masks/overlays for frame index {fidx} ({frame_filename}): {e}", exc_info=True)
+                    # Continue to next frame even if one fails saving
+
+            logging.info(f"✅ Individual frame processing finished; results in {output_dir}")
+
+            # --- 6. Generate Per-Object Videos ---
+            # Use the actual frame rate used for extraction if possible, default fallback
+            output_fps = self.fps
+            logging.info(f"Generating per-object mask and overlay videos at {output_fps} FPS...")
+            video_utils.generate_per_object_videos(output_dir, fps=output_fps)
+            logging.info(f"✅ Per-object video generation finished; results in {output_dir}")
+
+        except FileNotFoundError as e:
+            logging.error(f"File not found error during video processing: {e}", exc_info=True)
+        except subprocess.CalledProcessError as e:
+            logging.error(f"ffmpeg command failed: {e}", exc_info=True)
+        except Exception as e:
+            # Catch any other unexpected errors during the process
+            logging.error(f"An unexpected error occurred during video processing: {e}", exc_info=True)
+        finally:
+            # --- 7. Cleanup Temporary Directory ---
+            if tmp_dir and os.path.exists(tmp_dir):
+                try:
+                    shutil.rmtree(tmp_dir)
+                    logging.info(f"Removed temporary directory: {tmp_dir}")
+                except Exception as e:
+                    logging.error(f"Failed to remove temporary directory {tmp_dir}: {e}", exc_info=True)
+
 
     def _save_masks_and_overlays(self, pil_img, frame_idx, obj_ids, masks, out_dir):
         """Write <frame>_obj<id>_mask.png and _overlay.png files."""
@@ -139,8 +245,7 @@ class SOWLv2Pipeline:
             mask_frames.append(mask_pil)
             overlay_frames.append(overlay)
         return mask_frames, overlay_frames
-
-            
+       
     def _create_overlay(self, image, mask):
         """
         Blend a red mask with the input PIL.Image and return the overlay as a PIL.Image.
