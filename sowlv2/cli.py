@@ -14,6 +14,7 @@ def parse_args():
     parser.add_argument("--threshold", type=float, default=0.4, help="Detection confidence threshold")
     parser.add_argument("--fps", type=int, default=24, help="Sampling rate (frames per second) for video")
     parser.add_argument("--device", type=str, default="cuda", help="PyTorch device (cpu or cuda). Default uses GPU if available.")
+    parser.add_argument("--owl-skip-frames", type=int, default=3, help="Number of frames to skip for OWLv2 detection in video (0=detect every frame, 3=detect every 4th frame). Default is 3.")
     parser.add_argument("--config", type=str, default=None, help="Path to YAML config file (optional)")
     args = parser.parse_args()
     # If config file is provided, override defaults
@@ -41,11 +42,12 @@ def main():
     sam_model = args.sam_model
     threshold = args.threshold
     fps = args.fps
+    owl_skip_frames = args.owl_skip_frames
     # Determine device
     device = args.device if args.device else ("cuda" if (hasattr(__import__("torch"), 'cuda') and __import__("torch").cuda.is_available()) else "cpu")
 
     pipeline = SOWLv2Pipeline(
-        owl_model=owl_model, sam_model=sam_model,
+        owl_model=owl_model, sam_model=sam_model, owl_skip_frames=owl_skip_frames,
         threshold=threshold, fps=fps, device=device
     )
     # Create output directory

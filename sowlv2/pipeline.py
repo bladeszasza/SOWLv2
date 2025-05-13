@@ -15,15 +15,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 class SOWLv2Pipeline:
     
-    def __init__(self, owl_model, sam_model, threshold=0.4, fps=24, device="cuda"):
+    def __init__(self, owl_model, sam_model, threshold=0.4, fps=24, device="cuda", owl_skip_frames=3):
         """Initializes the pipeline with models and parameters."""
         logging.info(f"Initializing OWLV2Wrapper with model: {owl_model}")
         self.owl = OWLV2Wrapper(model_name=owl_model, device=device)
         logging.info(f"Initializing SAM2Wrapper with model: {sam_model}")
         self.sam = SAM2Wrapper(model_name=sam_model, device=device)
         self.threshold = threshold
-        self.fps = fps # Used for frame extraction
+        self.fps = fps  # Used for frame extraction
         self.device = device
+        self.owl_skip_frames = owl_skip_frames # Number of frames to skip for OWLv2
         logging.info(f"Pipeline initialized on device: {self.device} with threshold: {self.threshold}")
 
     def process_image(self, image_path, prompt, output_dir):
@@ -90,7 +91,9 @@ class SOWLv2Pipeline:
             # --- 3. Detect Objects Frame-by-Frame and Add to SAM2 State ---
             obj_id_counter = 1
             total_detections_added = 0
-            logging.info(f"Starting OWLv2 detection for prompt '{prompt}' on {len(frame_files)} frames...")
+            owl_run_interval = self.owl_skip_frames + 1
+            logging.info(f"Starting OWLv2 detection for prompt '{prompt}' on {len(frame_files)} frames, "
++                         f"OWLv2 will run every {owl_run_interval} frame(s).")
 
             for frame_idx, frame_filename in enumerate(frame_files):
                 frame_path = os.path.join(tmp_dir, frame_filename)
@@ -98,36 +101,41 @@ class SOWLv2Pipeline:
                     # Ensure frame_idx matches the 0-based index SAM expects
                     current_sam_frame_idx = frame_idx
 
-                    logging.debug(f"Processing frame {frame_idx+1}/{len(frame_files)} ({frame_filename})")
-                    image = Image.open(frame_path).convert("RGB")
+                    
 
-                    # Run OWLv2 detection on the current frame
-                    detections = self.owl.detect(image, prompt, self.threshold)
+                    if frame_idx % owl_run_interval == 0:
+                        logging.debug(f"Processing frame {frame_idx+1}/{len(frame_files)} ({frame_filename})")
+                        image = Image.open(frame_path).convert("RGB")
 
-                    if detections:
-                        logging.debug(f"  Found {len(detections)} potential objects in frame {frame_idx+1}.")
-                        for det in detections:
-                            # Handle potential multiple boxes per detection if OWLv2 returns structured results differently
-                            # Assuming det['box'] is [x1, y1, x2, y2]
-                            box = det["box"]
-                            score = det["score"]
-                            logging.debug(f"    Adding Box: {box} (Score: {score:.2f}) with tentative obj_id: {obj_id_counter}")
+                        # Run OWLv2 detection on the current frame
+                        detections = self.owl.detect(image, prompt, self.threshold)
 
-                            # Add the detected box to SAM2 state for this specific frame
-                            # We assume add_new_box handles associating this box with the object ID
-                            # across frames if necessary internal logic exists in SAM2,
-                            # otherwise, it treats each add as a potential new track seed.
-                            _, _, _ = self.sam.add_new_box(
-                                state=state,
-                                frame_idx=current_sam_frame_idx, # Use 0-based index
-                                box=box,
-                                obj_idx=obj_id_counter
-                            )
-                            obj_id_counter += 1
-                            total_detections_added += 1
+                        if detections:
+                            logging.debug(f"  Found {len(detections)} potential objects in frame {frame_idx+1}.")
+                            for det in detections:
+                                # Handle potential multiple boxes per detection if OWLv2 returns structured results differently
+                                # Assuming det['box'] is [x1, y1, x2, y2]
+                                box = det["box"]
+                                score = det["score"]
+                                logging.debug(f"    Adding Box: {box} (Score: {score:.2f}) with tentative obj_id: {obj_id_counter}")
+
+                                # Add the detected box to SAM2 state for this specific frame
+                                # We assume add_new_box handles associating this box with the object ID
+                                # across frames if necessary internal logic exists in SAM2,
+                                # otherwise, it treats each add as a potential new track seed.
+                                _, _, _ = self.sam.add_new_box(
+                                    state=state,
+                                    frame_idx=current_sam_frame_idx, # Use 0-based index
+                                    box=box,
+                                    obj_idx=obj_id_counter
+                                )
+                                obj_id_counter += 1
+                                total_detections_added += 1
+                        else:
+                            logging.debug(f"  No objects found for prompt '{prompt}' in frame {frame_idx+1}.")
                     else:
-                         logging.debug(f"  No objects found for prompt '{prompt}' in frame {frame_idx+1}.")
-
+                        logging.debug(f"Skipping OWLv2 detection for frame {frame_idx+1}/{len(frame_files)} (not in interval).")
+                       
                 except Exception as e:
                     logging.error(f"Error processing frame {frame_filename}: {e}", exc_info=True)
                     # Decide if you want to continue or abort on frame error
