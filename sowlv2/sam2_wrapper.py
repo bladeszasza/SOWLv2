@@ -31,7 +31,7 @@ class SAM2Wrapper:
         self._img_pred.model.to(device=self.device, dtype=torch.float32)
         self._vid_pred = build_sam2_video_predictor(vid_cfg_rel, self._ckpt_path, device=self.device)
         if hasattr(self._vid_pred, 'model') and isinstance(self._vid_pred.model, torch.nn.Module):
-+            self._vid_pred.model.to(dtype=torch.float32)
+            self._vid_pred.model.to(dtype=torch.float32)
         
 
     # ---------- single-image ----------
