@@ -1,4 +1,3 @@
-
 import os
 import subprocess
 import shutil
@@ -45,9 +44,9 @@ class SOWLv2Pipeline:
         base_name = os.path.splitext(os.path.basename(image_path))[0]
         if not detections:
             logging.warning(f"No objects detected for prompt '{prompt}' in image '{image_path}'.")
-            return # Return early if no detections
+            return
             
-        os.makedirs(output_dir, exist_ok=True) # Ensure output_dir exists
+        os.makedirs(output_dir, exist_ok=True)
         for idx, det in enumerate(detections):
             box = det["box"]
             mask = self.sam.segment(image, box)
@@ -55,22 +54,20 @@ class SOWLv2Pipeline:
                 logging.debug(f"SAM returned no mask for a detection in {image_path}, obj {idx}.")
                 continue
             
-            mask_binary = (mask > 0).astype(np.uint8) # Ensure mask is binary before multiplying by 255
+            mask_binary = (mask > 0).astype(np.uint8)
             mask_img = Image.fromarray(mask_binary * 255).convert("L")
             mask_file = os.path.join(output_dir, f"{base_name}_object{idx}_mask.png")
             mask_img.save(mask_file)
             
-            overlay = self._create_overlay(image, mask_binary) # Pass binary mask to overlay
+            overlay = self._create_overlay(image, mask_binary)
             overlay_file = os.path.join(output_dir, f"{base_name}_object{idx}_overlay.png")
             overlay.save(overlay_file)
         logging.info(f"Processed image {image_path} for prompt '{prompt}'. Outputs in {output_dir}")
 
     def process_image(self, image_path, prompt, output_dir):
-        """Process a single image file with appropriate autocast."""
         self._process_with_autocast(self._process_image_core, image_path, prompt, output_dir)
 
     def _process_frames_core(self, folder_path, prompt, output_dir):
-        """Core logic for processing a folder of images (frames)."""
         files = sorted(os.listdir(folder_path))
         processed_any = False
         for fname in files:
@@ -78,33 +75,24 @@ class SOWLv2Pipeline:
             ext = os.path.splitext(fname)[1].lower()
             if ext not in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"]:
                 continue
-            # For frames, process each image individually (which will use its own autocast wrapper)
-            self._process_image_core(infile, prompt, output_dir) # Calls the core logic directly
+            self._process_image_core(infile, prompt, output_dir)
             processed_any = True
         if not processed_any:
             logging.warning(f"No processable image files found in folder {folder_path}.")
         else:
             logging.info(f"Finished processing frames in {folder_path} for prompt '{prompt}'. Outputs in {output_dir}")
 
-
     def process_frames(self, folder_path, prompt, output_dir):
-        """Process a folder of images (frames) with appropriate autocast for internal calls if any main loop was wrapped."""
-        # The _process_image_core called inside _process_frames_core will handle its own autocast.
-        # So, we don't need to wrap _process_frames_core itself if it only orchestrates.
-        # However, if _process_frames_core had its own direct PyTorch ops needing autocast, it would be different.
-        # For safety and explicitness if models were used directly in _process_frames_core:
         self._process_with_autocast(self._process_frames_core, folder_path, prompt, output_dir)
 
-
     def _process_video_core(self, video_path, prompt, output_dir):
-        """Core logic for processing a single video file."""
         tmp_dir = None
         try:
             tmp_dir = tempfile.mkdtemp(prefix="sowlv2_frames_")
             logging.info(f"Created temporary directory for frames: {tmp_dir}")
 
             ffmpeg_cmd = [
-                "ffmpeg", "-i", video_path, "-r", str(self.fps), "-q:v", "2", # Added -q:v for quality
+                "ffmpeg", "-i", video_path, "-r", str(self.fps), "-q:v", "2",
                 os.path.join(tmp_dir, "%06d.jpg"), "-hide_banner", "-loglevel", "warning"
             ]
             logging.info(f"Running ffmpeg to extract frames at {self.fps} FPS...")
@@ -117,7 +105,7 @@ class SOWLv2Pipeline:
                 return
 
             logging.info("Initializing SAM2 video state...")
-            state = self.sam.init_state(tmp_dir) # SAM2 init_state might do its own GPU work
+            state = self.sam.init_state(tmp_dir)
             logging.info("SAM2 state initialized.")
 
             obj_id_counter = 1
@@ -132,7 +120,7 @@ class SOWLv2Pipeline:
                     if frame_idx % owl_run_interval == 0:
                         logging.debug(f"Processing frame {frame_idx+1}/{len(frame_files)} ({frame_filename}) for OWLv2.")
                         image = Image.open(frame_path).convert("RGB")
-                        detections = self.owl.detect(image, prompt, self.threshold) # OWLv2 detection
+                        detections = self.owl.detect(image, prompt, self.threshold)
 
                         if detections:
                             logging.debug(f"  Found {len(detections)} potential objects in frame {frame_idx+1}.")
@@ -158,23 +146,22 @@ class SOWLv2Pipeline:
             logging.info("Starting SAM2 mask propagation across video...")
             propagation_results = []
             try:
-                # Propagation is a SAM2 internal loop, should be covered by the main autocast context
-                for fidx, obj_ids, mask_logits in self.sam.propagate_in_video(state):
-                    propagation_results.append((fidx, obj_ids, mask_logits))
+                for fidx, current_obj_ids, current_mask_logits in self.sam.propagate_in_video(state):
+                    propagation_results.append((fidx, current_obj_ids, current_mask_logits))
             except Exception as e:
                  logging.error(f"Error during SAM2 propagation: {e}", exc_info=True)
                  return
             logging.info(f"SAM2 propagation finished. Processing {len(propagation_results)} frames with masks.")
             
-            os.makedirs(output_dir, exist_ok=True) # Ensure output_dir exists
+            os.makedirs(output_dir, exist_ok=True)
             if not propagation_results:
                 logging.warning("No propagation results from SAM2. No masks will be saved.")
                 return
 
             logging.info("Saving individual frame masks and overlays...")
-            for fidx, obj_ids, mask_logits in propagation_results:
-                frame_num_for_filename = fidx + 1
-                frame_filename_jpg = f"{frame_num_for_filename:06d}.jpg" # SAM gives 0-indexed fidx
+            for fidx, current_obj_ids, current_mask_logits in propagation_results:
+                frame_num_for_filename = fidx + 1 
+                frame_filename_jpg = f"{frame_num_for_filename:06d}.jpg"
                 frame_path = os.path.join(tmp_dir, frame_filename_jpg)
 
                 if not os.path.exists(frame_path):
@@ -182,7 +169,7 @@ class SOWLv2Pipeline:
                      continue
                 try:
                     img = Image.open(frame_path).convert("RGB")
-                    self._video_save_masks_and_overlays(img, frame_num_for_filename, obj_ids, mask_logits, output_dir)
+                    self._video_save_masks_and_overlays(img, frame_num_for_filename, current_obj_ids, current_mask_logits, output_dir)
                 except Exception as e:
                     logging.error(f"Error saving masks/overlays for frame index {fidx} ({frame_filename_jpg}): {e}", exc_info=True)
             logging.info(f"✅ Individual frame processing finished; results in {output_dir}")
@@ -207,40 +194,50 @@ class SOWLv2Pipeline:
                     logging.error(f"Failed to remove temporary directory {tmp_dir}: {e}", exc_info=True)
 
     def process_video(self, video_path, prompt, output_dir):
-        """Process a single video file with appropriate autocast."""
         self._process_with_autocast(self._process_video_core, video_path, prompt, output_dir)
             
-    def _video_save_masks_and_overlays(self, pil_img, frame_idx, obj_ids, masks_logits, out_dir):
-        """Process and store masks and overlays for video generation."""
+    def _video_save_masks_and_overlays(self, pil_img, frame_idx, obj_ids_list, masks_logits, out_dir):
+        """Process and store masks and overlays for video generation.
+        obj_ids_list is expected to be a Python list of object IDs.
+        masks_logits is expected to be a torch.Tensor [num_objects, H, W].
+        """
         base = f"{frame_idx:06d}"
         
-        # masks_logits from SAM2 propagate_in_video is expected to be a tensor [num_objects, H, W]
         if not isinstance(masks_logits, torch.Tensor):
             logging.error(f"Masks_logits for frame {frame_idx} is not a tensor, type: {type(masks_logits)}. Skipping save for this frame.")
-            return [],[]
+            return
+        
+        if not isinstance(obj_ids_list, list):
+            logging.error(f"obj_ids for frame {frame_idx} is not a list, type: {type(obj_ids_list)}. Skipping save for this frame.")
+            return
 
         if masks_logits.ndim == 2: # If it's a single mask [H,W] for a single object
             masks_logits = masks_logits.unsqueeze(0) # Add batch dim for objects: [1, H, W]
         
-        if obj_ids.ndim == 0: # if obj_ids is a single number
-            obj_ids = obj_ids.unsqueeze(0)
+        num_masks = masks_logits.shape[0]
+        num_obj_ids = len(obj_ids_list)
+
+        if num_masks != num_obj_ids:
+            logging.error(f"Mismatch between number of masks ({num_masks}) and obj_ids ({num_obj_ids}) for frame {frame_idx}. Skipping.")
+            return
+
+        for i in range(num_obj_ids):
+            obj_id = obj_ids_list[i] # Directly use the item from the list
+            # Ensure obj_id is an int if it's a tensor element (e.g. tensor(5))
+            if isinstance(obj_id, torch.Tensor):
+                obj_id = obj_id.item()
+            elif not isinstance(obj_id, (int, np.integer)): # Check if it's already a Python or NumPy int
+                try:
+                    obj_id = int(obj_id) # Try to convert to int
+                except ValueError:
+                    logging.error(f"obj_id '{obj_id}' (type: {type(obj_id)}) for frame {frame_idx} cannot be converted to int. Skipping object.")
+                    continue
 
 
-        if masks_logits.shape[0] != len(obj_ids):
-            logging.error(f"Mismatch between number of masks ({masks_logits.shape[0]}) and obj_ids ({len(obj_ids)}) for frame {frame_idx}. Skipping.")
-            return [], []
-
-        for i, obj_id_tensor in enumerate(obj_ids):
-            obj_id = obj_id_tensor.item() # Get python number from tensor
             mask_logit = masks_logits[i]  # Get the logit for the current object [H,W]
             
-            # Convert mask to binary
-            # SAM2 typically outputs logits, so sigmoid might be needed if not already probabilities
-            # Assuming mask_logit are raw logits, apply sigmoid then threshold
             mask_prob = torch.sigmoid(mask_logit) 
             mask_binary_np = (mask_prob > 0.5).cpu().numpy().astype(np.uint8) 
-            # Squeeze is not needed here if mask_logit is already [H,W]
-            # mask_binary_np = np.squeeze(mask_binary_np) 
 
             if mask_binary_np.ndim != 2:
                 logging.error(f"mask_binary_np for obj {obj_id} in frame {frame_idx} has unexpected ndim: {mask_binary_np.ndim}. Skipping object.")
@@ -251,13 +248,12 @@ class SOWLv2Pipeline:
             mask_path = os.path.join(out_dir, f"{base}_obj{obj_id}_mask.png")
             mask_pil.save(mask_path)
     
-            overlay = self._create_overlay(pil_img, mask_binary_np) # Pass binary numpy mask
+            overlay = self._create_overlay(pil_img, mask_binary_np)
             overlay_path = os.path.join(out_dir, f"{base}_obj{obj_id}_overlay.png")
             overlay.save(overlay_path)
-        # Return for mask_frames, overlay_frames is not used by current caller, can be removed or kept if future use
-        return [], [] # Kept empty return for now
+        # No need to return mask_frames, overlay_frames if not used
        
-    def _create_overlay(self, image, mask_numpy): # Expects a 2D numpy binary mask
+    def _create_overlay(self, image, mask_numpy): 
         """
         Blend a red mask with the input PIL.Image and return the overlay as a PIL.Image.
         `mask_numpy` should be a 2D NumPy array (binary 0 or 1, or 0 and 255).
@@ -265,19 +261,15 @@ class SOWLv2Pipeline:
         if not isinstance(mask_numpy, np.ndarray) or mask_numpy.ndim != 2:
             raise ValueError(f"Expected 2-D NumPy mask, got type {type(mask_numpy)} with shape {mask_numpy.shape if hasattr(mask_numpy, 'shape') else 'N/A'}")
     
-        image_np   = np.asarray(image.convert("RGB"), dtype=np.uint8) # Ensure RGB
+        image_np   = np.asarray(image.convert("RGB"), dtype=np.uint8)
         overlay_np = image_np.copy()
     
-        # Create a boolean mask for indexing
-        bool_mask = (mask_numpy > 0) # Handles both {0,1} and {0,255}
+        bool_mask = (mask_numpy > 0) 
     
         red = np.array([255, 0, 0], dtype=np.uint8)
         
-        # Apply blending only where mask is true
         overlay_np[bool_mask] = (
             0.5 * overlay_np[bool_mask] + 0.5 * red
         ).astype(np.uint8)
     
         return Image.fromarray(overlay_np)
-
-    
