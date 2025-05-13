@@ -49,17 +49,24 @@ class SOWLv2Pipeline:
         os.makedirs(output_dir, exist_ok=True)
         for idx, det in enumerate(detections):
             box = det["box"]
-            mask = self.sam.segment(image, box)
+            mask = self.sam.segment(image, box) # Expected to return 2D np.uint8 mask
             if mask is None:
                 logging.debug(f"SAM returned no mask for a detection in {image_path}, obj {idx}.")
                 continue
             
-            mask_binary = (mask > 0).astype(np.uint8)
-            mask_img = Image.fromarray(mask_binary * 255).convert("L")
+            # In _process_image_core, self.sam.segment is expected to return a 2D NumPy array
+            # mask_binary = (mask > 0).astype(np.uint8) # This assumes mask is already a 2D numpy array
+            if mask.ndim == 3: # Should not happen if self.sam.segment is correct
+                mask = np.squeeze(mask)
+            if mask.ndim != 2:
+                 logging.error(f"Mask from self.sam.segment for image {image_path} has ndim {mask.ndim} instead of 2. Skipping object.")
+                 continue
+
+            mask_img = Image.fromarray(mask * 255).convert("L") # mask is already uint8 {0,1}
             mask_file = os.path.join(output_dir, f"{base_name}_object{idx}_mask.png")
             mask_img.save(mask_file)
             
-            overlay = self._create_overlay(image, mask_binary)
+            overlay = self._create_overlay(image, mask) # Pass binary {0,1} mask
             overlay_file = os.path.join(output_dir, f"{base_name}_object{idx}_overlay.png")
             overlay.save(overlay_file)
         logging.info(f"Processed image {image_path} for prompt '{prompt}'. Outputs in {output_dir}")
@@ -199,7 +206,7 @@ class SOWLv2Pipeline:
     def _video_save_masks_and_overlays(self, pil_img, frame_idx, obj_ids_list, masks_logits, out_dir):
         """Process and store masks and overlays for video generation.
         obj_ids_list is expected to be a Python list of object IDs.
-        masks_logits is expected to be a torch.Tensor [num_objects, H, W].
+        masks_logits is expected to be a torch.Tensor [num_objects, H, W] or [num_objects, 1, H, W].
         """
         base = f"{frame_idx:06d}"
         
@@ -211,8 +218,9 @@ class SOWLv2Pipeline:
             logging.error(f"obj_ids for frame {frame_idx} is not a list, type: {type(obj_ids_list)}. Skipping save for this frame.")
             return
 
-        if masks_logits.ndim == 2: # If it's a single mask [H,W] for a single object
-            masks_logits = masks_logits.unsqueeze(0) # Add batch dim for objects: [1, H, W]
+        # Handle cases where masks_logits might be [N, H, W] or [N, 1, H, W]
+        if masks_logits.ndim == 2: # Single mask [H,W]
+            masks_logits = masks_logits.unsqueeze(0) # -> [1, H, W]
         
         num_masks = masks_logits.shape[0]
         num_obj_ids = len(obj_ids_list)
@@ -222,25 +230,26 @@ class SOWLv2Pipeline:
             return
 
         for i in range(num_obj_ids):
-            obj_id = obj_ids_list[i] # Directly use the item from the list
-            # Ensure obj_id is an int if it's a tensor element (e.g. tensor(5))
+            obj_id = obj_ids_list[i] 
             if isinstance(obj_id, torch.Tensor):
                 obj_id = obj_id.item()
-            elif not isinstance(obj_id, (int, np.integer)): # Check if it's already a Python or NumPy int
+            elif not isinstance(obj_id, (int, np.integer)):
                 try:
-                    obj_id = int(obj_id) # Try to convert to int
+                    obj_id = int(obj_id)
                 except ValueError:
                     logging.error(f"obj_id '{obj_id}' (type: {type(obj_id)}) for frame {frame_idx} cannot be converted to int. Skipping object.")
                     continue
 
-
-            mask_logit = masks_logits[i]  # Get the logit for the current object [H,W]
+            mask_logit = masks_logits[i]  # Get the logit for the current object, could be [H,W] or [1,H,W]
             
             mask_prob = torch.sigmoid(mask_logit) 
-            mask_binary_np = (mask_prob > 0.5).cpu().numpy().astype(np.uint8) 
+            mask_binary_np = (mask_prob > 0.5).cpu().numpy().astype(np.uint8)
+            
+            # Squeeze to ensure it's 2D [H,W] from [1,H,W] or [H,W]
+            mask_binary_np = np.squeeze(mask_binary_np) 
 
             if mask_binary_np.ndim != 2:
-                logging.error(f"mask_binary_np for obj {obj_id} in frame {frame_idx} has unexpected ndim: {mask_binary_np.ndim}. Skipping object.")
+                logging.error(f"mask_binary_np for obj {obj_id} in frame {frame_idx} has unexpected ndim: {mask_binary_np.ndim} AFTER squeeze. Skipping object.")
                 continue
 
             mask_pil = Image.fromarray(mask_binary_np * 255).convert("L")
@@ -251,7 +260,6 @@ class SOWLv2Pipeline:
             overlay = self._create_overlay(pil_img, mask_binary_np)
             overlay_path = os.path.join(out_dir, f"{base}_obj{obj_id}_overlay.png")
             overlay.save(overlay_path)
-        # No need to return mask_frames, overlay_frames if not used
        
     def _create_overlay(self, image, mask_numpy): 
         """
