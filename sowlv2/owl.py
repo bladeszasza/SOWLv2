@@ -11,7 +11,7 @@ class OWLV2Wrapper:  # pylint: disable=too-few-public-methods
         self.processor = Owlv2Processor.from_pretrained(model_name)
         self.model = Owlv2ForObjectDetection.from_pretrained(model_name).to(device)
 
-    def detect(self, image, prompt, threshold=0.4):
+    def detect(self, *, image, prompt, threshold=0.4):
         """
         Detect objects in the image matching the text prompt.
         Returns a list of dict with keys: box, score, label.
@@ -30,20 +30,21 @@ class OWLV2Wrapper:  # pylint: disable=too-few-public-methods
             threshold=threshold, text_labels=text_labels
         )
 
-        detections = []
-        if results and results[0]:  # Check if results and the first element exist
-            result = results[0]
-            boxes = result["boxes"].cpu().numpy()  # Nx4 (xmin, ymin, xmax, ymax)
-            scores = result["scores"].cpu().numpy()
-            # Ensure labels are correctly accessed,
-            # assuming "text_labels" is directly in result items
-            # or falls back to the input prompt
-            # if specific per-box labels aren't returned by post_process
-            returned_labels = result.get("text_labels", [prompt] * len(boxes))
+        return self._format_detections(results, prompt)
 
+    def _format_detections(self, results, prompt):
+        """
+        Helper to format detection results into a list of dicts.
+        """
+        detections = []
+        if results and results[0]:
+            result = results[0]
+            boxes = result["boxes"].cpu().numpy()
+            scores = result["scores"].cpu().numpy()
+            returned_labels = result.get("text_labels", [prompt] * len(boxes))
             for box, score, label_text in zip(boxes, scores, returned_labels):
                 detections.append({
-                    "box": [float(coord) for coord in box], # Ensure box coords are float
+                    "box": [float(coord) for coord in box],
                     "score": float(score),
                     "label": label_text
                 })

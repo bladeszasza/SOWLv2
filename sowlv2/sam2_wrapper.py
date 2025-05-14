@@ -35,7 +35,7 @@ class SAM2Wrapper:
     def __init__(self, model_name="facebook/sam2.1-hiera-small", device="cpu"):
         if model_name not in _SAM_MODELS:
             raise ValueError(f"Unsupported SAM-2 model: {model_name}")
-        ckpt_name, cfg_rel, vid_cfg_rel = _SAM_MODELS[model_name]
+        ckpt_name, _, vid_cfg_rel = _SAM_MODELS[model_name]
 
         self._ckpt_path = hf_hub_download(model_name, ckpt_name, repo_type="model")
 

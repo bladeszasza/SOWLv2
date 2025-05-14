@@ -136,7 +136,7 @@ class SOWLv2Pipeline:
             shutil.rmtree(tmp, ignore_errors=True)
         print(f"✅ Video generation finished; results in {output_dir}")
 
-    def _save_masks_and_overlays(self, pil_img, frame_idx, obj_ids, masks, out_dir):
+    def _save_masks_and_overlays(self, *, pil_img, frame_idx, obj_ids, masks, out_dir):
         """
         Write <frame>_obj<id>_mask.png and _overlay.png files.
         Args:
