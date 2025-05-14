@@ -12,6 +12,7 @@ TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
     <a href="https://github.com/bladeszasza/SOWLv2/blob/main/LICENSE">
         <img alt="license" src="https://img.shields.io/badge/LICENSE-Apache%202.0-blue">
     </a>
+    [![Pylint](https://github.com/bladeszasza/SOWLv2/.github/workflows/pylint.yml/badge.svg)](https://github.com/bladeszasza/SOWLv2/.github/workflows/pylint.yml)
     <!-- <a href="LINK_TO_PYPI"><img src="https://img.shields.io/pypi/v/sowlv2" alt="PyPI version"></a> -->
   </div>
   <br>
