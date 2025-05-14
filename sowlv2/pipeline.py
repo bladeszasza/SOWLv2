@@ -12,6 +12,7 @@ from PIL import Image
 from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
+from sowlv2.data.config import PipelineBaseData
 
 _FIRST_FRAME = "000001.jpg"
 _FIRST_FRAME_IDX = 0
@@ -20,21 +21,27 @@ class SOWLv2Pipeline:
     """
     SOWLv2 pipeline for object detection and segmentation in images and videos.
     """
-    def __init__(self, owl_model, sam_model, threshold=0.4, fps=24, device="cuda"):
+    def __init__(self, config: PipelineBaseData = None):
         """
         Initialize the SOWLv2 pipeline.
 
         Args:
-            owl_model (str): Name of the OWLv2 model.
-            sam_model (str): Name of the SAM2 model.
-            threshold (float): Detection confidence threshold.
-            fps (int): Frames per second for video processing.
-            device (str): PyTorch device ('cuda' or 'cpu').
+            config (PipelineBaseData): Pipeline configuration dataclass.
         """
-        self.owl = OWLV2Wrapper(model_name=owl_model, device=device)
-        self.sam = SAM2Wrapper(model_name=sam_model, device=device)
-        self.threshold = threshold
-        self.fps = fps
+        if config is None:
+            config = PipelineBaseData(
+                owl_model="facebook/sam2.1-hiera-small",
+                sam_model="facebook/sam2.1-hiera-small",
+                threshold=0.4,
+                fps=24,
+                device="cuda"
+            )
+        self.config = config
+        self.owl = OWLV2Wrapper(model_name=self.config.owl_model, device=self.config.device)
+        self.sam = SAM2Wrapper(model_name=self.config.sam_model, device=self.config.device)
+        self.threshold = self.config.threshold
+        self.fps = self.config.fps
+        self.device = self.config.device
 
     def process_image(self, image_path, prompt, output_dir):
         """Process a single image file."""

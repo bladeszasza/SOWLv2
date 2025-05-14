@@ -9,6 +9,7 @@ import argparse
 import os
 import sys
 import yaml
+from sowlv2.data.config import PipelineBaseData
 from sowlv2.pipeline import SOWLv2Pipeline
 
 def parse_args():
@@ -94,11 +95,15 @@ def main():
         if device_choice == "cuda":
             print("CUDA selected, but not available. Falling back to CPU.")
 
+    config = PipelineBaseData(
+                owl_model=owl_model,
+                sam_model=sam_model,
+                threshold=threshold,
+                fps=fps,
+                device=device
+            )
+    pipeline = SOWLv2Pipeline(config=config)
 
-    pipeline = SOWLv2Pipeline(
-        owl_model=owl_model, sam_model=sam_model,
-        threshold=threshold, fps=fps, device=device
-    )
     # Create output directory
     os.makedirs(output_path, exist_ok=True)
     # Process input
