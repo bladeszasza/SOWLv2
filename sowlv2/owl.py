@@ -7,9 +7,9 @@ from transformers import Owlv2Processor, Owlv2ForObjectDetection
 class OWLV2Wrapper:  # pylint: disable=too-few-public-methods
     """Wrapper for OWLv2 text-conditioned object detection."""
     def __init__(self, model_name="google/owlv2-base-patch16-ensemble", device="cpu"):
-        self.device = device
+        self.device = torch.device(device)
         self.processor = Owlv2Processor.from_pretrained(model_name)
-        self.model = Owlv2ForObjectDetection.from_pretrained(model_name).to(device)
+        self.model = Owlv2ForObjectDetection.from_pretrained(model_name).to(device=self.device, dtype=torch.float32)
 
     def detect(self, *, image, prompt, threshold=0.4):
         """

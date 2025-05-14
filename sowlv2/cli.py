@@ -17,42 +17,6 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="SOWLv2: Detect and segment objects in images/frames/video with a text prompt."
     )
-    parser.add_argument(
-        "--prompt", type=str, required=False,
-        help="Text prompt for object detection (e.g. 'cat')"
-    )
-    parser.add_argument(
-        "--input", type=str, required=False,
-        help="Path to input (image file, directory of frames, or video file)"
-    )
-    parser.add_argument(
-        "--output", type=str, default="output",
-        help="Directory to save output masks and overlays"
-    )
-    parser.add_argument(
-        "--owl-model", type=str, default="google/owlv2-base-patch16-ensemble",
-        help="OWLv2 model (HuggingFace name)"
-    )
-    parser.add_argument(
-        "--sam-model", type=str, default="facebook/sam2.1-hiera-small",
-        help="SAM2 model (HuggingFace name)"
-    )
-    parser.add_argument(
-        "--threshold", type=float, default=0.4,
-        help="Detection confidence threshold"
-    )
-    parser.add_argument(
-        "--fps", type=int, default=24,
-        help="Sampling rate (frames per second) for video"
-    )
-    parser.add_argument(
-        "--device", type=str, default="cuda",
-        help="PyTorch device (cpu or cuda). Default uses GPU if available."
-    )
-    parser.add_argument(
-        "--config", type=str, default=None,
-        help="Path to YAML config file (optional)"
-    )
     args = parser.parse_args()
     # If config file is provided, override defaults
     if args.config:
@@ -62,7 +26,8 @@ def parse_args():
         for key, value in config.items():
             if getattr(args, key) is None or key in ("prompt", "input", "output",
                                                      "owl_model", "sam_model",
-                                                     "threshold", "fps", "device"):
+                                                     "threshold", "fps", "device",
+                                                     "owl_skip_frames"):
                 # Allow config to override if arg is None or if it's a configurable param
                 if getattr(args, key) is None or (args.config and key in config):
                     setattr(args, key, value)
@@ -85,6 +50,7 @@ def main():
     sam_model = args.sam_model
     threshold = args.threshold
     fps = args.fps
+    owl_skip_frames = args.owl_skip_frames
     # Determine device
     device_choice = args.device
     if device_choice == "cuda" and hasattr(__import__("torch"), 'cuda') and \
@@ -100,7 +66,8 @@ def main():
                 sam_model=sam_model,
                 threshold=threshold,
                 fps=fps,
-                device=device
+                device=device,
+                owl_skip_frames=owl_skip_frames
             )
     pipeline = SOWLv2Pipeline(config=config)
 
