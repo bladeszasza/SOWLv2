@@ -12,6 +12,8 @@ import logging
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+PER_OBJECT = "_per_object"
+MERGED = "_merged"
 
 class SOWLv2Pipeline:
     
@@ -183,8 +185,33 @@ class SOWLv2Pipeline:
 
             output_fps_val = self.fps
             logging.info(f"Generating per-object mask and overlay videos at {output_fps_val} FPS...")
-            video_utils.generate_per_object_videos(output_dir, fps=output_fps_val)
-            logging.info(f"✅ Per-object video generation finished; results in {output_dir}")
+            video_utils.generate_per_object_videos(output_dir+PER_OBJECT, fps=output_fps_val)
+            logging.info(f"✅ Per-object video generation finished; results in {output_dir+PER_OBJECT}")
+
+            logging.info("Generating merged mask and overlay videos...")
+            frame_count = len(frame_files) # Total number of frames processed
+
+            # Define base path for temporary merged frames if needed by video_utils
+
+            video_utils.generate_combined_mask_video(
+                output_dir=output_dir, # Where per-object masks are
+                video_path=os.path.join(output_dir+MERGED, "all_objects_merged_mask_video.mp4"),
+                fps=output_fps_val,
+                frame_count=frame_count,
+                img_height=img.height, # Pass frame dimensions
+                img_width=img.width   # Pass frame dimensions
+            )
+            
+            video_utils.generate_combined_overlay_video(
+                output_dir=output_dir, # Where per-object masks are
+                original_frames_dir=tmp_dir, # Where original .jpg frames are
+                video_path=os.path.join(output_dir+MERGED, "all_objects_merged_overlay_video.mp4"),
+                fps=output_fps_val,
+                frame_count=frame_count
+            )
+            logging.info(f"✅ All video generation finished; results in {output_dir}")
+
+
 
         except FileNotFoundError as e:
             logging.error(f"File not found error during video processing: {e}", exc_info=True)

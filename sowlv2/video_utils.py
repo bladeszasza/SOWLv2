@@ -1,60 +1,234 @@
-# video_utils.py
-
 import os
 import cv2
 from PIL import Image
 import numpy as np
 from glob import glob
+import shutil # For managing temporary directories
+import tempfile
+import logging # Add logging
 
-def images_to_video(image_files, video_path, fps=30):
+# Consistent color palette for objects
+# Simple palette: R, G, B, Yellow, Cyan, Magenta, etc.
+# Ensure it's accessible or can be passed to where it's needed.
+DEFAULT_PALETTE = [
+    (255, 0, 0), (0, 255, 0), (0, 0, 255), 
+    (255, 255, 0), (0, 255, 255), (255, 0, 255),
+    (128, 0, 0), (0, 128, 0), (0, 0, 128),
+    (128, 128, 0), (0, 128, 128), (128, 0, 128),
+    (255, 128, 0), (255, 0, 128), (0, 255, 128),
+    (128, 255, 0), (0, 128, 255), (128, 0, 255),
+]
+
+def get_object_color(obj_id_str, color_map, palette=DEFAULT_PALETTE):
+    """Assigns a consistent color to an object ID."""
+    # obj_id_str is like "obj1", "obj2", etc.
+    try:
+        # Extract numeric part for consistent indexing if obj_id_str is "objNUMBER"
+        numeric_id = int(obj_id_str.replace("obj", ""))
+        if numeric_id not in color_map:
+            color_map[numeric_id] = palette[len(color_map) % len(palette)]
+        return color_map[numeric_id]
+    except ValueError: # Fallback for non-standard obj_id formats
+        if obj_id_str not in color_map:
+            color_map[obj_id_str] = palette[len(color_map) % len(palette)]
+        return color_map[obj_id_str]
+
+
+def images_to_video(image_files, video_path, fps=30, width=None, height=None):
     """
     Convert a list of image files to a video file.
     Args:
-        image_files (list): List of image file paths.
+        image_files (list): List of image file paths, sorted.
         video_path (str): Output video file path.
         fps (int): Frames per second for the output video.
+        width (int, optional): Video width. If None, taken from first frame.
+        height (int, optional): Video height. If None, taken from first frame.
     """
     if not image_files:
-        print(f"No frames for video {video_path}, skipping.")
+        logging.warning(f"No frames for video {video_path}, skipping.")
         return
 
-    first_frame = np.array(Image.open(image_files[0]))
-    height, width = first_frame.shape[:2]
+    if width is None or height is None:
+        try:
+            first_frame_img = Image.open(image_files[0])
+            if width is None:
+                width = first_frame_img.width
+            if height is None:
+                height = first_frame_img.height
+        except Exception as e:
+            logging.error(f"Could not read first frame {image_files[0]} to get dimensions: {e}")
+            return
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     video_writer = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
 
     for img_file in image_files:
-        frame = np.array(Image.open(img_file))
-        if len(frame.shape) == 2:  
-            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-        video_writer.write(frame)
+        try:
+            frame = np.array(Image.open(img_file).convert("RGB")) # Ensure 3 channels
+            if frame.shape[0] != height or frame.shape[1] != width:
+                frame = cv2.resize(frame, (width, height)) # Resize if necessary
+            video_writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)) # OpenCV expects BGR
+        except Exception as e:
+            logging.error(f"Error processing image file {img_file} for video: {e}")
+            continue # Skip problematic frame
 
     video_writer.release()
-    print(f"Saved video {video_path}")
+    logging.info(f"Saved video {video_path}")
 
 def generate_per_object_videos(output_dir, fps=30):
     """
     Generate per-object videos from mask and overlay images.
     Each object will have its own video for masks and overlays.
     """
-    mask_pattern = os.path.join(output_dir, "*_obj*_mask.png")
-    overlay_pattern = os.path.join(output_dir, "*_obj*_overlay.png")
-
-    mask_files = sorted(glob(mask_pattern))
-    overlay_files = sorted(glob(overlay_pattern))
+    # obj_ids are extracted from filenames like "000001_obj1_mask.png"
+    all_pngs = glob(os.path.join(output_dir, "*_obj*_*.png"))
+    if not all_pngs:
+        logging.info(f"No per-object PNG files found in {output_dir} to generate videos.")
+        return
 
     objects = set()
-    for f in mask_files:
-        obj_id = os.path.basename(f).split('_')[1]
-        objects.add(obj_id)
+    for f in all_pngs:
+        try:
+            # Assuming format like <frame>_obj<ID>_mask.png or <frame>_obj<ID>_overlay.png
+            obj_part = os.path.basename(f).split('_')[1] # Should be "objX"
+            if obj_part.startswith("obj"):
+                objects.add(obj_part)
+        except IndexError:
+            logging.warning(f"Could not parse object ID from filename {f}")
+            continue
+    
+    if not objects:
+        logging.info(f"No object IDs parsed from PNG files in {output_dir}.")
+        return
 
-    for obj in sorted(objects):
-        obj_mask_files = sorted(glob(os.path.join(output_dir, f"*_{obj}_mask.png")))
-        obj_overlay_files = sorted(glob(os.path.join(output_dir, f"*_{obj}_overlay.png")))
+    for obj_str_id in sorted(list(objects)): # e.g., "obj1", "obj10"
+        obj_mask_files = sorted(glob(os.path.join(output_dir, f"*_{obj_str_id}_mask.png")))
+        obj_overlay_files = sorted(glob(os.path.join(output_dir, f"*_{obj_str_id}_overlay.png")))
 
-        mask_video_path = os.path.join(output_dir, f"{obj}_mask_video.mp4")
-        overlay_video_path = os.path.join(output_dir, f"{obj}_overlay_video.mp4")
+        if obj_mask_files:
+            mask_video_path = os.path.join(output_dir, f"{obj_str_id}_mask_video.mp4")
+            images_to_video(obj_mask_files, mask_video_path, fps)
+        if obj_overlay_files:
+            overlay_video_path = os.path.join(output_dir, f"{obj_str_id}_overlay_video.mp4")
+            images_to_video(obj_overlay_files, overlay_video_path, fps)
 
-        images_to_video(obj_mask_files, mask_video_path, fps)
-        images_to_video(obj_overlay_files, overlay_video_path, fps)
+def generate_combined_mask_video(output_dir, video_path, fps, frame_count, img_height, img_width):
+    """
+    Generates a single video showing the union of all object masks per frame.
+    """
+    logging.info(f"Generating combined mask video: {video_path}")
+    temp_combined_mask_frames_dir = tempfile.mkdtemp(prefix="sowlv2_merged_mask_")
+    combined_mask_frame_files = []
+
+    for frame_num in range(1, frame_count + 1):
+        base_frame_name = f"{frame_num:06d}"
+        per_object_mask_files_for_frame = sorted(glob(os.path.join(output_dir, f"{base_frame_name}_obj*_mask.png")))
+        
+        combined_mask_np = np.zeros((img_height, img_width), dtype=np.uint8)
+
+        if per_object_mask_files_for_frame:
+            for mask_file in per_object_mask_files_for_frame:
+                try:
+                    mask_img_np = np.array(Image.open(mask_file).convert("L")) # L for grayscale
+                    combined_mask_np = np.logical_or(combined_mask_np, (mask_img_np > 128)).astype(np.uint8)
+                except Exception as e:
+                    logging.error(f"Error processing mask file {mask_file} for combined mask video: {e}")
+                    continue
+        
+        combined_mask_pil = Image.fromarray(combined_mask_np * 255)
+        out_frame_path = os.path.join(temp_combined_mask_frames_dir, f"{base_frame_name}.png")
+        combined_mask_pil.save(out_frame_path)
+        combined_mask_frame_files.append(out_frame_path)
+
+    if combined_mask_frame_files:
+        images_to_video(combined_mask_frame_files, video_path, fps, width=img_width, height=img_height)
+    else:
+        logging.warning(f"No combined mask frames generated for {video_path}")
+
+    if os.path.exists(temp_combined_mask_frames_dir):
+        shutil.rmtree(temp_combined_mask_frames_dir)
+
+def generate_combined_overlay_video(output_dir, original_frames_dir, video_path, fps, frame_count):
+    """
+    Generates a single video showing the original frames with all object masks overlaid,
+    each object having a distinct color.
+    """
+    logging.info(f"Generating combined overlay video: {video_path}")
+    temp_combined_overlay_frames_dir = tempfile.mkdtemp(prefix="sowlv2_merged_overlay_")
+    combined_overlay_frame_files = []
+    
+    # Determine all unique object string IDs (e.g., "obj1", "obj2") from mask filenames
+    all_mask_files = glob(os.path.join(output_dir, "*_obj*_mask.png"))
+    unique_obj_str_ids = sorted(list(set(
+        os.path.basename(f).split('_')[1] 
+        for f in all_mask_files if f.split('_')[1].startswith("obj")
+    )))
+
+    # Create a color map for these string IDs
+    color_map_for_obj_str = {obj_str_id: DEFAULT_PALETTE[i % len(DEFAULT_PALETTE)] 
+                             for i, obj_str_id in enumerate(unique_obj_str_ids)}
+
+    img_width, img_height = None, None
+
+    for frame_num in range(1, frame_count + 1):
+        base_frame_name = f"{frame_num:06d}"
+        original_frame_path = os.path.join(original_frames_dir, f"{base_frame_name}.jpg")
+
+        if not os.path.exists(original_frame_path):
+            logging.warning(f"Original frame {original_frame_path} not found for combined overlay. Skipping.")
+            # Create a blank frame of the correct size if dimensions are known, otherwise skip
+            if img_width and img_height:
+                 blank_frame_np = np.zeros((img_height, img_width, 3), dtype=np.uint8)
+                 Image.fromarray(blank_frame_np).save(os.path.join(temp_combined_overlay_frames_dir, f"{base_frame_name}.png"))
+                 combined_overlay_frame_files.append(os.path.join(temp_combined_overlay_frames_dir, f"{base_frame_name}.png"))
+            continue
+        
+        try:
+            original_pil_img = Image.open(original_frame_path).convert("RGB")
+            if img_width is None: # Get dimensions from first successfully loaded frame
+                img_width, img_height = original_pil_img.width, original_pil_img.height
+            
+            combined_overlay_np = np.array(original_pil_img)
+            
+            per_object_mask_files_for_frame = sorted(glob(os.path.join(output_dir, f"{base_frame_name}_obj*_mask.png")))
+
+            if per_object_mask_files_for_frame:
+                for mask_file in per_object_mask_files_for_frame:
+                    try:
+                        obj_str_id_part = os.path.basename(mask_file).split('_')[1]
+                        if not obj_str_id_part.startswith("obj"): continue
+
+                        color = color_map_for_obj_str.get(obj_str_id_part, (100, 100, 100)) # Default gray
+                        
+                        mask_img_np = np.array(Image.open(mask_file).convert("L")) > 128 # Boolean mask
+                        
+                        # Apply blending
+                        for c in range(3): # For R, G, B channels
+                            channel_overlay = combined_overlay_np[:,:,c]
+                            channel_color = color[c]
+                            channel_overlay[mask_img_np] = (0.5 * channel_overlay[mask_img_np] + 0.5 * channel_color).astype(np.uint8)
+                            combined_overlay_np[:,:,c] = channel_overlay
+                            
+                    except Exception as e:
+                        logging.error(f"Error processing mask file {mask_file} for combined overlay: {e}")
+                        continue
+            
+            out_frame_path = os.path.join(temp_combined_overlay_frames_dir, f"{base_frame_name}.png")
+            Image.fromarray(combined_overlay_np).save(out_frame_path)
+            combined_overlay_frame_files.append(out_frame_path)
+        except Exception as e:
+            logging.error(f"Error processing original frame {original_frame_path} for combined overlay: {e}")
+            # Create a blank frame if processing fails but we have dimensions
+            if img_width and img_height:
+                 blank_frame_np = np.zeros((img_height, img_width, 3), dtype=np.uint8)
+                 Image.fromarray(blank_frame_np).save(os.path.join(temp_combined_overlay_frames_dir, f"{base_frame_name}.png"))
+                 combined_overlay_frame_files.append(os.path.join(temp_combined_overlay_frames_dir, f"{base_frame_name}.png"))
+
+
+    if combined_overlay_frame_files:
+        images_to_video(combined_overlay_frame_files, video_path, fps, width=img_width, height=img_height)
+    else:
+        logging.warning(f"No combined overlay frames generated for {video_path}")
+
+    if os.path.exists(temp_combined_overlay_frames_dir):
+        shutil.rmtree(temp_combined_overlay_frames_dir)
