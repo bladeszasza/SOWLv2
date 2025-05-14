@@ -20,6 +20,7 @@ TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
   <br>
 </p>
 
+[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/bladeszasza/SOWLv2)
 SOWLv2 (**S**egmented**OWLv2**) is a powerful command-line tool for **text-prompted object segmentation**. It seamlessly integrates Google’s [OWLv2](https://huggingface.co/docs/transformers/en/model_doc/owlv2) open-vocabulary object detector with Meta’s [SAM 2](https://github.com/facebookresearch/sam2) (Segment Anything Model V2) to precisely segment objects in images, image sequences (frames), or videos based on natural language descriptions.
 
 Given a text prompt (e.g., `"a red bicycle"`) and an input source, SOWLv2 will:
