@@ -12,7 +12,7 @@ from PIL import Image
 from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
-from sowlv2.data.config import PipelineBaseData
+from sowlv2.data.config import PipelineBaseData, SaveMaskOverlayConfig
 
 _FIRST_FRAME = "000001.jpg"
 _FIRST_FRAME_IDX = 0
@@ -46,21 +46,18 @@ class SOWLv2Pipeline:
     def process_image(self, image_path, prompt, output_dir):
         """Process a single image file."""
         image = Image.open(image_path).convert("RGB")
-        detections = self.owl.detect(image, prompt, self.threshold)
+        detections = self.owl.detect(image=image, prompt=prompt, threshold=self.threshold)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
         if not detections:
             print(f"No objects detected for prompt '{prompt}' in image '{image_path}'.")
         for idx, det in enumerate(detections):
             box = det["box"]  # [x1, y1, x2, y2]
-            # Run SAM segmentation on the detected box
             mask = self.sam.segment(image, box)
             if mask is None:
                 continue
-            # Save binary mask
             mask_img = Image.fromarray(mask * 255).convert("L")
             mask_file = os.path.join(output_dir, f"{base_name}_object{idx}_mask.png")
             mask_img.save(mask_file)
-            # Create and save overlay image
             overlay = self._create_overlay(image, mask)
             overlay_file = os.path.join(output_dir, f"{base_name}_object{idx}_overlay.png")
             overlay.save(overlay_file)
@@ -94,7 +91,10 @@ class SOWLv2Pipeline:
                 return
 
             first_img = Image.open(first_img_path).convert("RGB")
-            detections = self.owl.detect(first_img, prompt, self.threshold)
+            detections = self.owl.detect(
+                image = first_img, 
+                prompt = prompt, 
+                threshold = self.threshold)
 
             if not detections:
                 print(f"No '{prompt}' objects in first frame — aborting.")
@@ -110,7 +110,6 @@ class SOWLv2Pipeline:
                     boxes = [boxes]
 
                 for box in boxes:
-                    # box_array = np.array(box, dtype=np.float32)
                     _, _, _ = self.sam.add_new_box( # frame_idx, obj_ids returned not used here
                         state=state,
                         frame_idx=frame_idx_init,
@@ -126,9 +125,14 @@ class SOWLv2Pipeline:
                     print(f"Warning: Frame {frame_file} not found. Skipping.")
                     continue
                 img = Image.open(frame_file).convert("RGB")
-                self._video_save_masks_and_overlays(
-                    img, current_frame_idx, obj_ids, mask_logits, output_dir
+                config = SaveMaskOverlayConfig(
+                    pil_img=img,
+                    frame_idx=current_frame_idx,
+                    obj_ids=obj_ids,
+                    masks=mask_logits,
+                    out_dir=output_dir
                 )
+                self._video_save_masks_and_overlays(config)
             print(f"✅ Video segmentation finished; results in {output_dir}")
             video_utils.generate_per_object_videos(output_dir, fps=self.fps)
 
@@ -136,56 +140,46 @@ class SOWLv2Pipeline:
             shutil.rmtree(tmp, ignore_errors=True)
         print(f"✅ Video generation finished; results in {output_dir}")
 
-    def _save_masks_and_overlays(self, *, pil_img, frame_idx, obj_ids, masks, out_dir):
+    def _save_masks_and_overlays(self, *, config: 'SaveMaskOverlayConfig'):
         """
         Write <frame>_obj<id>_mask.png and _overlay.png files.
         Args:
-            pil_img (PIL.Image): The original image.
-            frame_idx (int): The frame index.
-            obj_ids (list): List of object IDs.
-            masks (list/np.ndarray): List of masks corresponding to obj_ids.
-            out_dir (str): Output directory.
+            config (SaveMaskOverlayConfig): Configuration object containing all required data.
         """
-        base = f"{frame_idx:06d}"
-        for obj_id, mask_data in zip(obj_ids, masks):
+        base = f"{config.frame_idx:06d}"
+        for obj_id, mask_data in zip(config.obj_ids, config.masks):
             mask_bin = ((mask_data > 0.5).astype(np.uint8)) * 255
             Image.fromarray(mask_bin).save(
-                os.path.join(out_dir, f"{base}_obj{obj_id}_mask.png")
+                os.path.join(config.out_dir, f"{base}_obj{obj_id}_mask.png")
             )
-            overlay = self._create_overlay(pil_img, mask_data > 0.5)
+            overlay = self._create_overlay(config.pil_img, mask_data > 0.5)
             overlay.save(
-                os.path.join(out_dir, f"{base}_obj{obj_id}_overlay.png")
+                os.path.join(config.out_dir, f"{base}_obj{obj_id}_overlay.png")
             )
 
-    def _video_save_masks_and_overlays(self, pil_img, frame_idx, obj_ids, masks, out_dir):
+    def _video_save_masks_and_overlays(self, *, config: 'SaveMaskOverlayConfig'):
         # pylint: disable=too-many-locals
         """
         Process and store masks and overlays for video generation.
         Args:
-            pil_img (PIL.Image): The original image for the current frame.
-            frame_idx (int): The index of the current frame.
-            obj_ids (list/torch.Tensor): Tensor or list of object IDs for the masks.
-            masks (torch.Tensor): Tensor containing mask logits or probabilities.
-            out_dir (str): Directory to save the mask and overlay images.
+            config (SaveMaskOverlayConfig): Configuration object containing all required data.
         Returns:
             tuple: (list_of_mask_pil_images, list_of_overlay_pil_images)
         """
-        base = f"{frame_idx:06d}"
+        base = f"{config.frame_idx:06d}"
         mask_frames_pil = []
         overlay_frames_pil = []
 
         # Ensure obj_ids is a list or 1D tensor
-        if isinstance(obj_ids, torch.Tensor):
-            obj_ids_list = obj_ids.cpu().tolist()
-        else: # Assuming it's already a list-like structure
-            obj_ids_list = list(obj_ids)
-
+        if isinstance(config.obj_ids, torch.Tensor):
+            obj_ids_list = config.obj_ids.cpu().tolist()
+        else:
+            obj_ids_list = list(config.obj_ids)
 
         for i, obj_id in enumerate(obj_ids_list):
-            # Assuming masks tensor is (num_objects, height, width) or (num_objects, 1, H, W)
-            mask = masks[i]
+            mask = config.masks[i]
             mask_bin = (mask > 0.5).cpu().numpy().astype(np.uint8) * 255
-            mask_bin = np.squeeze(mask_bin)  # Removes dimensions of size 1
+            mask_bin = np.squeeze(mask_bin)
 
             if mask_bin.ndim != 2:
                 raise ValueError(
@@ -193,22 +187,17 @@ class SOWLv2Pipeline:
                 )
 
             mask_pil = Image.fromarray(mask_bin).convert("L")
-
-            mask_path = os.path.join(out_dir, f"{base}_obj{obj_id}_mask.png")
+            mask_path = os.path.join(config.out_dir, f"{base}_obj{obj_id}_mask.png")
             mask_pil.save(mask_path)
 
-            # Create overlay using the mask
-            # before converting to binary (for smoother edges if needed)
-            # Or use the binary mask if that's the desired visual
             overlay_mask_np = (mask > 0.5).cpu().numpy()
-            overlay = self._create_overlay(pil_img, overlay_mask_np)
-            overlay_path = os.path.join(out_dir, f"{base}_obj{obj_id}_overlay.png")
+            overlay = self._create_overlay(config.pil_img, overlay_mask_np)
+            overlay_path = os.path.join(config.out_dir, f"{base}_obj{obj_id}_overlay.png")
             overlay.save(overlay_path)
 
             mask_frames_pil.append(mask_pil)
             overlay_frames_pil.append(overlay)
         return mask_frames_pil, overlay_frames_pil
-
 
     def _create_overlay(self, image, mask):
         """
