@@ -68,10 +68,7 @@ def generate_per_object_videos(output_dir, fps=30):
     Each object will have its own video for masks and overlays.
     """
     mask_pattern = os.path.join(output_dir, "*_obj*_mask.png")
-    overlay_pattern = os.path.join(output_dir, "*_obj*_overlay.png") # pylint: disable=unused-variable
-
     mask_files = sorted(glob(mask_pattern))
-    # overlay_files = sorted(glob(overlay_pattern)) # This variable is unused.
 
     objects = set()
     for f in mask_files:

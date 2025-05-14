@@ -38,15 +38,14 @@ class SAM2Wrapper:
         ckpt_name, cfg_rel, vid_cfg_rel = _SAM_MODELS[model_name]
 
         self._ckpt_path = hf_hub_download(model_name, ckpt_name, repo_type="model")
-        # _cfg_path seems unused based on the original code, hf_hub_download for cfg_rel was not used.
-        # self._cfg_path  = hf_hub_download(model_name, cfg_rel, repo_type="model")
 
         self.device = torch.device(device)
         self._img_pred = SAM2ImagePredictor.from_pretrained(model_name)
         # Ensure vid_cfg_rel is used as per SAM2's build_sam2_video_predictor expectations
         # It might need the full path or a path relative to some sam2 config directory.
-        # Assuming vid_cfg_rel is a relative path within the sam2 library or model hub repo structure.
-        self._vid_pred = build_sam2_video_predictor(vid_cfg_rel, self._ckpt_path, device=self.device)
+        # vid_cfg_rel is a relative path within the sam2 library for 2.1
+        self._vid_pred = build_sam2_video_predictor(
+            vid_cfg_rel, self._ckpt_path, device=self.device)
 
         if self.device.type == "cuda": # Check device type correctly
             # Move SAM2 model to GPU if requested

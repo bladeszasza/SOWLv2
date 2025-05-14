@@ -190,7 +190,8 @@ class SOWLv2Pipeline:
             mask_path = os.path.join(out_dir, f"{base}_obj{obj_id}_mask.png")
             mask_pil.save(mask_path)
 
-            # Create overlay using the mask before converting to binary (for smoother edges if needed)
+            # Create overlay using the mask
+            # before converting to binary (for smoother edges if needed)
             # Or use the binary mask if that's the desired visual
             overlay_mask_np = (mask > 0.5).cpu().numpy()
             overlay = self._create_overlay(pil_img, overlay_mask_np)
@@ -239,7 +240,7 @@ class SOWLv2Pipeline:
             print("Warning: Overlay for images not in RGB/Grayscale might not be accurate.")
             # Simple red overlay for non-RGB images (first 3 channels)
             if overlay_np.shape[2] > 3: # e.g. RGBA
-                 overlay_np[bool_mask, :3] = (
+                overlay_np[bool_mask, :3] = (
                     0.5 * overlay_np[bool_mask, :3] + 0.5 * red
                 ).astype(np.uint8)
             # else, if not 2D or 3D, it is an issue already caught or to be handled.

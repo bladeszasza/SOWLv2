@@ -35,8 +35,10 @@ class OWLV2Wrapper:  # pylint: disable=too-few-public-methods
             result = results[0]
             boxes = result["boxes"].cpu().numpy()  # Nx4 (xmin, ymin, xmax, ymax)
             scores = result["scores"].cpu().numpy()
-            # Ensure labels are correctly accessed, assuming "text_labels" is directly in result items
-            # or falls back to the input prompt if specific per-box labels aren't returned by post_process
+            # Ensure labels are correctly accessed,
+            # assuming "text_labels" is directly in result items
+            # or falls back to the input prompt
+            # if specific per-box labels aren't returned by post_process
             returned_labels = result.get("text_labels", [prompt] * len(boxes))
 
             for box, score, label_text in zip(boxes, scores, returned_labels):
