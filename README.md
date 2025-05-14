@@ -12,7 +12,9 @@ TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
     <a href="https://github.com/bladeszasza/SOWLv2/blob/main/LICENSE">
         <img alt="license" src="https://img.shields.io/badge/LICENSE-Apache%202.0-blue">
     </a>
-    [![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/bladeszasza/SOWLv2)
+    <a href="https://github.com/bladeszasza/SOWLv2/actions"> 
+        <img alt="Pylint" src="https://img.shields.io/badge/linting-pylint-yellowgreen">
+    </a>
     <!-- <a href="LINK_TO_PYPI"><img src="https://img.shields.io/pypi/v/sowlv2" alt="PyPI version"></a> -->
   </div>
   <br>
