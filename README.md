@@ -5,6 +5,10 @@ TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
 <p align="center">
   <img align="center" style="width:30%;height:30%;" src="./assets/SOWLv2.png" alt="SOWLv2 Logo">
   <h1 align="center">SOWLv2: Text-Prompted Object Segmentation from video</h2>
+  [![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/bladeszasza/SOWLv2/.github/workflows/pylint.yml)
+
+  
+
   <div align="center">
     <a href="https://colab.research.google.com/drive/1vX6P4KNmWoisY-Vfq6bAVunsHaLrC-AO">
       <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
@@ -12,7 +16,9 @@ TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
     <a href="https://github.com/bladeszasza/SOWLv2/blob/main/LICENSE">
         <img alt="license" src="https://img.shields.io/badge/LICENSE-Apache%202.0-blue">
     </a>
-    [![Pylint](https://github.com/bladeszasza/SOWLv2/.github/workflows/pylint.yml/badge.svg)](https://github.com/bladeszasza/SOWLv2/.github/workflows/pylint.yml)
+    <a href="https://github.com/bladeszasza/SOWLv2/.github/workflows/pylint.yml"> <!-- Assuming pylint.yml is the filename -->
+        <img alt="Pylint" src="https://github.com/bladeszasza/SOWLv2/.github/workflows/pylint.yml/badge.svg">
+    </a>
     <!-- <a href="LINK_TO_PYPI"><img src="https://img.shields.io/pypi/v/sowlv2" alt="PyPI version"></a> -->
   </div>
   <br>
