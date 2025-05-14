@@ -26,5 +26,3 @@ class SaveMaskOverlayConfig:
     obj_ids: Any
     masks: Any
     out_dir: str
-
-

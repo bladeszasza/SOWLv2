@@ -92,8 +92,8 @@ class SOWLv2Pipeline:
 
             first_img = Image.open(first_img_path).convert("RGB")
             detections = self.owl.detect(
-                image = first_img, 
-                prompt = prompt, 
+                image = first_img,
+                prompt = prompt,
                 threshold = self.threshold)
 
             if not detections:
