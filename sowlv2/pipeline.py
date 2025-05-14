@@ -1,14 +1,24 @@
+"""
+Core pipeline for SOWLv2, combining OWLv2 for detection
+and SAM2 for segmentation.
+"""
 import os
 import subprocess
 import shutil
 import tempfile
 import torch
+import cv2  # pylint: disable=import-error
 import numpy as np
 from PIL import Image
 from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
 import logging
+from sowlv2.data.config import PipelineBaseData, SaveMaskOverlayConfig
+
+# Disable no-member for cv2 (OpenCV) for the whole file
+# pylint: disable=no-member
+
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -16,18 +26,32 @@ PER_OBJECT = "_per_object"
 MERGED = "_merged"
 
 class SOWLv2Pipeline:
-    
-    def __init__(self, owl_model, sam_model, threshold=0.4, fps=24, device="cuda", owl_skip_frames=3):
-        """Initializes the pipeline with models and parameters."""
-        self.device_type = torch.device(device).type # Store 'cuda' or 'cpu'
-        logging.info(f"Initializing OWLV2Wrapper with model: {owl_model} on device type: {self.device_type}")
-        self.owl = OWLV2Wrapper(model_name=owl_model, device=device)
-        logging.info(f"Initializing SAM2Wrapper with model: {sam_model} on device type: {self.device_type}")
-        self.sam = SAM2Wrapper(model_name=sam_model, device=device)
-        self.threshold = threshold
-        self.fps = fps
-        self.owl_skip_frames = owl_skip_frames
-        logging.info(f"Pipeline initialized on device type: {self.device_type} with threshold: {self.threshold}")
+    """
+    SOWLv2 pipeline for object detection and segmentation in images and videos.
+    """
+    def __init__(self, config: PipelineBaseData = None):
+        """
+        Initialize the SOWLv2 pipeline.
+
+        Args:
+            config (PipelineBaseData): Pipeline configuration dataclass.
+        """
+        if config is None:
+            config = PipelineBaseData(
+                owl_model="facebook/sam2.1-hiera-small",
+                sam_model="facebook/sam2.1-hiera-small",
+                threshold=0.4,
+                fps=24,
+                device="cuda"
+            )
+        self.config = config
+        self.owl = OWLV2Wrapper(model_name=self.config.owl_model, device=self.config.device)
+        self.sam = SAM2Wrapper(model_name=self.config.sam_model, device=self.config.device)
+        self.threshold = self.config.threshold
+        self.fps = self.config.fps
+        self.owl_skip_frames = self.config.owl_skip_frames
+        self.device = self.config.device
+
 
     def _process_with_autocast(self, func, *args, **kwargs):
         """Wrapper to run a processing function under a float32 autocast context if on CUDA."""
@@ -42,7 +66,7 @@ class SOWLv2Pipeline:
     def _process_image_core(self, image_path, prompt, output_dir):
         """Core logic for single image processing."""
         image = Image.open(image_path).convert("RGB")
-        detections = self.owl.detect(image, prompt, self.threshold)
+        detections = self.owl.detect(image=image, prompt=prompt, threshold=self.threshold)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
         if not detections:
             logging.warning(f"No objects detected for prompt '{prompt}' in image '{image_path}'.")
@@ -50,11 +74,14 @@ class SOWLv2Pipeline:
             
         os.makedirs(output_dir, exist_ok=True)
         for idx, det in enumerate(detections):
-            box = det["box"]
+
+            box = det["box"]  # [x1, y1, x2, y2]
             mask = self.sam.segment(image, box) # Expected to return 2D np.uint8 mask
+
             if mask is None:
                 logging.debug(f"SAM returned no mask for a detection in {image_path}, obj {idx}.")
                 continue
+
             
             # In _process_image_core, self.sam.segment is expected to return a 2D NumPy array
             # mask_binary = (mask > 0).astype(np.uint8) # This assumes mask is already a 2D numpy array
@@ -69,6 +96,7 @@ class SOWLv2Pipeline:
             mask_img.save(mask_file)
             
             overlay = self._create_overlay(image, mask) # Pass binary {0,1} mask
+
             overlay_file = os.path.join(output_dir, f"{base_name}_object{idx}_overlay.png")
             overlay.save(overlay_file)
         logging.info(f"Processed image {image_path} for prompt '{prompt}'. Outputs in {output_dir}")
@@ -84,6 +112,7 @@ class SOWLv2Pipeline:
             ext = os.path.splitext(fname)[1].lower()
             if ext not in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"]:
                 continue
+
             self._process_image_core(infile, prompt, output_dir)
             processed_any = True
         if not processed_any:
@@ -293,18 +322,41 @@ class SOWLv2Pipeline:
         Blend a red mask with the input PIL.Image and return the overlay as a PIL.Image.
         `mask_numpy` should be a 2D NumPy array (binary 0 or 1, or 0 and 255).
         """
-        if not isinstance(mask_numpy, np.ndarray) or mask_numpy.ndim != 2:
-            raise ValueError(f"Expected 2-D NumPy mask, got type {type(mask_numpy)} with shape {mask_numpy.shape if hasattr(mask_numpy, 'shape') else 'N/A'}")
-    
-        image_np   = np.asarray(image.convert("RGB"), dtype=np.uint8)
+        # 1. Make sure we have a NumPy binary mask on CPU and squeeze extra dims
+        if isinstance(mask, torch.Tensor):
+            mask = mask.detach().cpu().numpy()          # move off GPU
+        mask_squeezed = np.squeeze(mask)                         # drop dimensions of size 1
+        if mask_squeezed.ndim != 2:
+            raise ValueError(f"Expected 2-D mask, got shape {mask_squeezed.shape}")
+
+        # 2. Prepare image & output
+        image_np   = np.asarray(image, dtype=np.uint8)
         overlay_np = image_np.copy()
-    
-        bool_mask = (mask_numpy > 0) 
-    
+
+        # 3. Boolean index with a 2-D mask – NumPy broadcasts the channel dim
         red = np.array([255, 0, 0], dtype=np.uint8)
-        
-        overlay_np[bool_mask] = (
-            0.5 * overlay_np[bool_mask] + 0.5 * red
-        ).astype(np.uint8)
-    
+        # Ensure mask is boolean for indexing
+        bool_mask = mask_squeezed > 0 if mask_squeezed.dtype != bool else mask_squeezed
+
+        # Apply color blending
+        # Ensure overlay_np has 3 channels if it's RGB
+        if image_np.ndim == 3 and image_np.shape[2] == 3:
+            overlay_np[bool_mask] = (
+                0.5 * overlay_np[bool_mask] + 0.5 * red
+            ).astype(np.uint8)
+        elif image_np.ndim == 2: # Grayscale image, make it RGB to add red mask
+            overlay_np = cv2.cvtColor(overlay_np, cv2.COLOR_GRAY2RGB)
+            overlay_np[bool_mask] = (
+                0.5 * overlay_np[bool_mask] + 0.5 * red
+            ).astype(np.uint8)
+        else: # For other cases,e.g. RGBA, handle appropriately or raise error
+            print("Warning: Overlay for images not in RGB/Grayscale might not be accurate.")
+            # Simple red overlay for non-RGB images (first 3 channels)
+            if overlay_np.shape[2] > 3: # e.g. RGBA
+                overlay_np[bool_mask, :3] = (
+                    0.5 * overlay_np[bool_mask, :3] + 0.5 * red
+                ).astype(np.uint8)
+            # else, if not 2D or 3D, it is an issue already caught or to be handled.
+
+
         return Image.fromarray(overlay_np)

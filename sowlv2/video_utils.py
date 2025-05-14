@@ -1,11 +1,20 @@
+"""
+Utilities for video processing, such as converting image frames to video
+and generating per-object mask/overlay videos.
+"""
+
 import os
-import cv2
+from glob import glob
+import cv2  # pylint: disable=import-error
 from PIL import Image
 import numpy as np
 from glob import glob
 import shutil # For managing temporary directories
 import tempfile
-import logging # Add logging
+import logging 
+
+# Disable no-member for cv2 (OpenCV) for the whole file
+# pylint: disable=no-member
 
 # Consistent color palette for objects
 # Simple palette: R, G, B, Yellow, Cyan, Magenta, etc.
@@ -34,6 +43,9 @@ def get_object_color(obj_id_str, color_map, palette=DEFAULT_PALETTE):
         return color_map[obj_id_str]
 
 
+
+
+
 def images_to_video(image_files, video_path, fps=30, width=None, height=None):
     """
     Convert a list of image files to a video file.
@@ -59,18 +71,31 @@ def images_to_video(image_files, video_path, fps=30, width=None, height=None):
             logging.error(f"Could not read first frame {image_files[0]} to get dimensions: {e}")
             return
     
+
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     video_writer = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
 
     for img_file in image_files:
         try:
-            frame = np.array(Image.open(img_file).convert("RGB")) # Ensure 3 channels
-            if frame.shape[0] != height or frame.shape[1] != width:
-                frame = cv2.resize(frame, (width, height)) # Resize if necessary
-            video_writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)) # OpenCV expects BGR
-        except Exception as e:
-            logging.error(f"Error processing image file {img_file} for video: {e}")
-            continue # Skip problematic frame
+
+            frame_pil = Image.open(img_file)
+            frame = np.array(frame_pil)
+            if len(frame.shape) == 2: # Grayscale
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            elif len(frame.shape) == 3 and frame.shape[2] == 4: # RGBA
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+            elif len(frame.shape) == 3 and frame.shape[2] == 3: # RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) # PIL is RGB, OpenCV is BGR
+            else:
+                print(f"Warning: Frame {img_file} has unexpected shape {frame.shape}. Skipping.")
+                continue
+            video_writer.write(frame)
+        except FileNotFoundError:
+            print(f"Warning: Frame {img_file} not found during video creation. Skipping frame.")
+            continue
+        except Exception as e: # pylint: disable=broad-except
+            print(f"Error processing frame {img_file}: {e}. Skipping frame.")
+            continue
 
     video_writer.release()
     logging.info(f"Saved video {video_path}")
@@ -80,6 +105,7 @@ def generate_per_object_videos(output_dir, fps=30):
     Generate per-object videos from mask and overlay images.
     Each object will have its own video for masks and overlays.
     """
+
     # obj_ids are extracted from filenames like "000001_obj1_mask.png"
     all_pngs = glob(os.path.join(output_dir, "*_obj*_*.png"))
     if not all_pngs:

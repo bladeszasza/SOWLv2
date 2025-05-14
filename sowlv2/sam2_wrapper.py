@@ -1,14 +1,28 @@
-import os, tempfile, torch, numpy as np
+"""
+Wrapper for SAM2 (Segment Anything Model 2) from Facebook Research.
+Handles both single-image and video segmentation.
+"""
+import torch
+import numpy as np
 from huggingface_hub import hf_hub_download
 from sam2.build_sam import build_sam2_video_predictor 
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 import logging
 
 _SAM_MODELS = {
-    "facebook/sam2.1-hiera-tiny": ("sam2.1_hiera_tiny.pt", "configs/sam2.1/sam2.1_hiera_t.yaml", "configs/sam2.1/sam2.1_hiera_t.yaml"),
-    "facebook/sam2.1-hiera-small": ("sam2.1_hiera_small.pt", "configs/sam2.1/sam2.1_hiera_s.yaml", "configs/sam2.1/sam2.1_hiera_s.yaml"),
-    "facebook/sam2.1-hiera-base-plus":  ("sam2.1_hiera_base_plus.pt", "configs/sam2.1/sam2.1_hiera_b+.yaml", "configs/sam2.1/sam2.1_hiera_b+.yaml"),
-    "facebook/sam2.1-hiera-large": ("sam2.1_hiera_large.pt", "configs/sam2.1/sam2.1_hiera_l.yaml", "configs/sam2.1/sam2.1_hiera_l.yaml")
+    # model-id ➜ (checkpoint filename, cfg filename, video_cfg_rel_path)
+    "facebook/sam2.1-hiera-tiny": (
+        "sam2.1_hiera_tiny.pt", "sam2.1_hiera_t.yaml", "configs/sam2.1/sam2.1_hiera_t.yaml"
+    ),
+    "facebook/sam2.1-hiera-small": (
+        "sam2.1_hiera_small.pt", "sam2.1_hiera_s.yaml", "configs/sam2.1/sam2.1_hiera_s.yaml"
+    ),
+    "facebook/sam2.1-hiera-base-plus": (
+        "sam2.1_hiera_base_plus.pt", "sam2.1_hiera_b+.yaml", "configs/sam2.1/sam2.1_hiera_b+.yaml"
+    ),
+    "facebook/sam2.1-hiera-large": (
+        "sam2.1_hiera_large.pt", "sam2.1_hiera_l.yaml", "configs/sam2.1/sam2.1_hiera_l.yaml"
+    )
 }
 
 class SAM2Wrapper:
@@ -21,6 +35,7 @@ class SAM2Wrapper:
     def __init__(self, model_name="facebook/sam2.1-hiera-base-plus", device="cpu"): # Changed default model
         if model_name not in _SAM_MODELS:
             raise ValueError(f"Unsupported SAM-2 model: {model_name}")
+
         ckpt_name, img_cfg_rel, vid_cfg_rel = _SAM_MODELS[model_name] # img_cfg_rel for SAM2ImagePredictor if needed, vid_cfg_rel for video
         
         self._ckpt_path = hf_hub_download(model_name, ckpt_name, repo_type="model")
@@ -72,16 +87,19 @@ class SAM2Wrapper:
             logging.error(f"self._vid_pred (type: {type(self._vid_pred)}) is NOT a torch.nn.Module. Cannot cast its dtype to float32. This is unexpected and will likely cause issues.")
         
 
+
     # ---------- single-image ----------
     def segment(self, pil_image, box_xyxy):
         """Return binary mask (H×W uint8) for one box in one image."""
         img = np.array(pil_image)
+
         self._img_pred.set_image(img) # This should handle image conversion to tensor internally
         masks, _, _ = self._img_pred.predict(box=np.asarray(box_xyxy)[None], multimask_output=False)
         if masks is None or len(masks) == 0:
             return None
         # masks are bool (NumPy) from SAM2ImagePredictor, convert to uint8
         return masks[0].astype(np.uint8)
+
 
 
     # ---------- video ----------
@@ -149,3 +167,4 @@ class SAM2Wrapper:
                 logging.debug(f"Casting mask_logits for frame {fidx} from {mask_logits.dtype} to float32.")
                 mask_logits = mask_logits.to(torch.float32)
             yield fidx, obj_ids, mask_logits
+
