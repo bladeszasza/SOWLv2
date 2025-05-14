@@ -132,7 +132,7 @@ class SOWLv2Pipeline:
                     masks=mask_logits,
                     out_dir=output_dir
                 )
-                self._video_save_masks_and_overlays(config)
+                self._video_save_masks_and_overlays(config= config)
             print(f"✅ Video segmentation finished; results in {output_dir}")
             video_utils.generate_per_object_videos(output_dir, fps=self.fps)
 
