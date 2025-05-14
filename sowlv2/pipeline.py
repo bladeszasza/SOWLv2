@@ -7,12 +7,16 @@ import subprocess
 import shutil
 import tempfile
 import torch
+import cv2  # pylint: disable=import-error
 import numpy as np
 from PIL import Image
 from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
 from sowlv2.data.config import PipelineBaseData, SaveMaskOverlayConfig
+
+# Disable no-member for cv2 (OpenCV) for the whole file
+# pylint: disable=no-member
 
 _FIRST_FRAME = "000001.jpg"
 _FIRST_FRAME_IDX = 0

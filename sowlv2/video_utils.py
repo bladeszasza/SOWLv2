@@ -4,9 +4,12 @@ and generating per-object mask/overlay videos.
 """
 import os
 from glob import glob
-import cv2
+import cv2  # pylint: disable=import-error
 from PIL import Image
 import numpy as np
+
+# Disable no-member for cv2 (OpenCV) for the whole file
+# pylint: disable=no-member
 
 
 def images_to_video(image_files, video_path, fps=30):
