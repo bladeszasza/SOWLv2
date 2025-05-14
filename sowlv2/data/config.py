@@ -15,6 +15,7 @@ class PipelineBaseData:
     threshold: float
     fps: int
     device: str
+    owl_skip_frames: int
 
 @dataclass
 class SaveMaskOverlayConfig:

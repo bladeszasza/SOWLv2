@@ -13,6 +13,10 @@ from sowlv2.data.config import PipelineBaseData
 from sowlv2.pipeline import SOWLv2Pipeline
 
 def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="SOWLv2: Detect and segment objects in images/frames/video with a text prompt."
+    )
     args = parser.parse_args()
     # If config file is provided, override defaults
     if args.config:
@@ -22,7 +26,8 @@ def parse_args():
         for key, value in config.items():
             if getattr(args, key) is None or key in ("prompt", "input", "output",
                                                      "owl_model", "sam_model",
-                                                     "threshold", "fps", "device"):
+                                                     "threshold", "fps", "device",
+                                                     "owl_skip_frames"):
                 # Allow config to override if arg is None or if it's a configurable param
                 if getattr(args, key) is None or (args.config and key in config):
                     setattr(args, key, value)
