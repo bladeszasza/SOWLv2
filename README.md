@@ -44,7 +44,7 @@ The notebook provides a step-by-step demonstration for all supported input types
 
 ## 🛠️ Installation
 
-SOWLv2 can be installed directly from this Git repository using pip. Ensure you have Python 3.8+ and pip installed.
+SOWLv2 can be installed directly from this Git repository using pip. Ensure you have Python 3.10+ and pip installed.
 
 ```bash
 pip install git+https://github.com/bladeszasza/SOWLv2.git

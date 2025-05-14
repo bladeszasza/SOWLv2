@@ -1,3 +1,8 @@
+"""
+Setup script for the SOWLv2 package.
+
+SOWLv2 combines OWLv2 and SAM 2 for text-prompted object segmentation.
+"""
 from setuptools import setup, find_packages
 
 setup(
