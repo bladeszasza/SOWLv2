@@ -18,8 +18,11 @@ def parse_args():
         description="SOWLv2: Detect and segment objects in images/frames/video with a text prompt."
     )
     parser.add_argument(
-        "--prompt", type=str, required=False,
-        help="Text prompt for object detection (e.g. 'cat')"
+        "--prompt",
+        type=str,
+        required=False,
+        nargs='+', # Allows one or more arguments for prompt
+        help="Text prompt(s) for object detection (e.g. 'cat' or 'cat' 'dog' 'a red bicycle')"
     )
     parser.add_argument(
         "--input", type=str, required=False,
@@ -38,7 +41,7 @@ def parse_args():
         help="SAM2 model (HuggingFace name)"
     )
     parser.add_argument(
-        "--threshold", type=float, default=0.4,
+        "--threshold", type=float, default=0.1, # Default from README
         help="Detection confidence threshold"
     )
     parser.add_argument(
@@ -57,21 +60,32 @@ def parse_args():
     # If config file is provided, override defaults
     if args.config:
         with open(args.config, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
+            config_from_file = yaml.safe_load(f)
         # Override args with config values if not explicitly provided
-        for key, value in config.items():
-            if getattr(args, key) is None or key in ("prompt", "input", "output",
-                                                     "owl_model", "sam_model",
-                                                     "threshold", "fps", "device"):
-                # Allow config to override if arg is None or if it's a configurable param
-                if getattr(args, key) is None or (args.config and key in config):
-                    setattr(args, key, value)
+        for key, value in config_from_file.items():
+            # For 'prompt', CLI takes precedence if provided. Otherwise, use config.
+            if key == "prompt":
+                if getattr(args, key) is None and args.config and key in config_from_file:
+                    # Ensure prompt from config is a list
+                    setattr(args, key, value if isinstance(value, list) else [value])
+            elif getattr(args, key) is None or (
+                args.config and key in config_from_file and
+                getattr(args, key) == parser.get_default(key)):
+                # Allow config to override if arg is None or if it's still the default CLI value
+                setattr(args, key, value)
+
 
     # Validate required fields
     if args.prompt is None or args.input is None:
         print("Error: --prompt and --input are required arguments or must be in the config file.")
         parser.print_help()
         sys.exit(1)
+
+    # Ensure args.prompt is a list, even if only one prompt came from config (and not CLI)
+    # If from CLI with nargs='+', it's already a list.
+    if args.prompt and not isinstance(args.prompt, list):
+        args.prompt = [args.prompt]
+
     return args
 
 def main():
@@ -80,7 +94,12 @@ def main():
     # Determine input type
     input_path = args.input
     output_path = args.output
-    prompt = args.prompt
+
+    # args.prompt is now a list of strings from nargs='+' or after config parsing.
+    # OWLV2Wrapper.detect expects Union[str, List[str]].
+    # If list has one item, pass it as str. Otherwise, pass the list.
+    prompt_input = args.prompt[0] if len(args.prompt) == 1 else args.prompt
+
     owl_model = args.owl_model
     sam_model = args.sam_model
     threshold = args.threshold
@@ -106,15 +125,16 @@ def main():
 
     # Create output directory
     os.makedirs(output_path, exist_ok=True)
+    print(f"Processing with prompt(s): {prompt_input}")
     # Process input
     if os.path.isdir(input_path):
-        pipeline.process_frames(input_path, prompt, output_path)
+        pipeline.process_frames(input_path, prompt_input, output_path)
     elif os.path.isfile(input_path):
         ext = os.path.splitext(input_path)[1].lower()
         if ext in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"]:
-            pipeline.process_image(input_path, prompt, output_path)
+            pipeline.process_image(input_path, prompt_input, output_path)
         elif ext in [".mp4", ".avi", ".mov", ".mkv"]:
-            pipeline.process_video(input_path, prompt, output_path)
+            pipeline.process_video(input_path, prompt_input, output_path)
         else:
             print(f"Unsupported file extension: {ext}")
             sys.exit(1)
