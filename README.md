@@ -105,9 +105,9 @@ Note: If a single prompt contains spaces, it should be enclosed in quotes (e.g.,
     sowlv2-detect --prompt "dog" --input path/to/your/dog_image.jpg --output results/dog_segmentation/
     ```
 
-2.  **Segment "person" and "bicycle" in a folder of image frames:**
+2.  **Segment "cat" and "duck" in a folder of image frames:**
     ```bash
-    sowlv2-detect --prompt "cat" "dog" --input path/to/your/frames_folder/ --output results/person_bike_frames_segmentation/
+    sowlv2-detect --prompt "cat" "duck" --input path/to/your/frames_folder/ --output results/person_bike_frames_segmentation/
     ```
 
 3.  **Segment "car" (potentially a specific type like "a red car") in a video, sampling at 10 FPS:**
