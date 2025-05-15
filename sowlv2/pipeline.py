@@ -6,7 +6,7 @@ import os
 import subprocess
 import shutil
 import tempfile
-from typing import Union, List, Dict, Tuple
+from typing import Any, Union, List, Dict, Tuple
 import cv2  # pylint: disable=import-error
 import numpy as np
 from PIL import Image
@@ -14,7 +14,8 @@ import torch
 from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
-from sowlv2.data.config import PipelineBaseData, MergedOverlayItem, DetectionResult
+from sowlv2.data.config import PipelineBaseData, MergedOverlayItem
+from sowlv2.data.config import PropagatedFrameOutput, SingleDetectionInput
 
 
 # Disable no-member for cv2 (OpenCV) for the whole file
@@ -79,197 +80,265 @@ class SOWLv2Pipeline:
             self.next_color_idx += 1
         return self.prompt_color_map[core_prompt]
 
+    def _process_single_detection_for_image(
+        self,
+        single_detection: SingleDetectionInput
+    ) -> MergedOverlayItem | None:
+        """
+        Processes a single detected object: segments, saves individual files,
+        and returns data for merged overlay.
+
+        Args:
+            single_detection (SingleDetectionInput): Dataclass containing all relevant info.
+        """
+        box = single_detection.detection_detail["box"]
+        core_prompt = single_detection.detection_detail["core_prompt"]
+        object_color = self._get_color_for_prompt(core_prompt)
+
+        mask_np = self.sam.segment(single_detection.pil_image, box) # Expects HxW uint8 numpy array
+        if mask_np is None:
+            print(f"SAM2 failed to segment object {single_detection.obj_idx} ({core_prompt}).")
+            return None
+
+        mask_img_pil = Image.fromarray(mask_np * 255).convert("L")
+        mask_file = os.path.join(
+            single_detection.output_dir,
+            f"{single_detection.base_name}_{core_prompt.replace(' ','_')}_"
+            f"{single_detection.obj_idx}_mask.png"
+        )
+        mask_img_pil.save(mask_file)
+
+        individual_overlay_pil = self._create_overlay(
+            single_detection.pil_image, mask_np > 0, color=object_color)
+        overlay_file = os.path.join(
+            single_detection.output_dir,
+            f"{single_detection.base_name}_{core_prompt.replace(' ','_')}_"
+            f"{single_detection.obj_idx}_overlay.png"
+        )
+        individual_overlay_pil.save(overlay_file)
+
+        return MergedOverlayItem(mask=mask_np > 0, color=object_color, label=core_prompt)
+
+    def _create_and_save_merged_overlay(
+        self,
+        original_pil_image: Image.Image,
+        items_for_merge: List[MergedOverlayItem],
+        base_name: str,
+        output_dir: str
+    ):
+        """
+        Creates a single overlay image with all detected object masks and saves it.
+        """
+        if not items_for_merge:
+            return
+
+        merged_overlay_pil = original_pil_image.copy()
+
+        for item in items_for_merge:
+            # The _create_overlay function does blending. For merging, we apply one by one.
+            # We need to ensure the image we are drawing on is in the correct state.
+            # This can be tricky if colors are semi-transparent.
+            # A simpler approach for direct application:
+            current_image_np = np.array(merged_overlay_pil)
+            bool_mask_np = item.mask
+            color_np = np.array(item.color, dtype=np.uint8)
+
+            # Ensure current_image_np is 3-channel RGB for color application
+            if current_image_np.ndim == 2: # Grayscale
+                current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_GRAY2RGB)
+            elif current_image_np.ndim == 3 and current_image_np.shape[2] == 4: # RGBA
+                current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_RGBA2RGB)
+
+            # Apply colored mask using blending (as in _create_overlay)
+            # This ensures consistent blending if that's the desired visual effect
+            current_image_np[bool_mask_np] = (
+                0.5 * current_image_np[bool_mask_np] + 0.5 * color_np
+            ).astype(np.uint8)
+            merged_overlay_pil = Image.fromarray(current_image_np)
+
+        merged_overlay_file = os.path.join(output_dir, f"{base_name}_merged_overlay.png")
+        merged_overlay_pil.save(merged_overlay_file)
+        print(f"Saved merged overlay: {merged_overlay_file}")
+
     def process_image(self, image_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
         Process a single image file: detect objects, segment them, and save masks/overlays.
-
-        Args:
-            image_path (str): Path to the input image.
-            prompt (Union[str, List[str]]): Text prompt(s) for object detection.
-            output_dir (str): Directory to save output masks and overlays.
         """
         pil_image = Image.open(image_path).convert("RGB")
+        # Use self.threshold from init, not self.config.threshold directly here for consistency
         detections = self.owl.detect(
             image=pil_image,
             prompt=prompt,
-            threshold=self.config.threshold)
+            threshold=self.threshold) # Use the pipeline's configured threshold
         base_name = os.path.splitext(os.path.basename(image_path))[0]
 
         if not detections:
             print(f"No objects detected for prompt(s) '{prompt}' in image '{image_path}'.")
             return
 
-        merged_overlay_image = pil_image.copy()
-        processed_detections_for_merge: List[MergedOverlayItem] = []
-        detection_results: List[DetectionResult] = []
+        items_for_merged_overlay: List[MergedOverlayItem] = []
 
-        for idx, det in enumerate(detections):
-            box = det["box"]
+        for idx, det_detail in enumerate(detections):
+            single_detection = SingleDetectionInput(
+                pil_image=pil_image,
+                detection_detail=det_detail,
+                obj_idx=idx,
+                base_name=base_name,
+                output_dir=output_dir
+            )
+            merged_item = self._process_single_detection_for_image(single_detection)
+            if merged_item:
+                items_for_merged_overlay.append(merged_item)
+
+        self._create_and_save_merged_overlay(
+            original_pil_image=pil_image,
+            items_for_merge=items_for_merged_overlay,
+            base_name=base_name,
+            output_dir=output_dir
+        )
+
+    def _initialize_video_tracking(
+        self,
+        first_pil_img: Image.Image,
+        prompt: Union[str, List[str]],
+        sam_state: Any # Type hint for SAM state can be more specific if known
+    ) -> Tuple[List[Dict[str, Any]], Any]: # Returns (detection_details, updated_sam_state)
+                                            # Or List[VideoDetectionDetail] if using dataclass
+        """
+        Detects objects in the first frame, assigns colors, and initializes SAM tracking.
+        """
+        detection_details_for_video: List[Dict[str, Any]] = [] # Or List[VideoDetectionDetail]
+        detections_owl = self.owl.detect(
+            image=first_pil_img, prompt=prompt, threshold=self.threshold
+        )
+
+        if not detections_owl:
+            print(f"No objects for prompt(s) '{prompt}' in first frame. Aborting video processing.")
+            return [], sam_state # Return empty list and original state
+
+        sam_obj_id_counter = 1
+        for det in detections_owl:
             core_prompt = det["core_prompt"]
             object_color = self._get_color_for_prompt(core_prompt)
+            box = det["box"]
 
-            mask_np = self.sam.segment(pil_image, box)
-            if mask_np is None:
-                print(f"Warning: SAM2 failed to segment object {idx} ({core_prompt}). Skipping.")
-                continue
+            detection_details_for_video.append({ # Or VideoDetectionDetail(...)
+                'sam_id': sam_obj_id_counter,
+                'core_prompt': core_prompt,
+                'color': object_color
+            })
 
-            mask_img_pil = Image.fromarray(mask_np * 255).convert("L")
-            mask_file = os.path.join(
-                output_dir, f"{base_name}_{core_prompt.replace(' ','_')}_{idx}_mask.png")
-            mask_img_pil.save(mask_file)
+            # Update SAM state with the new box
+            self.sam.add_new_box(
+                state=sam_state, frame_idx=_FIRST_FRAME_IDX,
+                box=box, obj_idx=sam_obj_id_counter
+            )
+            sam_obj_id_counter += 1
 
-            individual_overlay_pil = self._create_overlay(
-                pil_image, mask_np > 0, color=object_color)
-            overlay_file = os.path.join(
-                output_dir, f"{base_name}_{core_prompt.replace(' ','_')}_{idx}_overlay.png")
-            individual_overlay_pil.save(overlay_file)
+        return detection_details_for_video, sam_state
 
-            detection_results.append(
-                DetectionResult(
-                    box=box,
-                    core_prompt=core_prompt,
-                    object_color=object_color,
-                    mask_np=mask_np,
-                    mask_img_pil=mask_img_pil,
-                    mask_file=mask_file,
-                    individual_overlay_pil=individual_overlay_pil,
-                    overlay_file=overlay_file
-                )
+    def _process_propagated_frame_output(
+        self,
+        frame_output: PropagatedFrameOutput
+    ):
+        """
+        Processes and saves masks/overlays for a single frame from SAM's propagation output.
+        """
+        if isinstance(frame_output.sam_obj_ids_tensor, torch.Tensor):
+            sam_obj_ids_list = frame_output.sam_obj_ids_tensor.cpu().numpy().tolist()
+        else:
+            sam_obj_ids_list = list(frame_output.sam_obj_ids_tensor)
+
+        for i, sam_id in enumerate(sam_obj_ids_list):
+            detail = next(
+                (d for d in frame_output.detection_details_map if d['sam_id'] == sam_id), None
             )
 
-            processed_detections_for_merge.append(
-                MergedOverlayItem(mask=mask_np > 0, color=object_color, label=core_prompt)
+            if not detail:
+                print(f"No details found for {sam_id} in frame {frame_output.frame_num}.")
+                object_color = self.palette[0]
+                core_prompt_str = f"unknown{sam_id}"
+            else:
+                object_color = detail['color']
+                core_prompt_str = detail['core_prompt']
+
+            mask_for_obj = frame_output.mask_logits_tensor[i]
+            mask_binary_np = (mask_for_obj > 0.5).cpu().numpy().astype(np.uint8)
+            mask_bool_np = np.squeeze(mask_binary_np > 0)
+
+            mask_pil_img = Image.fromarray(np.squeeze(mask_binary_np) * 255).convert("L")
+            mask_filename = (
+                f"{frame_output.frame_num:06d}_obj{sam_id}_"
+                f"{core_prompt_str.replace(' ','_')}_mask.png"
             )
+            mask_pil_img.save(os.path.join(frame_output.output_dir, mask_filename))
 
-        # Create and save the merged overlay image
-        if processed_detections_for_merge:
-            for item in processed_detections_for_merge:
-                image_np = np.array(merged_overlay_image).copy()
-                bool_mask_np = item.mask
-                color_np = np.array(item.color, dtype=np.uint8)
-
-                if image_np.ndim == 2:
-                    image_np = cv2.cvtColor(image_np, cv2.COLOR_GRAY2RGB)
-                elif image_np.ndim == 3 and image_np.shape[2] == 4:
-                    image_np = cv2.cvtColor(image_np, cv2.COLOR_RGBA2RGB)
-
-                colored_mask_layer = np.zeros_like(image_np)
-                colored_mask_layer[bool_mask_np] = color_np
-
-                image_np[bool_mask_np] = (
-                    0.5 * image_np[bool_mask_np] + 0.5 * color_np).astype(np.uint8)
-                merged_overlay_image = Image.fromarray(image_np)
-
-            merged_overlay_file = os.path.join(output_dir, f"{base_name}_merged_overlay.png")
-            merged_overlay_image.save(merged_overlay_file)
-            print(f"Saved merged overlay: {merged_overlay_file}")
+            overlay_pil_img = self._create_overlay(
+                frame_output.current_pil_img, mask_bool_np, color=object_color
+            )
+            overlay_filename = (
+                f"{frame_output.frame_num:06d}_obj{sam_id}_"
+                f"{core_prompt_str.replace(' ','_')}_overlay.png"
+            )
+            overlay_pil_img.save(os.path.join(frame_output.output_dir, overlay_filename))
 
 
     def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
         Process a single video file: detect and segment objects in the first frame,
         propagate masks through the video, and save per-frame/per-object masks and overlays.
-
-        Args:
-            video_path (str): Path to the input video file.
-            prompt (Union[str, List[str]]): Text prompt(s) for object detection.
-            output_dir (str): Directory to save output masks and overlays.
         """
         tmp_frames_dir = tempfile.mkdtemp(prefix="sowlv2_frames_")
-        detection_details_for_video = [] # To store color and core_prompt per SAM object ID
-
         try:
+            # Step 1: Extract frames from video
             subprocess.run(
-                ["ffmpeg", "-i", video_path, "-r", str(self.config.fps),
+                ["ffmpeg", "-i", video_path, "-r", str(self.config.fps), # Use self.fps
                  os.path.join(tmp_frames_dir, "%06d.jpg"), "-hide_banner", "-loglevel", "error"],
                 check=True
             )
 
-            state = self.sam.init_state(tmp_frames_dir)
+            # Step 2: Initialize SAM state and load first frame
+            initial_sam_state = self.sam.init_state(tmp_frames_dir)
             first_img_path = os.path.join(tmp_frames_dir, _FIRST_FRAME)
             if not os.path.exists(first_img_path):
-                print(f"First frame {_FIRST_FRAME} not found. Video might be too short.")
+                print(f"First frame {_FIRST_FRAME} not found in {tmp_frames_dir}.")
                 return
 
             first_pil_img = Image.open(first_img_path).convert("RGB")
-            detections_owl = self.owl.detect(
-                image=first_pil_img, prompt=prompt, threshold=self.config.threshold
+
+            # Step 3: Perform initial detections and setup SAM tracking
+            detection_details_for_video, updated_sam_state = self._initialize_video_tracking(
+                first_pil_img, prompt, initial_sam_state
             )
 
-            if not detections_owl:
-                print(
-                    f"No objects for prompt(s) '{prompt}' — aborting video processing.")
+            if not detection_details_for_video: # Handled inside _initialize_video_tracking
                 return
 
-            sam_obj_id_counter = 1
-            for det in detections_owl:
-                core_prompt = det["core_prompt"]
-                object_color = self._get_color_for_prompt(core_prompt)
-                box = det["box"]
-
-                # Store mapping from SAM ID to color and prompt
-                detection_details_for_video.append({
-                    'sam_id': sam_obj_id_counter,
-                    'core_prompt': core_prompt,
-                    'color': object_color
-                })
-
-                self.sam.add_new_box(
-                    state=state, frame_idx=_FIRST_FRAME_IDX,
-                    box=box, obj_idx=sam_obj_id_counter
-                )
-                sam_obj_id_counter += 1
-
-            for fidx, sam_obj_ids_tensor, mask_logits_tensor in self.sam.propagate_in_video(state):
+            # Step 4: Propagate masks and process each frame's output
+            for fidx, sam_obj_ids_tensor, mask_logits_tensor in self.sam.propagate_in_video(
+                updated_sam_state):
                 current_frame_num = fidx + 1
                 frame_file_path = os.path.join(tmp_frames_dir, f"{current_frame_num:06d}.jpg")
                 if not os.path.exists(frame_file_path):
                     print(f"Warning: Frame {frame_file_path} not found. Skipping.")
                     continue
-
                 current_pil_img = Image.open(frame_file_path).convert("RGB")
-                if isinstance(sam_obj_ids_tensor, torch.Tensor):
-                    sam_obj_ids_list = sam_obj_ids_tensor.cpu().numpy().tolist()
-                else:
-                    sam_obj_ids_list = list(sam_obj_ids_tensor)
 
-                for i, sam_id in enumerate(sam_obj_ids_list):
-                    # Find the details (color, core_prompt) for this sam_id
-                    detail = next(
-                        (d for d in detection_details_for_video if d['sam_id'] == sam_id), None)
-                    if not detail:
-                        print(f"No SAM object ID {sam_id}. Using default color.")
-                        object_color = self.palette[0] # Default to first palette color
-                        core_prompt_str = f"unknown{sam_id}"
-                    else:
-                        object_color = detail['color']
-                        core_prompt_str = detail['core_prompt']
-                    # This is a single mask for the current sam_id
-                    mask_for_obj = mask_logits_tensor[i]
-                    mask_binary_np = (mask_for_obj > 0.5).cpu().numpy().astype(np.uint8)
-                    mask_bool_np = np.squeeze(mask_binary_np > 0)
-
-                    # Save individual binary mask
-                    mask_pil_img = Image.fromarray(np.squeeze(mask_binary_np) * 255).convert("L")
-                    mask_filename = (
-                        f"{current_frame_num:06d}_obj{sam_id}_"
-                        f"{core_prompt_str.replace(' ','_')}_mask.png"
-                    )
-                    mask_pil_img.save(os.path.join(output_dir, mask_filename))
-
-                    # Create and save individual colored overlay
-                    overlay_pil_img = self._create_overlay(
-                        current_pil_img, mask_bool_np, color=object_color
-                    )
-                    overlay_filename = (
-                        f"{current_frame_num:06d}_obj{sam_id}_"
-                        f"{core_prompt_str.replace(' ','_')}_overlay.png"
-                    )
-                    overlay_pil_img.save(os.path.join(output_dir, overlay_filename))
+                frame_output = PropagatedFrameOutput(
+                    current_pil_img=current_pil_img,
+                    frame_num=current_frame_num,
+                    sam_obj_ids_tensor=sam_obj_ids_tensor,
+                    mask_logits_tensor=mask_logits_tensor,
+                    detection_details_map=detection_details_for_video,
+                    output_dir=output_dir
+                )
+                self._process_propagated_frame_output(frame_output)
 
             print(f"✅ Video frame segmentation finished; results in {output_dir}")
-            # This will now use colored overlays
-            video_utils.generate_per_object_videos(output_dir, fps=self.config.fps)
+
+            # Step 5: Generate per-object summary videos
+            video_utils.generate_per_object_videos(output_dir, fps=self.fps) # Use self.fps
+
         finally:
             shutil.rmtree(tmp_frames_dir, ignore_errors=True)
         print(f"✅ Video generation finished; results in {output_dir}")

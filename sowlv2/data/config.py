@@ -3,7 +3,7 @@ Dataclasses for configuring the SOWLv2 object detection and segmentation pipelin
 """
 
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any, Tuple, List, Dict
 import numpy as np
 from PIL import Image
 
@@ -73,3 +73,56 @@ class MergedOverlayItem:
     mask: np.ndarray
     color: Tuple[int, int, int]
     label: str
+
+@dataclass
+class VideoDetectionDetail:
+    """
+    Stores details for each detected object in a video, including its SAM object ID,
+    the core prompt/label, and the assigned color for consistent visualization.
+
+    Attributes:
+        sam_id (int): The unique SAM object ID assigned for tracking in the video.
+        core_prompt (str): The core prompt/label for the detected object.
+        color (Tuple[int, int, int]): The RGB color assigned to this object for overlays.
+    """
+    sam_id: int
+    core_prompt: str
+    color: Tuple[int, int, int]
+
+@dataclass
+class PropagatedFrameOutput:
+    """
+    Stores all relevant data for a single propagated frame in video segmentation.
+
+    Attributes:
+        current_pil_img (Image.Image): The current frame as a PIL image.
+        frame_num (int): The frame number (1-based).
+        sam_obj_ids_tensor (Any): Tensor or list of SAM object IDs for this frame.
+        mask_logits_tensor (Any): Tensor of mask logits for this frame.
+        detection_details_map (List[Dict[str, Any]]): List of detection details for mapping IDs.
+        output_dir (str): Output directory for saving results.
+    """
+    current_pil_img: Image.Image
+    frame_num: int
+    sam_obj_ids_tensor: Any
+    mask_logits_tensor: Any
+    detection_details_map: List[Dict[str, Any]]
+    output_dir: str
+
+@dataclass
+class SingleDetectionInput:
+    """
+    Stores all relevant data for processing a single detection in an image.
+
+    Attributes:
+        pil_image (Image.Image): The PIL image being processed.
+        detection_detail (dict): The detection dictionary for the object.
+        obj_idx (int): The index of the object in the detections list.
+        base_name (str): The base name of the input image file.
+        output_dir (str): Output directory for saving results.
+    """
+    pil_image: Image.Image
+    detection_detail: dict
+    obj_idx: int
+    base_name: str
+    output_dir: str
