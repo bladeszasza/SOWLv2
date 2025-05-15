@@ -6,10 +6,11 @@ import os
 import subprocess
 import shutil
 import tempfile
-import torch
+from typing import Union, List
 import cv2  # pylint: disable=import-error
 import numpy as np
 from PIL import Image
+import torch
 from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
@@ -34,9 +35,9 @@ class SOWLv2Pipeline:
         """
         if config is None:
             config = PipelineBaseData(
-                owl_model="facebook/sam2.1-hiera-small",
+                owl_model="google/owlv2-base-patch16-ensemble", # Correct OWLv2 default
                 sam_model="facebook/sam2.1-hiera-small",
-                threshold=0.4,
+                threshold=0.1, # Default from README/CLI
                 fps=24,
                 device="cuda"
             )
@@ -47,26 +48,30 @@ class SOWLv2Pipeline:
         self.fps = self.config.fps
         self.device = self.config.device
 
-    def process_image(self, image_path, prompt, output_dir):
+    def process_image(self, image_path: str, prompt: Union[str, List[str]], output_dir: str):
         """Process a single image file."""
         image = Image.open(image_path).convert("RGB")
         detections = self.owl.detect(image=image, prompt=prompt, threshold=self.threshold)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
         if not detections:
-            print(f"No objects detected for prompt '{prompt}' in image '{image_path}'.")
+            print(f"No objects detected for prompt(s) '{prompt}' in image '{image_path}'.")
         for idx, det in enumerate(detections):
             box = det["box"]  # [x1, y1, x2, y2]
+            # Use the specific label that OWLv2 matched for this detection for clarity if needed
+            # label_found = det["label"] # e.g., "a photo of cat"
             mask = self.sam.segment(image, box)
             if mask is None:
                 continue
             mask_img = Image.fromarray(mask * 255).convert("L")
+            # Include the detected label in the filename if multiple prompts are common
+            # For now, object{idx} is generic.
             mask_file = os.path.join(output_dir, f"{base_name}_object{idx}_mask.png")
             mask_img.save(mask_file)
             overlay = self._create_overlay(image, mask)
             overlay_file = os.path.join(output_dir, f"{base_name}_object{idx}_overlay.png")
             overlay.save(overlay_file)
 
-    def process_frames(self, folder_path, prompt, output_dir):
+    def process_frames(self, folder_path: str, prompt: Union[str, List[str]], output_dir: str):
         """Process a folder of images (frames)."""
         files = sorted(os.listdir(folder_path))
         for fname in files:
@@ -76,7 +81,7 @@ class SOWLv2Pipeline:
                 continue
             self.process_image(infile, prompt, output_dir)
 
-    def process_video(self, video_path, prompt, output_dir): # pylint: disable=too-many-locals
+    def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str): # pylint: disable=too-many-locals
         """Process a single video file with SAM 2."""
         tmp = tempfile.mkdtemp(prefix="sowlv2_frames_")
         try:
@@ -97,30 +102,32 @@ class SOWLv2Pipeline:
             first_img = Image.open(first_img_path).convert("RGB")
             detections = self.owl.detect(
                 image = first_img,
-                prompt = prompt,
+                prompt = prompt, # Pass the prompt (str or List[str])
                 threshold = self.threshold)
 
             if not detections:
-                print(f"No '{prompt}' objects in first frame — aborting.")
+                print(f"No objects for prompt(s) '{prompt}' in first frame — aborting.")
                 return
 
             frame_idx_init = _FIRST_FRAME_IDX
-            obj_id_counter = 1
+            obj_id_counter = 1 # This counter is for SAM2 internal object tracking
 
+            # Detections is a list of dicts, each like {"box": [...], "score": ..., "label": ...}
             for detection in detections:
-                boxes = detection["box"]
-                # Ensure boxes is a list of lists/tuples for consistency
-                if not isinstance(boxes[0], (list, tuple)):
-                    boxes = [boxes]
-
-                for box in boxes:
-                    _, _, _ = self.sam.add_new_box( # frame_idx, obj_ids returned not used here
-                        state=state,
-                        frame_idx=frame_idx_init,
-                        box=box,
-                        obj_idx=obj_id_counter
-                    )
-                    obj_id_counter += 1
+                box = detection["box"] # OWLv2 returns one box per detection entry
+                # SAM2's add_new_box expects a single box.
+                # The obj_id here is for SAM2 to track different objects it's segmenting.
+                # It's not directly tied to which prompt item matched if multiple prompts were used,
+                # unless OWLv2's output structure for multiple prompts is different.
+                # OWLv2 will return a flat list of detections,
+                # each with a label indicating which prompt it matched.
+                _, _, _ = self.sam.add_new_box( # frame_idx, obj_ids returned not used here
+                    state=state,
+                    frame_idx=frame_idx_init,
+                    box=box, # Pass the single box
+                    obj_idx=obj_id_counter # Unique ID for SAM2 to track this specific detection
+                )
+                obj_id_counter += 1
 
             for fidx, obj_ids, mask_logits in self.sam.propagate_in_video(state):
                 current_frame_idx = fidx + 1
@@ -129,14 +136,14 @@ class SOWLv2Pipeline:
                     print(f"Warning: Frame {frame_file} not found. Skipping.")
                     continue
                 img = Image.open(frame_file).convert("RGB")
-                config = SaveMaskOverlayConfig(
+                config_save = SaveMaskOverlayConfig(
                     pil_img=img,
                     frame_idx=current_frame_idx,
-                    obj_ids=obj_ids,
+                    obj_ids=obj_ids, # These are SAM2's internal object IDs
                     masks=mask_logits,
                     out_dir=output_dir
                 )
-                self._video_save_masks_and_overlays(config= config)
+                self._video_save_masks_and_overlays(config=config_save) # Renamed for clarity
             print(f"✅ Video segmentation finished; results in {output_dir}")
             video_utils.generate_per_object_videos(output_dir, fps=self.fps)
 
@@ -178,9 +185,9 @@ class SOWLv2Pipeline:
         if isinstance(config.obj_ids, torch.Tensor):
             obj_ids_list = config.obj_ids.cpu().tolist()
         else:
-            obj_ids_list = list(config.obj_ids)
+            obj_ids_list = list(config.obj_ids) # obj_ids from SAM2 are its internal tracking IDs
 
-        for i, obj_id in enumerate(obj_ids_list):
+        for i, obj_id_sam in enumerate(obj_ids_list): # obj_id_sam is the ID from SAM2
             mask = config.masks[i]
             mask_bin = (mask > 0.5).cpu().numpy().astype(np.uint8) * 255
             mask_bin = np.squeeze(mask_bin)
@@ -191,12 +198,16 @@ class SOWLv2Pipeline:
                 )
 
             mask_pil = Image.fromarray(mask_bin).convert("L")
-            mask_path = os.path.join(config.out_dir, f"{base}_obj{obj_id}_mask.png")
+            # The obj_id_sam is SAM's internal ID.
+            # If we want to link back to the original prompt text, we'd need to map it.
+            # For now, the files are named with SAM's object ID.
+            mask_path = os.path.join(config.out_dir, f"{base}_obj{obj_id_sam}_mask.png")
             mask_pil.save(mask_path)
 
             overlay_mask_np = (mask > 0.5).cpu().numpy()
             overlay = self._create_overlay(config.pil_img, overlay_mask_np)
-            overlay_path = os.path.join(config.out_dir, f"{base}_obj{obj_id}_overlay.png")
+            overlay_path = os.path.join(
+                config.out_dir, f"{base}_obj{obj_id_sam}_overlay.png")
             overlay.save(overlay_path)
 
             mask_frames_pil.append(mask_pil)
@@ -211,8 +222,8 @@ class SOWLv2Pipeline:
         """
         # 1. Make sure we have a NumPy binary mask on CPU and squeeze extra dims
         if isinstance(mask, torch.Tensor):
-            mask = mask.detach().cpu().numpy()          # move off GPU
-        mask_squeezed = np.squeeze(mask)                         # drop dimensions of size 1
+            mask = mask.detach().cpu().numpy() # move off GPU
+        mask_squeezed = np.squeeze(mask) # drop dimensions of size 1
         if mask_squeezed.ndim != 2:
             raise ValueError(f"Expected 2-D mask, got shape {mask_squeezed.shape}")
 
@@ -239,7 +250,7 @@ class SOWLv2Pipeline:
         else: # For other cases,e.g. RGBA, handle appropriately or raise error
             print("Warning: Overlay for images not in RGB/Grayscale might not be accurate.")
             # Simple red overlay for non-RGB images (first 3 channels)
-            if overlay_np.shape[2] > 3: # e.g. RGBA
+            if image_np.ndim ==3 and overlay_np.shape[2] > 3: # e.g. RGBA
                 overlay_np[bool_mask, :3] = (
                     0.5 * overlay_np[bool_mask, :3] + 0.5 * red
                 ).astype(np.uint8)
