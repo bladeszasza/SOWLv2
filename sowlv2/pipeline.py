@@ -9,12 +9,13 @@ import tempfile
 from typing import Union, List, Dict, Tuple
 import cv2  # pylint: disable=import-error
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 import torch
 from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
-from sowlv2.data.config import PipelineBaseData, SaveMaskOverlayConfig
+from sowlv2.data.config import PipelineBaseData, MergedOverlayItem, DetectionResult
+
 
 # Disable no-member for cv2 (OpenCV) for the whole file
 # pylint: disable=no-member
@@ -34,10 +35,18 @@ DEFAULT_PALETTE = [
 class SOWLv2Pipeline:
     """
     SOWLv2 pipeline for object detection and segmentation in images and videos.
+
+    This class integrates OWLv2 for open-vocabulary object detection and SAM2 for
+    segmentation, supporting both images and videos. It assigns unique colors to
+    each detected label for clear visualization in overlays.
     """
     def __init__(self, config: PipelineBaseData = None):
         """
         Initialize the SOWLv2 pipeline.
+
+        Args:
+            config (PipelineBaseData, optional): Configuration dataclass for the pipeline.
+                If None, uses default values.
         """
         if config is None:
             config = PipelineBaseData(
@@ -50,16 +59,20 @@ class SOWLv2Pipeline:
         self.config = config
         self.owl = OWLV2Wrapper(model_name=self.config.owl_model, device=self.config.device)
         self.sam = SAM2Wrapper(model_name=self.config.sam_model, device=self.config.device)
-        self.threshold = self.config.threshold
-        self.fps = self.config.fps
-        self.device = self.config.device
-
         self.palette = DEFAULT_PALETTE
         self.prompt_color_map: Dict[str, Tuple[int, int, int]] = {}
         self.next_color_idx = 0
 
     def _get_color_for_prompt(self, core_prompt: str) -> Tuple[int, int, int]:
-        """Assigns a consistent color to a core prompt term."""
+        """
+        Assigns a consistent color to a core prompt term.
+
+        Args:
+            core_prompt (str): The label or prompt for which to get a color.
+
+        Returns:
+            Tuple[int, int, int]: RGB color tuple.
+        """
         if core_prompt not in self.prompt_color_map:
             color = self.palette[self.next_color_idx % len(self.palette)]
             self.prompt_color_map[core_prompt] = color
@@ -67,89 +80,107 @@ class SOWLv2Pipeline:
         return self.prompt_color_map[core_prompt]
 
     def process_image(self, image_path: str, prompt: Union[str, List[str]], output_dir: str):
-        """Process a single image file."""
+        """
+        Process a single image file: detect objects, segment them, and save masks/overlays.
+
+        Args:
+            image_path (str): Path to the input image.
+            prompt (Union[str, List[str]]): Text prompt(s) for object detection.
+            output_dir (str): Directory to save output masks and overlays.
+        """
         pil_image = Image.open(image_path).convert("RGB")
-        detections = self.owl.detect(image=pil_image, prompt=prompt, threshold=self.threshold)
+        detections = self.owl.detect(
+            image=pil_image,
+            prompt=prompt,
+            threshold=self.config.threshold)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
 
         if not detections:
             print(f"No objects detected for prompt(s) '{prompt}' in image '{image_path}'.")
             return
 
-        # For merged overlay
         merged_overlay_image = pil_image.copy()
-        processed_detections_for_merge = []
+        processed_detections_for_merge: List[MergedOverlayItem] = []
+        detection_results: List[DetectionResult] = []
 
         for idx, det in enumerate(detections):
             box = det["box"]
             core_prompt = det["core_prompt"]
             object_color = self._get_color_for_prompt(core_prompt)
 
-            mask_np = self.sam.segment(pil_image, box) # Returns HxW uint8 numpy array or None
+            mask_np = self.sam.segment(pil_image, box)
             if mask_np is None:
                 print(f"Warning: SAM2 failed to segment object {idx} ({core_prompt}). Skipping.")
                 continue
 
-            # Save individual mask (binary)
-            mask_img_pil = Image.fromarray(mask_np * 255).convert("L") # mask_np is already 0 or 1
+            mask_img_pil = Image.fromarray(mask_np * 255).convert("L")
             mask_file = os.path.join(
                 output_dir, f"{base_name}_{core_prompt.replace(' ','_')}_{idx}_mask.png")
             mask_img_pil.save(mask_file)
 
-            # Create and save individual colored overlay
-            # Ensure mask_np is boolean for _create_overlay if it expects boolean
             individual_overlay_pil = self._create_overlay(
                 pil_image, mask_np > 0, color=object_color)
             overlay_file = os.path.join(
                 output_dir, f"{base_name}_{core_prompt.replace(' ','_')}_{idx}_overlay.png")
             individual_overlay_pil.save(overlay_file)
 
-            # Store info for merged overlay
+            detection_results.append(
+                DetectionResult(
+                    box=box,
+                    core_prompt=core_prompt,
+                    object_color=object_color,
+                    mask_np=mask_np,
+                    mask_img_pil=mask_img_pil,
+                    mask_file=mask_file,
+                    individual_overlay_pil=individual_overlay_pil,
+                    overlay_file=overlay_file
+                )
+            )
+
             processed_detections_for_merge.append(
-                {'mask': mask_np > 0, 'color': object_color, 'label': core_prompt})
+                MergedOverlayItem(mask=mask_np > 0, color=object_color, label=core_prompt)
+            )
 
         # Create and save the merged overlay image
         if processed_detections_for_merge:
             for item in processed_detections_for_merge:
-                # Apply each colored mask to the merged_overlay_image
-                # The _create_overlay function blends; we need to apply mask directly for merge
                 image_np = np.array(merged_overlay_image).copy()
-                bool_mask_np = item['mask']
-                color_np = np.array(item['color'], dtype=np.uint8)
+                bool_mask_np = item.mask
+                color_np = np.array(item.color, dtype=np.uint8)
 
-                # Ensure image_np is 3-channel for color application
-                if image_np.ndim == 2: # Grayscale
+                if image_np.ndim == 2:
                     image_np = cv2.cvtColor(image_np, cv2.COLOR_GRAY2RGB)
-                elif image_np.ndim == 3 and image_np.shape[2] == 4: # RGBA
+                elif image_np.ndim == 3 and image_np.shape[2] == 4:
                     image_np = cv2.cvtColor(image_np, cv2.COLOR_RGBA2RGB)
 
-
-                # Blend colored mask onto the image_np
-                # Create a colored mask layer
                 colored_mask_layer = np.zeros_like(image_np)
                 colored_mask_layer[bool_mask_np] = color_np
 
-                # Blend using cv2.addWeighted or PIL.Image.alpha_composite
-                # if transparency is desired
-                # For simple overlay:
                 image_np[bool_mask_np] = (
                     0.5 * image_np[bool_mask_np] + 0.5 * color_np).astype(np.uint8)
                 merged_overlay_image = Image.fromarray(image_np)
-
 
             merged_overlay_file = os.path.join(output_dir, f"{base_name}_merged_overlay.png")
             merged_overlay_image.save(merged_overlay_file)
             print(f"Saved merged overlay: {merged_overlay_file}")
 
 
-    def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str): # pylint: disable=too-many-locals
-        """Process a single video file with SAM 2."""
+    def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
+        """
+        Process a single video file: detect and segment objects in the first frame,
+        propagate masks through the video, and save per-frame/per-object masks and overlays.
+
+        Args:
+            video_path (str): Path to the input video file.
+            prompt (Union[str, List[str]]): Text prompt(s) for object detection.
+            output_dir (str): Directory to save output masks and overlays.
+        """
         tmp_frames_dir = tempfile.mkdtemp(prefix="sowlv2_frames_")
         detection_details_for_video = [] # To store color and core_prompt per SAM object ID
 
         try:
             subprocess.run(
-                ["ffmpeg", "-i", video_path, "-r", str(self.fps),
+                ["ffmpeg", "-i", video_path, "-r", str(self.config.fps),
                  os.path.join(tmp_frames_dir, "%06d.jpg"), "-hide_banner", "-loglevel", "error"],
                 check=True
             )
@@ -162,7 +193,7 @@ class SOWLv2Pipeline:
 
             first_pil_img = Image.open(first_img_path).convert("RGB")
             detections_owl = self.owl.detect(
-                image=first_pil_img, prompt=prompt, threshold=self.threshold
+                image=first_pil_img, prompt=prompt, threshold=self.config.threshold
             )
 
             if not detections_owl:
@@ -238,7 +269,7 @@ class SOWLv2Pipeline:
 
             print(f"✅ Video frame segmentation finished; results in {output_dir}")
             # This will now use colored overlays
-            video_utils.generate_per_object_videos(output_dir, fps=self.fps)
+            video_utils.generate_per_object_videos(output_dir, fps=self.config.fps)
         finally:
             shutil.rmtree(tmp_frames_dir, ignore_errors=True)
         print(f"✅ Video generation finished; results in {output_dir}")
@@ -250,10 +281,14 @@ class SOWLv2Pipeline:
                         color: Tuple[int, int, int]):
         """
         Blend a colored mask with the input PIL.Image and return the overlay as a PIL.Image.
+
         Args:
             pil_image (Image.Image): Original image.
             bool_mask_np (np.ndarray): Boolean NumPy array for the mask (True where object is).
             color (Tuple[int,int,int]): RGB tuple for the mask color.
+
+        Returns:
+            Image.Image: The overlay image with the colored mask blended in.
         """
         if bool_mask_np.ndim != 2:
             raise ValueError(f"Expected 2-D boolean mask, got shape {bool_mask_np.shape}")
