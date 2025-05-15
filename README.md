@@ -124,6 +124,8 @@ The tool saves results in the specified output directory. For each detected obje
 
 Objects are numbered sequentially (e.g., `object0`, `object1`) in the order they are detected. For video inputs, output filenames will also include frame identifiers, and separate videos for each object's masks and overlays will be generated (e.g., `obj0_mask_video.mp4`, `obj0_overlay_video.mp4`).
 
+SOWLv2 automatically assigns a unique color to each detected OWLv2 label, making it easy to visually distinguish different object classes in the output overlays and merged results.
+
 ### <a name="configuration"></a>Configuration File (Optional):
 
 You can use a YAML configuration file to specify arguments, which is useful for managing complex settings or reproducing experiments.
@@ -194,4 +196,3 @@ We extend our sincere gratitude to the authors and maintainers for open-sourcing
 
 Connect with me:
 [🔗 LinkedIn](https://www.linkedin.com/in/csaba-boly%C3%B2s-00a11767/) | [📓 Google Colab Demo](https://colab.research.google.com/drive/1vX6P4KNmWoisY-Vfq6bAVunsHaLrC-AO)
-```
