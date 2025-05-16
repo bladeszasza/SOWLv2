@@ -30,6 +30,8 @@ Given one or more text prompts (e.g., `"a red bicycle"`, or `"cat" "dog"`) and a
 2.  Employ **SAM 2** to generate detailed segmentation masks for each detected object, leveraging techniques from the paper [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714).
 3.  Save both **binary segmentation masks** (foreground vs. background) and **overlay images** (original image with masks visually overlaid) to a specified output directory.
 
+![Multilabel output showcase](./assets/SOWLv2Multilabel.png "Multilabel Output Showcase")
+
 ## ✨ Key Features
 
 *   **Text-Prompted Segmentation:** Identify and segment objects using free-form text descriptions.
@@ -129,6 +131,8 @@ The tool saves results in the specified output directory. For each detected obje
 *   An **overlay image** (e.g., `imagename_object0_overlay.png`): The original image with the segmentation mask overlaid (typically colored with transparency).
 
 Objects are numbered sequentially (e.g., `object0`, `object1`) in the order they are detected by OWLv2, regardless of which text prompt they matched. For video inputs, output filenames will also include frame identifiers, and separate videos for each object's masks and overlays will be generated (e.g., `obj0_mask_video.mp4`, `obj0_overlay_video.mp4`).
+
+SOWLv2 automatically assigns a unique color to each detected OWLv2 label, making it easy to visually distinguish different object classes in the output overlays and merged results.
 
 ### <a name="configuration"></a>Configuration File (Optional):
 

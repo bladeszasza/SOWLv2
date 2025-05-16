@@ -1,69 +1,139 @@
 """
 Wrapper for OWLv2 text-conditioned object detection models from HuggingFace Transformers.
 """
-from typing import Union, List
+from typing import Union, List, Dict, Any
 from transformers import Owlv2Processor, Owlv2ForObjectDetection
 import torch
 
-class OWLV2Wrapper:  # pylint: disable=too-few-public-methods
-    """Wrapper for OWLv2 text-conditioned object detection."""
-    def __init__(self, model_name="google/owlv2-base-patch16-ensemble", device="cpu"):
+# It's a focused wrapper, so R0903 (too-few-public-methods) might be flagged
+# but is acceptable for this type of class. We can add the disable if Pylint complains.
+# pylint: disable=R0903
+
+class OWLV2Wrapper:
+    """
+    Wrapper for OWLv2 text-conditioned object detection.
+
+    This class handles the loading of OWLv2 models and processors,
+    and provides a method to detect objects based on text prompts.
+    It formats the output to include both the full label matched by OWLv2
+    and the original "core" prompt term provided by the user.
+    """
+    def __init__(self, model_name: str ="google/owlv2-base-patch16-ensemble", device: str = "cpu"):
+        """
+        Initialize the OWLV2Wrapper.
+
+        Args:
+            model_name (str): The Hugging Face model identifier for OWLv2.
+            device (str): The device to run the model on (e.g., "cpu", "cuda").
+        """
         self.device = device
         self.processor: Owlv2Processor = Owlv2Processor.from_pretrained(model_name)
-        self.model = Owlv2ForObjectDetection.from_pretrained(model_name).to(device)
+        self.model: Owlv2ForObjectDetection = Owlv2ForObjectDetection.from_pretrained(
+            model_name).to(
+            self.device
+        )
 
-    def detect(self, *, image, prompt: Union[str, List[str]], threshold=0.1):
+    def detect(self, *, image: Any, prompt: Union[str, List[str]], threshold: float = 0.1
+               ) -> List[Dict[str, Any]]:
         """
-        Detect objects in the image matching the text prompt.
-        Returns a list of dict with keys: box, score, label.
+        Detect objects in the image matching the text prompt(s).
+
+        Args:
+            image (Any): The input image (e.g., a PIL Image).
+            prompt (Union[str, List[str]]): A single text prompt or a list of text prompts.
+            threshold (float): The confidence threshold for detections.
+
+        Returns:
+            List[Dict[str, Any]]: A list of dictionaries, where each dictionary
+            represents a detected object and contains 'box', 'score', 'label'
+            (the full text matched by OWLv2), and 'core_prompt' (the original
+            user-provided term that led to this detection).
         """
         if isinstance(prompt, str):
-            processed_prompts = [f"a photo of {prompt}"]
-        else: # prompt is a list of strings
-            processed_prompts = [f"a photo of {p}" for p in prompt]
+            original_prompt_terms: List[str] = [prompt]
+        else:
+            original_prompt_terms: List[str] = prompt
 
-        text_labels = [processed_prompts] # Batch size of 1, with potentially multiple queries
+        # OWLv2 typically expects prompts like "a photo of <object>"
+        processed_prompts_for_owl: List[str] = [
+            f"a photo of {p}" for p in original_prompt_terms
+        ]
+        # The 'text' argument to the processor for multiple queries on a single image
+        # should be List[List[str]], where the outer list is for batch items.
+        text_labels_for_owl: List[List[str]] = [processed_prompts_for_owl]
 
         inputs = self.processor(
-            text=text_labels, images=image, return_tensors="pt"
+            text=text_labels_for_owl, images=image, return_tensors="pt"
         ).to(self.device)
 
         with torch.no_grad():
             outputs = self.model(**inputs)
 
-        target_sizes = torch.tensor([(image.height, image.width)]).to(self.device)
+        # target_sizes should be a tensor of shape (batch_size, 2)
+        target_sizes = torch.tensor([image.size[::-1]], device=self.device)
+
+        # Pass text_labels_for_owl to post_process for correct label association
         results = self.processor.post_process_grounded_object_detection(
-            outputs=outputs, target_sizes=target_sizes,
-            threshold=threshold, text_labels=text_labels
+            outputs=outputs,
+            target_sizes=target_sizes,
+            threshold=threshold,
+            text_labels=text_labels_for_owl
         )
 
-        # Determine the list of original prompt terms for fallback in _format_detections
-        if isinstance(prompt, str):
-            fallback_labels = [prompt]
-        else:
-            fallback_labels = prompt
+        return self._format_detections(results, original_prompt_terms)
 
-        return self._format_detections(results, fallback_labels)
+    def _format_detections(self, results: List[Dict[str, Any]],
+                           original_prompt_terms: List[str]) -> List[Dict[str, Any]]:
+        """
+        Helper to format raw detection results into a structured list of dictionaries.
 
-    def _format_detections(self, results, fallback_prompts: List[str]):
+        Args:
+            results (List[Dict[str, Any]]): Raw results from the OWLv2 processor's
+                                            post_process_grounded_object_detection method.
+            original_prompt_terms (List[str]): The list of original, user-provided
+                                               prompt terms (e.g., ["cat", "dog"]).
+
+        Returns:
+            List[Dict[str, Any]]: Formatted list of detections.
         """
-        Helper to format detection results into a list of dicts.
-        fallback_prompts: The list of original prompt terms used for searching.
-        """
-        detections = []
-        if results and results[0]:
-            result = results[0]
-            boxes = result["boxes"].cpu().numpy()
-            scores = result["scores"].cpu().numpy()
-            # 'text_labels' in result should be populated by post_process_object_detection
-            # with the specific query that matched each box (e.g., "a photo of cat").
-            # The processor.post_process_grounded_object_detection
-            # returns the text_labels as they were passed in.
-            returned_labels = result.get("text_labels", fallback_prompts * len(boxes)) # Fallback
-            for box, score, label_text in zip(boxes, scores, returned_labels):
-                detections.append({
-                    "box": [float(coord) for coord in box],
-                    "score": float(score),
-                    "label": label_text 
-                })
+        detections: List[Dict[str, Any]] = []
+        if not results or not results[0]:
+            return detections
+
+        # Results is a list (batch), we typically process one image at a time here.
+        first_image_results = results[0]
+        boxes = first_image_results["boxes"].cpu().numpy()
+        scores = first_image_results["scores"].cpu().numpy()
+
+        # 'labels' are integer indices into the list of queries *for the current image*
+        # that were passed to post_process_grounded_object_detection
+        # (i.e., text_labels_for_owl[0]).
+        prompt_indices = first_image_results.get(
+            "labels", torch.zeros(len(boxes), dtype=torch.long)
+        ).cpu().numpy()
+
+        # 'text_labels' from results should be the actual prompt strings that matched.
+        owl_matched_full_labels = first_image_results.get("text_labels", [])
+
+        for i, (current_box, current_score) in enumerate(zip(boxes, scores)):
+            try:
+                core_prompt = original_prompt_terms[prompt_indices[i]]
+            except IndexError:
+                core_prompt = "unknown_prompt_term"
+                print(
+                    f"Warning: Index {prompt_indices[i]} out of bounds"
+                )
+
+            full_owl_label = (
+                owl_matched_full_labels[i]
+                if i < len(owl_matched_full_labels)
+                else f"a photo of {core_prompt}"
+            )
+
+            detections.append({
+                "box": [float(coord) for coord in current_box],
+                "score": float(current_score),
+                "label": full_owl_label,
+                "core_prompt": core_prompt
+            })
         return detections
