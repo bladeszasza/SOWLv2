@@ -162,11 +162,11 @@ class SOWLv2Pipeline:
         Detect, segment, and save masks/overlays for a single image.
         """
         pil_image = Image.open(image_path).convert("RGB")
-        # Use self.threshold from init, not self.config.threshold directly here for consistency
+
         detections = self.owl.detect(
             image=pil_image,
             prompt=prompt,
-            threshold=self.threshold) # Use the pipeline's configured threshold
+            threshold=self.config.threshold) # Use the pipeline's configured threshold
         base_name = os.path.splitext(os.path.basename(image_path))[0]
 
         if not detections:
@@ -217,7 +217,7 @@ class SOWLv2Pipeline:
         """
         detection_details_for_video: List[Dict[str, Any]] = [] # Or List[VideoDetectionDetail]
         detections_owl = self.owl.detect(
-            image=first_pil_img, prompt=prompt, threshold=self.threshold
+            image=first_pil_img, prompt=prompt, threshold=self.config.threshold
         )
 
         if not detections_owl:
@@ -367,7 +367,7 @@ class SOWLv2Pipeline:
             print(f"✅ Video frame segmentation finished; results in {output_dir}")
 
             # Step 5: Generate per-object summary videos
-            video_utils.generate_per_object_videos(output_dir, fps=self.fps) # Use self.fps
+            video_utils.generate_per_object_videos(output_dir, fps=self.config.fps)
 
         finally:
             shutil.rmtree(video_ctx.tmp_frames_dir, ignore_errors=True)
