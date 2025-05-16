@@ -335,7 +335,8 @@ class SOWLv2Pipeline:
 
     def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
-        Detect and segment objects in a video, propagate masks, and save per-frame/per-object results.
+        Detect and segment objects in a video, propagate masks,
+        and save per-frame/per-object results.
         """
         video_ctx = self._prepare_video_context(video_path, prompt)
         if video_ctx is None:
