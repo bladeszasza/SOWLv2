@@ -14,8 +14,12 @@ import torch
 from sowlv2 import video_utils
 from sowlv2.owl import OWLV2Wrapper
 from sowlv2.sam2_wrapper import SAM2Wrapper
-from sowlv2.data.config import PipelineBaseData, MergedOverlayItem
-from sowlv2.data.config import PropagatedFrameOutput, SingleDetectionInput
+from sowlv2.data.config import (
+    PipelineBaseData, MergedOverlayItem, PropagatedFrameOutput,
+    SingleDetectionInput, VideoProcessContext
+)
+
+
 
 
 # Disable no-member for cv2 (OpenCV) for the whole file
@@ -197,6 +201,16 @@ class SOWLv2Pipeline:
             output_dir=output_dir
         )
 
+    def process_frames(self, folder_path: str, prompt: Union[str, List[str]], output_dir: str):
+        """Process a folder of images (frames)."""
+        files = sorted(os.listdir(folder_path))
+        for fname in files:
+            infile = os.path.join(folder_path, fname)
+            ext = os.path.splitext(fname)[1].lower()
+            if ext not in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"]:
+                continue
+            self.process_image(infile, prompt, output_dir)
+
     def _initialize_video_tracking(
         self,
         first_pil_img: Image.Image,
@@ -283,42 +297,64 @@ class SOWLv2Pipeline:
             overlay_pil_img.save(os.path.join(frame_output.output_dir, overlay_filename))
 
 
+    def _prepare_video_context(
+        self, video_path: str, prompt: Union[str, List[str]], output_dir: str
+    ) -> VideoProcessContext | None:
+        """
+        Extract frames, initialize SAM state, and prepare detection context for video processing.
+        Returns a VideoProcessContext dataclass or None if failed.
+        """
+        tmp_frames_dir = tempfile.mkdtemp(prefix="sowlv2_frames_")
+        try:
+            subprocess.run(
+                ["ffmpeg", "-i", video_path, "-r", str(self.config.fps),
+                 os.path.join(tmp_frames_dir, "%06d.jpg"), "-hide_banner", "-loglevel", "error"],
+                check=True
+            )
+            initial_sam_state = self.sam.init_state(tmp_frames_dir)
+            first_img_path = os.path.join(tmp_frames_dir, _FIRST_FRAME)
+            if not os.path.exists(first_img_path):
+                print(f"First frame {_FIRST_FRAME} not found in {tmp_frames_dir}.")
+                shutil.rmtree(tmp_frames_dir, ignore_errors=True)
+                return None
+
+            first_pil_img = Image.open(first_img_path).convert("RGB")
+            detection_details_for_video, updated_sam_state = self._initialize_video_tracking(
+                first_pil_img, prompt, initial_sam_state
+            )
+            if not detection_details_for_video:
+                shutil.rmtree(tmp_frames_dir, ignore_errors=True)
+                return None
+
+            return VideoProcessContext(
+                tmp_frames_dir=tmp_frames_dir,
+                initial_sam_state=initial_sam_state,
+                first_img_path=first_img_path,
+                first_pil_img=first_pil_img,
+                detection_details_for_video=detection_details_for_video,
+                updated_sam_state=updated_sam_state
+            )
+        except Exception as e:
+            print(f"Error during video preparation: {e}")
+            shutil.rmtree(tmp_frames_dir, ignore_errors=True)
+            return None
+
     def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
         Process a single video file: detect and segment objects in the first frame,
         propagate masks through the video, and save per-frame/per-object masks and overlays.
         """
-        tmp_frames_dir = tempfile.mkdtemp(prefix="sowlv2_frames_")
+        video_ctx = self._prepare_video_context(video_path, prompt, output_dir)
+        if video_ctx is None:
+            print("Video preparation failed. Aborting.")
+            return
+
         try:
-            # Step 1: Extract frames from video
-            subprocess.run(
-                ["ffmpeg", "-i", video_path, "-r", str(self.config.fps), # Use self.fps
-                 os.path.join(tmp_frames_dir, "%06d.jpg"), "-hide_banner", "-loglevel", "error"],
-                check=True
-            )
-
-            # Step 2: Initialize SAM state and load first frame
-            initial_sam_state = self.sam.init_state(tmp_frames_dir)
-            first_img_path = os.path.join(tmp_frames_dir, _FIRST_FRAME)
-            if not os.path.exists(first_img_path):
-                print(f"First frame {_FIRST_FRAME} not found in {tmp_frames_dir}.")
-                return
-
-            first_pil_img = Image.open(first_img_path).convert("RGB")
-
-            # Step 3: Perform initial detections and setup SAM tracking
-            detection_details_for_video, updated_sam_state = self._initialize_video_tracking(
-                first_pil_img, prompt, initial_sam_state
-            )
-
-            if not detection_details_for_video: # Handled inside _initialize_video_tracking
-                return
-
-            # Step 4: Propagate masks and process each frame's output
             for fidx, sam_obj_ids_tensor, mask_logits_tensor in self.sam.propagate_in_video(
-                updated_sam_state):
+                video_ctx.updated_sam_state):
                 current_frame_num = fidx + 1
-                frame_file_path = os.path.join(tmp_frames_dir, f"{current_frame_num:06d}.jpg")
+                frame_file_path = os.path.join(
+                    video_ctx.tmp_frames_dir, f"{current_frame_num:06d}.jpg")
                 if not os.path.exists(frame_file_path):
                     print(f"Warning: Frame {frame_file_path} not found. Skipping.")
                     continue
@@ -329,7 +365,7 @@ class SOWLv2Pipeline:
                     frame_num=current_frame_num,
                     sam_obj_ids_tensor=sam_obj_ids_tensor,
                     mask_logits_tensor=mask_logits_tensor,
-                    detection_details_map=detection_details_for_video,
+                    detection_details_map=video_ctx.detection_details_for_video,
                     output_dir=output_dir
                 )
                 self._process_propagated_frame_output(frame_output)
@@ -340,7 +376,7 @@ class SOWLv2Pipeline:
             video_utils.generate_per_object_videos(output_dir, fps=self.fps) # Use self.fps
 
         finally:
-            shutil.rmtree(tmp_frames_dir, ignore_errors=True)
+            shutil.rmtree(video_ctx.tmp_frames_dir, ignore_errors=True)
         print(f"✅ Video generation finished; results in {output_dir}")
 
 

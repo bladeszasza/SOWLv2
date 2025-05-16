@@ -1,7 +1,6 @@
 """
 Dataclasses for configuring the SOWLv2 object detection and segmentation pipeline.
 """
-
 from dataclasses import dataclass
 from typing import Any, Tuple, List, Dict
 import numpy as np
@@ -126,3 +125,15 @@ class SingleDetectionInput:
     obj_idx: int
     base_name: str
     output_dir: str
+
+@dataclass
+class VideoProcessContext:
+    """
+    Holds all context/state for processing a video in SOWLv2Pipeline.
+    """
+    tmp_frames_dir: str
+    initial_sam_state: Any
+    first_img_path: str
+    first_pil_img: Image.Image
+    detection_details_for_video: List[Dict[str, Any]]
+    updated_sam_state: Any
