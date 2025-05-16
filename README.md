@@ -30,6 +30,8 @@ Given one or more text prompts (e.g., `"a red bicycle"`, or `"cat" "dog"`) and a
 2.  Employ **SAM 2** to generate detailed segmentation masks for each detected object, leveraging techniques from the paper [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714).
 3.  Save both **binary segmentation masks** (foreground vs. background) and **overlay images** (original image with masks visually overlaid) to a specified output directory.
 
+![Multilabel output showcase](./assets/SOWLv2Multilabel.png "Multilabel Output Showcase")
+
 ## ✨ Key Features
 
 *   **Text-Prompted Segmentation:** Identify and segment objects using free-form text descriptions.
