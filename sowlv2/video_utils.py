@@ -4,9 +4,11 @@ and generating per-object mask/overlay videos.
 """
 import os
 from glob import glob
+import re
 import cv2  # pylint: disable=import-error
 from PIL import Image
 import numpy as np
+
 
 # Disable no-member for cv2 (OpenCV) for the whole file
 # pylint: disable=no-member
@@ -68,28 +70,67 @@ def images_to_video(image_files, video_path, fps=30):
 def generate_per_object_videos(output_dir, fps=30):
     """
     Generate per-object videos from mask and overlay images.
-    Each object will have its own video for masks and overlays.
+    Each object (identified by sam_id and core_prompt) will have its own
+    video for masks and overlays.
     """
-    mask_pattern = os.path.join(output_dir, "*_obj*_mask.png")
-    mask_files = sorted(glob(mask_pattern))
+    all_mask_files_pattern = os.path.join(output_dir, "*_mask.png")
+    all_mask_files = sorted(glob(all_mask_files_pattern))
 
-    objects = set()
-    for f in mask_files:
-        try:
-            # Assuming filename format like '000001_obj1_mask.png'
-            obj_id = os.path.basename(f).split('_')[1] # Extracts 'obj1'
-            objects.add(obj_id)
-        except IndexError:
-            print(f"Warning: Could not parse object ID from filename {f}. Skipping.")
+    if not all_mask_files:
+        print(f"No mask files found in {output_dir} matching pattern.")
+        return
+
+    # Store unique combinations of (sam_id_token, core_prompt_slug)
+    # sam_id_token is like "obj1", core_prompt_slug is like "dog" or "a_red_bicycle"
+    unique_tracked_objects = {}
+
+    # Regex to parse filenames like "000001_obj1_dog_mask.png"
+    # or "000001_obj1_a_red_bicycle_mask.png"
+    # Group 1: (obj\d+) - e.g., "obj1"
+    # Group 2: ([^_]+(?:_[^_]+)*) - e.g., "dog" or "a_red_bicycle"
+    filename_parser = re.compile(r"^\d+_(obj\d+)_([^_]+(?:_[^_]+)*)_mask\.png$")
+
+    for f_path in all_mask_files:
+        fname = os.path.basename(f_path)
+        match = filename_parser.match(fname)
+        if match:
+            sam_id_token = match.group(1)  # e.g., "obj1"
+            core_prompt_slug = match.group(2) # e.g., "dog" or "a_red_bicycle"
+
+            # Use a tuple to uniquely identify the tracked object
+            object_key = (sam_id_token, core_prompt_slug)
+            if object_key not in unique_tracked_objects:
+                unique_tracked_objects[object_key] = {
+                    "sam_id_token": sam_id_token,
+                    "core_prompt_slug": core_prompt_slug
+                }
+        else:
+            print(f"Warning: Filename {fname} did not match expected pattern.")
             continue
 
+    if not unique_tracked_objects:
+        print(f"No objects successfully parsed from filenames in {output_dir}.")
+        return
 
-    for obj in sorted(list(objects)): # Convert set to sorted list for deterministic order
-        obj_mask_files = sorted(glob(os.path.join(output_dir, f"*_{obj}_mask.png")))
-        obj_overlay_files = sorted(glob(os.path.join(output_dir, f"*_{obj}_overlay.png")))
+    for key in sorted(list(unique_tracked_objects.keys())): # Sort for deterministic order
+        obj_info = unique_tracked_objects[key]
+        sam_id_token = obj_info["sam_id_token"]
+        core_prompt_slug = obj_info["core_prompt_slug"]
 
-        mask_video_path = os.path.join(output_dir, f"{obj}_mask_video.mp4")
-        overlay_video_path = os.path.join(output_dir, f"{obj}_overlay_video.mp4")
+        # Construct glob patterns that include both sam_id_token and core_prompt_slug
+        obj_mask_files_pattern = os.path.join(
+            output_dir, f"*_{sam_id_token}_{core_prompt_slug}_mask.png")
+        obj_overlay_files_pattern = os.path.join(
+            output_dir, f"*_{sam_id_token}_{core_prompt_slug}_overlay.png")
+
+        obj_mask_files = sorted(glob(obj_mask_files_pattern))
+        obj_overlay_files = sorted(glob(obj_overlay_files_pattern))
+
+        # Create a descriptive prefix for the video files
+        video_file_prefix = f"{sam_id_token}_{core_prompt_slug}"
+
+        mask_video_path = os.path.join(output_dir, f"{video_file_prefix}_mask_video.mp4")
+        overlay_video_path = os.path.join(output_dir, f"{video_file_prefix}_overlay_video.mp4")
 
         images_to_video(obj_mask_files, mask_video_path, fps)
         images_to_video(obj_overlay_files, overlay_video_path, fps)
