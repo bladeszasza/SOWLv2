@@ -1,6 +1,5 @@
 """
-Core pipeline for SOWLv2, combining OWLv2 for detection
-and SAM2 for segmentation.
+Core pipeline for SOWLv2: text-prompted detection (OWLv2) and segmentation (SAM2) for images/videos.
 """
 import os
 import subprocess
@@ -40,18 +39,13 @@ DEFAULT_PALETTE = [
 class SOWLv2Pipeline:
     """
     SOWLv2 pipeline for object detection and segmentation in images and videos.
-
-    This class integrates OWLv2 for open-vocabulary object detection and SAM2 for
-    segmentation, supporting both images and videos. It assigns unique colors to
-    each detected label for clear visualization in overlays.
+    Integrates OWLv2 for detection and SAM2 for segmentation. Assigns unique colors to each label.
     """
     def __init__(self, config: PipelineBaseData = None):
         """
-        Initialize the SOWLv2 pipeline.
-
+        Initialize the pipeline with model/config parameters.
         Args:
-            config (PipelineBaseData, optional): Configuration dataclass for the pipeline.
-                If None, uses default values.
+            config (PipelineBaseData, optional): Pipeline configuration. Uses defaults if None.
         """
         if config is None:
             config = PipelineBaseData(
@@ -70,7 +64,7 @@ class SOWLv2Pipeline:
 
     def _get_color_for_prompt(self, core_prompt: str) -> Tuple[int, int, int]:
         """
-        Assigns a consistent color to a core prompt term.
+        Assign a consistent RGB color to a prompt/label.
 
         Args:
             core_prompt (str): The label or prompt for which to get a color.
@@ -89,8 +83,7 @@ class SOWLv2Pipeline:
         single_detection: SingleDetectionInput
     ) -> MergedOverlayItem | None:
         """
-        Processes a single detected object: segments, saves individual files,
-        and returns data for merged overlay.
+        Segment and save mask/overlay for one detection. Return info for merged overlay.
 
         Args:
             single_detection (SingleDetectionInput): Dataclass containing all relevant info.
@@ -131,7 +124,7 @@ class SOWLv2Pipeline:
         output_dir: str
     ):
         """
-        Creates a single overlay image with all detected object masks and saves it.
+        Create and save a merged overlay image with all detected object masks.
         """
         if not items_for_merge:
             return
@@ -166,7 +159,7 @@ class SOWLv2Pipeline:
 
     def process_image(self, image_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
-        Process a single image file: detect objects, segment them, and save masks/overlays.
+        Detect, segment, and save masks/overlays for a single image.
         """
         pil_image = Image.open(image_path).convert("RGB")
         # Use self.threshold from init, not self.config.threshold directly here for consistency
@@ -202,7 +195,9 @@ class SOWLv2Pipeline:
         )
 
     def process_frames(self, folder_path: str, prompt: Union[str, List[str]], output_dir: str):
-        """Process a folder of images (frames)."""
+        """
+        Process all images in a folder as frames.
+        """
         files = sorted(os.listdir(folder_path))
         for fname in files:
             infile = os.path.join(folder_path, fname)
@@ -215,11 +210,10 @@ class SOWLv2Pipeline:
         self,
         first_pil_img: Image.Image,
         prompt: Union[str, List[str]],
-        sam_state: Any # Type hint for SAM state can be more specific if known
-    ) -> Tuple[List[Dict[str, Any]], Any]: # Returns (detection_details, updated_sam_state)
-                                            # Or List[VideoDetectionDetail] if using dataclass
+        sam_state: Any
+    ) -> Tuple[List[Dict[str, Any]], Any]:
         """
-        Detects objects in the first frame, assigns colors, and initializes SAM tracking.
+        Detect objects in first frame, assign colors, and initialize SAM tracking.
         """
         detection_details_for_video: List[Dict[str, Any]] = [] # Or List[VideoDetectionDetail]
         detections_owl = self.owl.detect(
@@ -256,7 +250,7 @@ class SOWLv2Pipeline:
         frame_output: PropagatedFrameOutput
     ):
         """
-        Processes and saves masks/overlays for a single frame from SAM's propagation output.
+        Save masks/overlays for a single frame from SAM's propagation output.
         """
         if isinstance(frame_output.sam_obj_ids_tensor, torch.Tensor):
             sam_obj_ids_list = frame_output.sam_obj_ids_tensor.cpu().numpy().tolist()
@@ -302,7 +296,7 @@ class SOWLv2Pipeline:
     ) -> VideoProcessContext | None:
         """
         Extract frames, initialize SAM state, and prepare detection context for video processing.
-        Returns a VideoProcessContext dataclass or None if failed.
+        Returns VideoProcessContext or None if failed.
         """
         tmp_frames_dir = tempfile.mkdtemp(prefix="sowlv2_frames_")
         try:
@@ -341,8 +335,7 @@ class SOWLv2Pipeline:
 
     def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
-        Process a single video file: detect and segment objects in the first frame,
-        propagate masks through the video, and save per-frame/per-object masks and overlays.
+        Detect and segment objects in a video, propagate masks, and save per-frame/per-object results.
         """
         video_ctx = self._prepare_video_context(video_path, prompt)
         if video_ctx is None:
@@ -385,7 +378,7 @@ class SOWLv2Pipeline:
                         bool_mask_np: np.ndarray,
                         color: Tuple[int, int, int]):
         """
-        Blend a colored mask with the input PIL.Image and return the overlay as a PIL.Image.
+        Blend a colored mask with a PIL image and return the overlay as a PIL.Image.
 
         Args:
             pil_image (Image.Image): Original image.
@@ -415,5 +408,4 @@ class SOWLv2Pipeline:
         overlay_np[bool_mask_np] = (
             0.5 * overlay_np[bool_mask_np] + 0.5 * color_np
         ).astype(np.uint8)
-
         return Image.fromarray(overlay_np)
