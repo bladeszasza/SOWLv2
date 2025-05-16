@@ -121,8 +121,7 @@ class OWLV2Wrapper:
             except IndexError:
                 core_prompt = "unknown_prompt_term"
                 print(
-                    f"Warning: Index {
-                        prompt_indices[i]} out of bounds for original_prompt_terms."
+                    f"Warning: Index {prompt_indices[i]} out of bounds"
                 )
 
             full_owl_label = (
