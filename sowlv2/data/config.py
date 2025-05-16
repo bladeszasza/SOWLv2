@@ -36,6 +36,20 @@ class SaveMaskOverlayConfig:
     out_dir: str
 
 @dataclass
+class MaskObject:
+    """
+    Stores the mask and its properties for a detected object.
+
+    Attributes:
+        mask_np (np.ndarray): The mask as a NumPy array.
+        mask_img_pil (Image.Image): The mask as a PIL image.
+        mask_file (str): Path to the saved mask file.
+    """
+    mask_np: np.ndarray
+    mask_img_pil: Image.Image
+    mask_file: str
+
+@dataclass
 class DetectionResult:
     """
     Stores the result of a single detection and segmentation.
@@ -53,9 +67,7 @@ class DetectionResult:
     box: Any
     core_prompt: str
     object_color: Tuple[int, int, int]
-    mask_np: np.ndarray
-    mask_img_pil: Image.Image
-    mask_file: str
+    mask : MaskObject
     individual_overlay_pil: Image.Image
     overlay_file: str
 

@@ -298,7 +298,7 @@ class SOWLv2Pipeline:
 
 
     def _prepare_video_context(
-        self, video_path: str, prompt: Union[str, List[str]], output_dir: str
+        self, video_path: str, prompt: Union[str, List[str]]
     ) -> VideoProcessContext | None:
         """
         Extract frames, initialize SAM state, and prepare detection context for video processing.
@@ -334,7 +334,7 @@ class SOWLv2Pipeline:
                 detection_details_for_video=detection_details_for_video,
                 updated_sam_state=updated_sam_state
             )
-        except Exception as e:
+        except (OSError, subprocess.CalledProcessError) as e:
             print(f"Error during video preparation: {e}")
             shutil.rmtree(tmp_frames_dir, ignore_errors=True)
             return None
@@ -344,7 +344,7 @@ class SOWLv2Pipeline:
         Process a single video file: detect and segment objects in the first frame,
         propagate masks through the video, and save per-frame/per-object masks and overlays.
         """
-        video_ctx = self._prepare_video_context(video_path, prompt, output_dir)
+        video_ctx = self._prepare_video_context(video_path, prompt)
         if video_ctx is None:
             print("Video preparation failed. Aborting.")
             return
