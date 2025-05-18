@@ -9,7 +9,7 @@ import argparse
 import os
 import sys
 import yaml
-from sowlv2.data.config import PipelineBaseData
+from sowlv2.data.config import PipelineBaseData, PipelineConfig
 from sowlv2.pipeline import SOWLv2Pipeline
 
 def parse_args():
@@ -51,6 +51,18 @@ def parse_args():
     parser.add_argument(
         "--device", type=str, default="cuda",
         help="PyTorch device (cpu or cuda). Default uses GPU if available."
+    )
+    parser.add_argument(
+        "--merged", type=bool, default=True,
+        help="Indicates whether the pipeline should operate in merged mode. Defaults to True."
+    )
+    parser.add_argument(
+        "--binary", type=bool, default=True,
+        help="Specifies if binary processing is enabled. Defaults to True."
+    )
+    parser.add_argument(
+        "--overlay", type=bool, default=True,
+        help="Determines if overlay functionality is active. Defaults to True."
     )
     parser.add_argument(
         "--config", type=str, default=None,
@@ -100,10 +112,6 @@ def main():
     # If list has one item, pass it as str. Otherwise, pass the list.
     prompt_input = args.prompt[0] if len(args.prompt) == 1 else args.prompt
 
-    owl_model = args.owl_model
-    sam_model = args.sam_model
-    threshold = args.threshold
-    fps = args.fps
     # Determine device
     device_choice = args.device
     if device_choice == "cuda" and hasattr(__import__("torch"), 'cuda') and \
@@ -114,13 +122,20 @@ def main():
         if device_choice == "cuda":
             print("CUDA selected, but not available. Falling back to CPU.")
 
+    # PipelineConfig options from CLI/config, with defaults
+
+    pipeline_config = PipelineConfig(merged=getattr(args, "merged", True),
+                                    binary = getattr(args, "binary", True),
+                                    overlay = getattr(args, "overlay", True))
+
     config = PipelineBaseData(
-                owl_model=owl_model,
-                sam_model=sam_model,
-                threshold=threshold,
-                fps=fps,
-                device=device
-            )
+        owl_model=args.owl_model,
+        sam_model=args.sam_model,
+        threshold=args.threshold,
+        fps=args.fps,
+        device=device,
+        pipeline_config=pipeline_config
+    )
     pipeline = SOWLv2Pipeline(config=config)
 
     # Create output directory

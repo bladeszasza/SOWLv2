@@ -7,6 +7,19 @@ import numpy as np
 from PIL import Image
 
 @dataclass
+class PipelineConfig:
+    """
+    Configuration class for pipeline settings.
+    Attributes:
+        merged (bool): Indicates whether the pipeline should operate in merged mode.
+        binary (bool): Specifies if binary processing is enabled.
+        overlay (bool): Determines if overlay functionality is active.
+    """
+    merged: bool
+    binary: bool
+    overlay: bool
+
+@dataclass
 class PipelineBaseData:
     """
     Stores all core configuration parameters for initializing and running the SOWLv2 pipeline.
@@ -16,6 +29,8 @@ class PipelineBaseData:
     threshold: float
     fps: int
     device: str
+    pipeline_config: PipelineConfig
+
 
 @dataclass
 class SaveMaskOverlayConfig:
