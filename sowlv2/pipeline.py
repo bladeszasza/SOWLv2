@@ -190,6 +190,18 @@ class SOWLv2Pipeline:
             output_dir=output_dir
         )
 
+    def process_frames(self, folder_path: str, prompt: Union[str, List[str]], output_dir: str):
+        """
+        Process all images in a folder as frames.
+        """
+        files = sorted(os.listdir(folder_path))
+        for fname in files:
+            infile = os.path.join(folder_path, fname)
+            ext = os.path.splitext(fname)[1].lower()
+            if ext not in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"]:
+                continue
+            self.process_image(infile, prompt, output_dir)
+
     def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
         Detect and segment objects in a video, propagate masks,
@@ -280,7 +292,6 @@ class SOWLv2Pipeline:
                     f"{core_prompt_str.replace(' ','_')}_overlay.png"
                 )
                 overlay_pil_img.save(os.path.join(frame_output.output_dir, overlay_filename))
-
 
     def _prepare_video_context(
         self, video_path: str, prompt: Union[str, List[str]]
