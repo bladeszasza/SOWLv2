@@ -48,14 +48,15 @@ class SOWLv2Pipeline:
             config (PipelineBaseData, optional): Pipeline configuration. Uses defaults if None.
         """
         if config is None:
-            from sowlv2.data.config import 
             config = PipelineBaseData(
                 owl_model="google/owlv2-base-patch16-ensemble",
                 sam_model="facebook/sam2.1-hiera-small",
                 threshold=0.1,
                 fps=24,
                 device="cuda",
-                pipeline_config=PipelineConfig()
+                pipeline_config=PipelineConfig(merged=True,
+                                               binary=True,
+                                               overlay=True)
             )
         self.config = config
         self.owl = OWLV2Wrapper(model_name=self.config.owl_model, device=self.config.device)
