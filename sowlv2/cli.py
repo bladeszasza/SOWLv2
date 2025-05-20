@@ -53,16 +53,16 @@ def parse_args():
         help="PyTorch device (cpu or cuda). Default uses GPU if available."
     )
     parser.add_argument(
-        "--merged", type=bool, default=True,
-        help="Indicates whether the pipeline should operate in merged mode. Defaults to True."
+        "--no-merged", dest="merged", action="store_false",
+        help="Disables merged mode (enabled by default)."
     )
     parser.add_argument(
-        "--binary", type=bool, default=True,
-        help="Specifies if binary processing is enabled. Defaults to True."
+        "--no-binary", dest="binary", action="store_false",
+        help="Disables binary processing (enabled by default)."
     )
     parser.add_argument(
-        "--overlay", type=bool, default=True,
-        help="Determines if overlay functionality is active. Defaults to True."
+        "--no-overlay", dest="overlay", action="store_false",
+        help="Disables overlay functionality (enabled by default)."
     )
     parser.add_argument(
         "--config", type=str, default=None,
@@ -124,9 +124,9 @@ def main():
 
     # PipelineConfig options from CLI/config, with defaults
 
-    pipeline_config = PipelineConfig(merged=getattr(args, "merged", True),
-                                    binary = getattr(args, "binary", True),
-                                    overlay = getattr(args, "overlay", True))
+    pipeline_config = PipelineConfig(merged = args.merged,
+                                    binary = args.binary,
+                                    overlay = args.overlay)
 
     config = PipelineBaseData(
         owl_model=args.owl_model,
