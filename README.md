@@ -23,7 +23,7 @@ TL;DR: SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2 -->
   <br>
 </p>
 
-SOWLv2 (**S**egmented**OWLv2**) is a powerful command-line tool for **text-prompted object segmentation**. It seamlessly integrates Google’s [OWLv2](https://huggingface.co/docs/transformers/en/model_doc/owlv2) open-vocabulary object detector with Meta’s [SAM 2](https://github.com/facebookresearch/sam2) (Segment Anything Model V2) to precisely segment objects in images, image sequences (frames), or videos based on natural language descriptions.
+SOWLv2 (**S**egmented**OWLv2**) is a powerful command-line tool for **text-prompted object segmentation**. It seamlessly integrates Google's [OWLv2](https://huggingface.co/docs/transformers/en/model_doc/owlv2) open-vocabulary object detector with Meta's [SAM 2](https://github.com/facebookresearch/sam2) (Segment Anything Model V2) to precisely segment objects in images, image sequences (frames), or videos based on natural language descriptions.
 
 Given one or more text prompts (e.g., `"a red bicycle"`, or `"cat" "dog"`) and an input source, SOWLv2 will:
 1.  Utilize **OWLv2** to detect bounding boxes for objects matching the text prompt(s), based on the principles from the paper [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683).
@@ -98,6 +98,9 @@ Note: If a single prompt contains spaces, it should be enclosed in quotes (e.g.,
 | `--threshold`   | (Optional) Detection confidence threshold for OWLv2 (a float between 0 and 1).                                                     | `0.1`                                |
 | `--fps`         | (Optional) Frame sampling rate (frames per second) for video inputs.                                                               | `24`                                 |
 | `--device`      | (Optional) Compute device (`"cuda"` or `"cpu"`).                                                                                     | Auto-detects GPU, else `cpu`         |
+| `--no-merged`   | (Optional) Disables merged mode. Merged mode (where all masks are combined into a single output [image/video] ) is enabled by default.                   | Enabled                              |
+| `--no-binary`   | (Optional) Disables binary mask generation. Binary mask output is enabled by default.                                                  | Enabled                              |
+| `--no-overlay`  | (Optional) Disables overlay image generation. Overlay image output (original image with masks) is enabled by default.                  | Enabled                              |
 | `--config`      | (Optional) Path to a YAML configuration file to specify arguments (see [Configuration](#configuration)). Prompts can also be a list in YAML. | `None`                               |
 
 ### Examples:
@@ -177,7 +180,7 @@ SOWLv2 follows a two-stage pipeline:
 SOWLv2 relies on the following major Python packages:
 *   `torch` (PyTorch)
 *   `transformers` (for OWLv2 models)
-*   `sam2` (Meta’s SAM 2 package)
+*   `sam2` (Meta's SAM 2 package)
 *   `opencv-python` (for image and video processing)
 *   `numpy`, `Pillow`, `pyyaml`, `huggingface_hub`
 
