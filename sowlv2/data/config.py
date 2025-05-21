@@ -164,3 +164,49 @@ class VideoProcessContext:
     first_pil_img: Image.Image
     detection_details_for_video: List[Dict[str, Any]]
     updated_sam_state: Any
+
+@dataclass
+class VideoDirectories:
+    """
+    Data class to store video processing directory paths.
+    """
+    temp_dir: str
+    temp_binary: str
+    temp_binary_merged: str
+    temp_overlay: str
+    temp_overlay_merged: str
+    temp_video: str
+    temp_video_binary: str
+    temp_video_overlay: str
+
+@dataclass
+class VideoProcessOptions:
+    """
+    Data class to store video processing options and flags.
+    """
+    binary: bool
+    overlay: bool
+    merged: bool
+    fps: int
+
+@dataclass
+class MergedFrameItems:
+    """
+    Data class to store items for merged frame processing.
+    """
+    binary_items: List[np.ndarray]  # Store binary masks
+    overlay_items: List[Tuple[np.ndarray, Tuple[int, int, int]]]  # Store (mask, color) pairs
+
+@dataclass
+class ObjectMaskProcessData:
+    """
+    Data class to store parameters for processing object masks.
+    """
+    mask_for_obj: Any
+    sam_id: int
+    core_prompt_str: str
+    object_color: Tuple[int, int, int]
+    frame_num: int
+    pil_image: Image.Image
+    dirs: Dict[str, str]
+    merged_items: MergedFrameItems

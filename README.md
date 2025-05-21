@@ -133,22 +133,26 @@ The tool saves results in the specified output directory with the following stru
 
 ```
 output_dir/
-├── binary/                    # Binary mask images
-│   ├── merged/               # Merged binary masks (when --merged is enabled)
-│   └── [individual masks]    # Individual binary masks per object
-├── overlay/                   # Overlay images
-│   ├── merged/               # Merged overlays (when --merged is enabled)
-│   └── [individual overlays] # Individual overlays per object
-└── video/                    # Generated videos (for video input)
-    ├── [mask videos]         # Videos of binary masks
-    └── [overlay videos]      # Videos of overlays
+├── binary/                  # Binary mask images
+│   ├── merged/             # Merged binary masks (all objects combined)
+│   └── [per-object]/       # Individual binary masks per object
+├── overlay/                # RGB overlay images
+│   ├── merged/            # Merged overlays (all objects combined)
+│   └── [per-object]/      # Individual overlays per object
+└── video/                 # Generated videos
+    ├── binary/            # Binary mask videos
+    │   ├── merged.mp4     # Merged binary mask video
+    │   └── [per-object].mp4
+    └── overlay/           # Overlay videos
+        ├── merged.mp4     # Merged overlay video
+        └── [per-object].mp4
 ```
 
 For each detected object instance (corresponding to any of the given prompts), SOWLv2 generates:
 *   A **binary mask** image (e.g., `imagename_object0_mask.png`): Grayscale PNG where foreground pixels are white (255) and background pixels are black (0). The filename includes a sequential object ID.
 *   An **overlay image** (e.g., `imagename_object0_overlay.png`): The original image with the segmentation mask overlaid (typically colored with transparency).
 
-Objects are numbered sequentially (e.g., `object0`, `object1`) in the order they are detected by OWLv2, regardless of which text prompt they matched. For video inputs, output filenames will also include frame identifiers, and separate videos for each object's masks and overlays will be generated (e.g., `obj0_mask_video.mp4`, `obj0_overlay_video.mp4`).
+Objects are numbered sequentially (e.g., `obj1`, `obj2`) in the order they are detected by OWLv2, regardless of which text prompt they matched. For video inputs, output filenames include frame identifiers, and separate videos for each object's masks and overlays are generated (e.g., `1_mask.mp4`, `1_overlay.mp4`).
 
 SOWLv2 automatically assigns a unique color to each detected OWLv2 label, making it easy to visually distinguish different object classes in the output overlays and merged results.
 
