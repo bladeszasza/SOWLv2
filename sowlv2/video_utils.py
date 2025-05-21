@@ -3,7 +3,7 @@ Utilities for video processing, such as converting image frames to video
 and generating per-object mask/overlay videos.
 """
 import os
-from glob import glob
+import glob
 import re
 from typing import List, Dict
 import cv2  # pylint: disable=import-error
