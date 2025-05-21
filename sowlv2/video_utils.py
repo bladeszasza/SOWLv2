@@ -108,34 +108,38 @@ def _get_obj_files(output_dir, sam_id_token, core_prompt_slug):
     """
     if core_prompt_slug:
         mask_pattern = os.path.join(
-            output_dir, f"*_{sam_id_token}_{core_prompt_slug}_mask.png")
+            output_dir, "binary", f"*_{sam_id_token}_{core_prompt_slug}_mask.png")
         overlay_pattern = os.path.join(
-            output_dir, f"*_{sam_id_token}_{core_prompt_slug}_overlay.png")
+            output_dir, "overlay", f"*_{sam_id_token}_{core_prompt_slug}_overlay.png")
         video_prefix = f"{sam_id_token}_{core_prompt_slug}"
     else:
-        mask_pattern = os.path.join(output_dir, f"*_{sam_id_token}_mask.png")
-        overlay_pattern = os.path.join(output_dir, f"*_{sam_id_token}_overlay.png")
+        mask_pattern = os.path.join(output_dir, "binary", f"*_{sam_id_token}_mask.png")
+        overlay_pattern = os.path.join(output_dir, "overlay", f"*_{sam_id_token}_overlay.png")
         video_prefix = sam_id_token
     mask_files = sorted(glob(mask_pattern))
     overlay_files = sorted(glob(overlay_pattern))
     return mask_files, overlay_files, video_prefix
 
-def generate_per_object_videos(output_dir, fps=30):
+def generate_per_object_videos(output_dir, fps=30, video_dir=None):
     """
     Generate per-object videos from mask and overlay images.
     Each object (identified by sam_id and core_prompt) will have its own
     video for masks and overlays.
     """
-    all_mask_files_pattern = os.path.join(output_dir, "*_mask.png")
+    if video_dir is None:
+        video_dir = os.path.join(output_dir, "video")
+    os.makedirs(video_dir, exist_ok=True)
+
+    all_mask_files_pattern = os.path.join(output_dir, "binary", "*_mask.png")
     all_mask_files = sorted(glob(all_mask_files_pattern))
 
     if not all_mask_files:
-        print(f"No mask files found in {output_dir} matching pattern.")
+        print(f"No mask files found in {output_dir}/binary matching pattern.")
         return
 
     unique_tracked_objects = _collect_unique_tracked_objects(all_mask_files)
     if not unique_tracked_objects:
-        print(f"No objects successfully parsed from filenames in {output_dir}.")
+        print(f"No objects successfully parsed from filenames in {output_dir}/binary.")
         return
 
     for key in sorted(unique_tracked_objects.keys()):
@@ -147,8 +151,8 @@ def generate_per_object_videos(output_dir, fps=30):
             output_dir, sam_id_token, core_prompt_slug
         )
 
-        mask_video_path = os.path.join(output_dir, f"{video_file_prefix}_mask_video.mp4")
-        overlay_video_path = os.path.join(output_dir, f"{video_file_prefix}_overlay_video.mp4")
+        mask_video_path = os.path.join(video_dir, f"{video_file_prefix}_mask_video.mp4")
+        overlay_video_path = os.path.join(video_dir, f"{video_file_prefix}_overlay_video.mp4")
 
         images_to_video(mask_files, mask_video_path, fps)
         images_to_video(overlay_files, overlay_video_path, fps)

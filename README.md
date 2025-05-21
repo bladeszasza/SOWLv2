@@ -129,7 +129,22 @@ Note: If a single prompt contains spaces, it should be enclosed in quotes (e.g.,
 
 ### Output Structure:
 
-The tool saves results in the specified output directory. For each detected object instance (corresponding to any of the given prompts), SOWLv2 generates:
+The tool saves results in the specified output directory with the following structure:
+
+```
+output_dir/
+├── binary/                    # Binary mask images
+│   ├── merged/               # Merged binary masks (when --merged is enabled)
+│   └── [individual masks]    # Individual binary masks per object
+├── overlay/                   # Overlay images
+│   ├── merged/               # Merged overlays (when --merged is enabled)
+│   └── [individual overlays] # Individual overlays per object
+└── video/                    # Generated videos (for video input)
+    ├── [mask videos]         # Videos of binary masks
+    └── [overlay videos]      # Videos of overlays
+```
+
+For each detected object instance (corresponding to any of the given prompts), SOWLv2 generates:
 *   A **binary mask** image (e.g., `imagename_object0_mask.png`): Grayscale PNG where foreground pixels are white (255) and background pixels are black (0). The filename includes a sequential object ID.
 *   An **overlay image** (e.g., `imagename_object0_overlay.png`): The original image with the segmentation mask overlaid (typically colored with transparency).
 

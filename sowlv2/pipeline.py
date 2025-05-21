@@ -100,11 +100,17 @@ class SOWLv2Pipeline:
             print(f"SAM2 failed to segment object {single_detection.obj_idx} ({core_prompt}).")
             return None
 
+        # Create output subdirectories
+        binary_dir = os.path.join(single_detection.output_dir, "binary")
+        overlay_dir = os.path.join(single_detection.output_dir, "overlay")
+        os.makedirs(binary_dir, exist_ok=True)
+        os.makedirs(overlay_dir, exist_ok=True)
+
         # Save binary mask if enabled
         if self.config.pipeline_config.binary:
             mask_img_pil = Image.fromarray(mask_np * 255).convert("L")
             mask_file = os.path.join(
-                single_detection.output_dir,
+                binary_dir,
                 f"{single_detection.base_name}_{core_prompt.replace(' ','_')}_"
                 f"{single_detection.obj_idx}_mask.png"
             )
@@ -115,7 +121,7 @@ class SOWLv2Pipeline:
             individual_overlay_pil = self._create_overlay(
                 single_detection.pil_image, mask_np > 0, color=object_color)
             overlay_file = os.path.join(
-                single_detection.output_dir,
+                overlay_dir,
                 f"{single_detection.base_name}_{core_prompt.replace(' ','_')}_"
                 f"{single_detection.obj_idx}_overlay.png"
             )
@@ -136,6 +142,22 @@ class SOWLv2Pipeline:
         if not self.config.pipeline_config.merged or not items_for_merge:
             return
 
+        # Create merged subdirectories
+        binary_merged_dir = os.path.join(output_dir, "binary", "merged")
+        overlay_merged_dir = os.path.join(output_dir, "overlay", "merged")
+        os.makedirs(binary_merged_dir, exist_ok=True)
+        os.makedirs(overlay_merged_dir, exist_ok=True)
+
+        # Create merged binary mask
+        if self.config.pipeline_config.binary:
+            merged_mask = np.zeros_like(items_for_merge[0].mask, dtype=np.uint8)
+            for item in items_for_merge:
+                merged_mask = np.logical_or(merged_mask, item.mask)
+            merged_mask_pil = Image.fromarray(merged_mask * 255).convert("L")
+            merged_mask_file = os.path.join(binary_merged_dir, f"{base_name}_merged_mask.png")
+            merged_mask_pil.save(merged_mask_file)
+
+        # Create merged overlay
         merged_overlay_pil = original_pil_image.copy()
         for item in items_for_merge:
             current_image_np = np.array(merged_overlay_pil)
@@ -149,7 +171,8 @@ class SOWLv2Pipeline:
                 0.5 * current_image_np[bool_mask_np] + 0.5 * color_np
             ).astype(np.uint8)
             merged_overlay_pil = Image.fromarray(current_image_np)
-        merged_overlay_file = os.path.join(output_dir, f"{base_name}_merged_overlay.png")
+        
+        merged_overlay_file = os.path.join(overlay_merged_dir, f"{base_name}_merged_overlay.png")
         merged_overlay_pil.save(merged_overlay_file)
         print(f"Saved merged overlay: {merged_overlay_file}")
 
@@ -237,7 +260,10 @@ class SOWLv2Pipeline:
 
             # Only generate merged videos if enabled
             if self.config.pipeline_config.merged:
-                video_utils.generate_per_object_videos(output_dir, fps=self.config.fps)
+                # Create video directory
+                video_dir = os.path.join(output_dir, "video")
+                os.makedirs(video_dir, exist_ok=True)
+                video_utils.generate_per_object_videos(output_dir, fps=self.config.fps, video_dir=video_dir)
 
         finally:
             shutil.rmtree(video_ctx.tmp_frames_dir, ignore_errors=True)
@@ -255,6 +281,12 @@ class SOWLv2Pipeline:
             sam_obj_ids_list = frame_output.sam_obj_ids_tensor.cpu().numpy().tolist()
         else:
             sam_obj_ids_list = list(frame_output.sam_obj_ids_tensor)
+
+        # Create output subdirectories
+        binary_dir = os.path.join(frame_output.output_dir, "binary")
+        overlay_dir = os.path.join(frame_output.output_dir, "overlay")
+        os.makedirs(binary_dir, exist_ok=True)
+        os.makedirs(overlay_dir, exist_ok=True)
 
         for i, sam_id in enumerate(sam_obj_ids_list):
             detail = next(
@@ -280,7 +312,7 @@ class SOWLv2Pipeline:
                     f"{frame_output.frame_num:06d}_obj{sam_id}_"
                     f"{core_prompt_str.replace(' ','_')}_mask.png"
                 )
-                mask_pil_img.save(os.path.join(frame_output.output_dir, mask_filename))
+                mask_pil_img.save(os.path.join(binary_dir, mask_filename))
 
             # Only save overlay if enabled
             if self.config.pipeline_config.overlay:
@@ -291,7 +323,7 @@ class SOWLv2Pipeline:
                     f"{frame_output.frame_num:06d}_obj{sam_id}_"
                     f"{core_prompt_str.replace(' ','_')}_overlay.png"
                 )
-                overlay_pil_img.save(os.path.join(frame_output.output_dir, overlay_filename))
+                overlay_pil_img.save(os.path.join(overlay_dir, overlay_filename))
 
     def _prepare_video_context(
         self, video_path: str, prompt: Union[str, List[str]]
