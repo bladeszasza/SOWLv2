@@ -18,7 +18,7 @@ from sowlv2.data.config import (
     SingleDetectionInput, VideoProcessContext, PipelineConfig,
     VideoProcessOptions, VideoDirectories, MergedFrameItems, ObjectMaskProcessData,
     TempBinaryPaths, TempOverlayPaths, TempVideoOutputPaths, ObjectContext,
-    SaveOutputsConfig
+    SaveOutputsConfig, ProcessSingleObjectConfig
 )
 
 # Disable no-member for cv2 (OpenCV) for the whole file
@@ -163,33 +163,60 @@ class SOWLv2Pipeline:
         os.makedirs(binary_merged_dir, exist_ok=True)
         os.makedirs(overlay_merged_dir, exist_ok=True)
 
-        # Create merged binary mask
+        # Create and save merged binary mask
         if self.config.pipeline_config.binary:
-            merged_mask = np.zeros_like(items_for_merge[0].mask, dtype=np.uint8)
-            for item in items_for_merge:
-                merged_mask = np.logical_or(merged_mask, item.mask)
-            merged_mask_pil = Image.fromarray(merged_mask * 255).convert("L")
-            merged_mask_file = os.path.join(binary_merged_dir, f"{base_name}_merged_mask.png")
-            merged_mask_pil.save(merged_mask_file)
+            self._create_merged_binary_mask(items_for_merge, binary_merged_dir, base_name)
 
-        # Create merged overlay
+        # Create and save merged overlay
+        if self.config.pipeline_config.overlay:
+            self._create_merged_overlay_image(
+                original_pil_image, items_for_merge, overlay_merged_dir, base_name
+            )
+
+    def _create_merged_binary_mask(
+        self,
+        items_for_merge: List[MergedOverlayItem],
+        binary_merged_dir: str,
+        base_name: str
+    ):
+        """Create and save a merged binary mask from multiple items."""
+        merged_mask = np.zeros_like(items_for_merge[0].mask, dtype=np.uint8)
+        for item in items_for_merge:
+            merged_mask = np.logical_or(merged_mask, item.mask)
+        merged_mask_pil = Image.fromarray(merged_mask * 255).convert("L")
+        merged_mask_file = os.path.join(binary_merged_dir, f"{base_name}_merged_mask.png")
+        merged_mask_pil.save(merged_mask_file)
+
+    def _create_merged_overlay_image(
+        self,
+        original_pil_image: Image.Image,
+        items_for_merge: List[MergedOverlayItem],
+        overlay_merged_dir: str,
+        base_name: str
+    ):
+        """Create and save a merged overlay image from multiple items."""
         merged_overlay_pil = original_pil_image.copy()
         for item in items_for_merge:
-            current_image_np = np.array(merged_overlay_pil)
-            bool_mask_np = item.mask
-            color_np = np.array(item.color, dtype=np.uint8)
-            if current_image_np.ndim == 2:
-                current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_GRAY2RGB)
-            elif current_image_np.ndim == 3 and current_image_np.shape[2] == 4:
-                current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_RGBA2RGB)
-            current_image_np[bool_mask_np] = (
-                0.5 * current_image_np[bool_mask_np] + 0.5 * color_np
-            ).astype(np.uint8)
-            merged_overlay_pil = Image.fromarray(current_image_np)
+            merged_overlay_pil = self._blend_overlay_item(merged_overlay_pil, item)
 
         merged_overlay_file = os.path.join(overlay_merged_dir, f"{base_name}_merged_overlay.png")
         merged_overlay_pil.save(merged_overlay_file)
         print(f"Saved merged overlay: {merged_overlay_file}")
+
+    def _blend_overlay_item(self, overlay_pil: Image.Image, item: MergedOverlayItem) -> Image.Image:
+        """Blend a single overlay item into the existing overlay image."""
+        current_image_np = np.array(overlay_pil)
+        color_np = np.array(item.color, dtype=np.uint8)
+
+        if current_image_np.ndim == 2:
+            current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_GRAY2RGB)
+        elif current_image_np.ndim == 3 and current_image_np.shape[2] == 4:
+            current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_RGBA2RGB)
+
+        current_image_np[item.mask] = (
+            0.5 * current_image_np[item.mask] + 0.5 * color_np
+        ).astype(np.uint8)
+        return Image.fromarray(current_image_np)
 
     def process_image(self, image_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
@@ -375,9 +402,14 @@ class SOWLv2Pipeline:
 
         # Process each object in the frame
         for i, sam_id in enumerate(sam_obj_ids_list):
-            self._process_single_object(
-                frame_output, sam_id, i, dirs_frame_output, merged_items
+            config = ProcessSingleObjectConfig(
+                frame_output=frame_output,
+                sam_id=sam_id,
+                obj_idx=i,
+                dirs_frame_output=dirs_frame_output,
+                merged_items=merged_items
             )
+            self._process_single_object(config)
 
         # Create and save merged outputs if enabled
         if self.config.pipeline_config.merged:
@@ -398,32 +430,28 @@ class SOWLv2Pipeline:
 
     def _process_single_object(
         self,
-        frame_output: PropagatedFrameOutput,
-        sam_id: int,
-        obj_idx: int,
-        dirs_frame_output: Dict[str, str],
-        merged_items: MergedFrameItems
+        config: ProcessSingleObjectConfig
     ):
         """
         Process a single object in the frame.
         """
         object_color, core_prompt_str = self._get_object_details(
-            sam_id, frame_output.detection_details_map, frame_output.frame_num
+            config.sam_id, config.frame_output.detection_details_map, config.frame_output.frame_num
         )
 
         obj_ctx = ObjectContext(
-            sam_id=sam_id,
+            sam_id=config.sam_id,
             core_prompt_str=core_prompt_str,
             object_color=object_color
         )
 
         process_data = ObjectMaskProcessData(
-            mask_for_obj=frame_output.mask_logits_tensor[obj_idx],
+            mask_for_obj=config.frame_output.mask_logits_tensor[config.obj_idx],
             obj_ctx=obj_ctx,
-            frame_num=frame_output.frame_num,
-            pil_image=frame_output.current_pil_img,
-            dirs=dirs_frame_output,
-            merged_items=merged_items
+            frame_num=config.frame_output.frame_num,
+            pil_image=config.frame_output.current_pil_img,
+            dirs=config.dirs_frame_output,
+            merged_items=config.merged_items
         )
         _ = self._process_object_mask(process_data)
 

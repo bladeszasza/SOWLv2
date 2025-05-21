@@ -241,3 +241,12 @@ class SaveOutputsConfig:
     mask_np: np.ndarray
     pil_image: Image.Image
     object_color: Tuple[int, int, int]
+
+@dataclass
+class ProcessSingleObjectConfig:
+    """Configuration for processing a single object in a frame."""
+    frame_output: PropagatedFrameOutput
+    sam_id: int
+    obj_idx: int
+    dirs_frame_output: Dict[str, str]
+    merged_items: MergedFrameItems
