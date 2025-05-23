@@ -164,14 +164,12 @@ class SOWLv2Pipeline:
         os.makedirs(overlay_merged_dir, exist_ok=True)
 
         # Create and save merged binary mask
-        if self.config.pipeline_config.binary:
-            self._create_merged_binary_mask(items_for_merge, binary_merged_dir, base_name)
+        self._create_merged_binary_mask(items_for_merge, binary_merged_dir, base_name)
 
         # Create and save merged overlay
-        if self.config.pipeline_config.overlay:
-            self._create_merged_overlay_image(
-                original_pil_image, items_for_merge, overlay_merged_dir, base_name
-            )
+        self._create_merged_overlay_image(
+            original_pil_image, items_for_merge, overlay_merged_dir, base_name
+        )
 
     def _create_merged_binary_mask(
         self,
@@ -180,12 +178,21 @@ class SOWLv2Pipeline:
         base_name: str
     ):
         """Create and save a merged binary mask from multiple items."""
+        if not items_for_merge:
+            return
+
+        # Initialize with the shape of the first mask but ensure uint8 type
         merged_mask = np.zeros_like(items_for_merge[0].mask, dtype=np.uint8)
         for item in items_for_merge:
-            merged_mask = np.logical_or(merged_mask, item.mask)
+            # Ensure mask is boolean before logical operation
+            bool_mask = item.mask.astype(bool)
+            merged_mask = np.logical_or(merged_mask, bool_mask).astype(np.uint8)
+
+        # Convert to PIL image and save
         merged_mask_pil = Image.fromarray(merged_mask * 255).convert("L")
         merged_mask_file = os.path.join(binary_merged_dir, f"{base_name}_merged_mask.png")
         merged_mask_pil.save(merged_mask_file)
+        print(f"Saved merged binary mask: {merged_mask_file}")
 
     def _create_merged_overlay_image(
         self,
