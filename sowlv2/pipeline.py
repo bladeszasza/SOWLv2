@@ -556,15 +556,20 @@ class SOWLv2Pipeline:
         """
         # Create merged binary mask
         if merged_items.binary_items and self.config.pipeline_config.binary:
+            # Initialize with the shape of the first mask but ensure uint8 type
             merged_mask = np.zeros_like(merged_items.binary_items[0], dtype=np.uint8)
             for mask in merged_items.binary_items:
-                merged_mask = np.logical_or(merged_mask, mask)
+                # Ensure mask is boolean before logical operation
+                bool_mask = mask.astype(bool)
+                merged_mask = np.logical_or(merged_mask, bool_mask).astype(np.uint8)
+
             merged_mask_pil = Image.fromarray(merged_mask * 255).convert("L")
             merged_mask_file = os.path.join(
                 dirs["binary_merged"],
                 f"{frame_num:06d}_merged_mask.png"
             )
             merged_mask_pil.save(merged_mask_file)
+            print(f"Saved merged binary mask for frame {frame_num}")
 
         # Create merged overlay
         if merged_items.overlay_items and self.config.pipeline_config.overlay:
@@ -576,8 +581,10 @@ class SOWLv2Pipeline:
                     current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_GRAY2RGB)
                 elif current_image_np.ndim == 3 and current_image_np.shape[2] == 4:
                     current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_RGBA2RGB)
-                current_image_np[mask] = (
-                    0.5 * current_image_np[mask] + 0.5 * color_np
+                # Ensure mask is boolean before indexing
+                bool_mask = mask.astype(bool)
+                current_image_np[bool_mask] = (
+                    0.5 * current_image_np[bool_mask] + 0.5 * color_np
                 ).astype(np.uint8)
                 merged_overlay_pil = Image.fromarray(current_image_np)
 
@@ -586,6 +593,7 @@ class SOWLv2Pipeline:
                 f"{frame_num:06d}_merged_overlay.png"
             )
             merged_overlay_pil.save(merged_overlay_file)
+            print(f"Saved merged overlay for frame {frame_num}")
 
     def _prepare_video_context(
         self, video_path: str, prompt: Union[str, List[str]]
