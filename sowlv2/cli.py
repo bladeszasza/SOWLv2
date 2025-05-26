@@ -124,9 +124,9 @@ def main():
 
     # PipelineConfig options from CLI/config, with defaults
 
-    pipeline_config = PipelineConfig(merged = args.merged,
-                                    binary = args.binary,
-                                    overlay = args.overlay)
+    pipeline_config = PipelineConfig(merged=args.merged,
+                                    binary=args.binary,
+                                    overlay=args.overlay)
 
     config = PipelineBaseData(
         owl_model=args.owl_model,
