@@ -375,25 +375,27 @@ class SOWLv2Pipeline:
                                    options: VideoProcessOptions):
         """
         Move requested outputs from temp directory to final output directory.
+        Always processes merged outputs but only copies requested outputs.
         """
         # Create final output directories
         final_binary = os.path.join(output_dir, "binary")
         final_overlay = os.path.join(output_dir, "overlay")
         final_video = os.path.join(output_dir, "video")
 
+        # Only move requested outputs to final directory
         if options.binary:
             os.makedirs(final_binary, exist_ok=True)
             shutil.move(dirs.binary.path, final_binary)
-            if options.merged:
-                os.makedirs(os.path.join(final_video, "binary"), exist_ok=True)
-                shutil.move(dirs.video.binary_path, os.path.join(final_video, "binary"))
 
         if options.overlay:
             os.makedirs(final_overlay, exist_ok=True)
             shutil.move(dirs.overlay.path, final_overlay)
-            if options.merged:
-                os.makedirs(os.path.join(final_video, "overlay"), exist_ok=True)
-                shutil.move(dirs.video.overlay_path, os.path.join(final_video, "overlay"))
+
+        if options.merged:
+            os.makedirs(os.path.join(final_video, "overlay"), exist_ok=True)
+            shutil.move(dirs.video.overlay_path, os.path.join(final_video, "overlay"))
+            os.makedirs(os.path.join(final_video, "binary"), exist_ok=True)
+            shutil.move(dirs.video.binary_path, os.path.join(final_video, "binary"))
 
     def _process_propagated_frame_output(
         self,
