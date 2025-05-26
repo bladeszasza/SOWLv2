@@ -377,24 +377,35 @@ class SOWLv2Pipeline:
         Always copies merged videos to output directory.
         """
         # Create final output directories
-        final_binary = os.path.join(output_dir, "binary")
-        final_overlay = os.path.join(output_dir, "overlay")
-        final_video = os.path.join(output_dir, "video")
+        final_binary_frames = os.path.join(output_dir, "binary", "frames")
+        final_binary_merged = os.path.join(output_dir, "binary", "merged")
+        final_overlay_frames = os.path.join(output_dir, "overlay", "frames")
+        final_overlay_merged = os.path.join(output_dir, "overlay", "merged")
+        final_video_overlay = os.path.join(output_dir, "video", "overlay")
+        final_video_binary = os.path.join(output_dir, "video", "binary")
 
         # Only move requested per-frame outputs to final directory
         if options.binary:
-            os.makedirs(final_binary, exist_ok=True)
-            shutil.move(dirs.binary.path, final_binary)
+            os.makedirs(final_binary_frames, exist_ok=True)
+            if os.path.exists(os.path.join(dirs.binary.path, "frames")):
+                shutil.move(os.path.join(dirs.binary.path, "frames"), final_binary_frames)
+            if options.merged and os.path.exists(os.path.join(dirs.binary.path, "merged")):
+                os.makedirs(final_binary_merged, exist_ok=True)
+                shutil.move(os.path.join(dirs.binary.path, "merged"), final_binary_merged)
 
         if options.overlay:
-            os.makedirs(final_overlay, exist_ok=True)
-            shutil.move(dirs.overlay.path, final_overlay)
+            os.makedirs(final_overlay_frames, exist_ok=True)
+            if os.path.exists(os.path.join(dirs.overlay.path, "frames")):
+                shutil.move(os.path.join(dirs.overlay.path, "frames"), final_overlay_frames)
+            if options.merged and os.path.exists(os.path.join(dirs.overlay.path, "merged")):
+                os.makedirs(final_overlay_merged, exist_ok=True)
+                shutil.move(os.path.join(dirs.overlay.path, "merged"), final_overlay_merged)
 
         # Always move merged videos to output directory
-        os.makedirs(os.path.join(final_video, "overlay"), exist_ok=True)
-        shutil.move(dirs.video.overlay_path, os.path.join(final_video, "overlay"))
-        os.makedirs(os.path.join(final_video, "binary"), exist_ok=True)
-        shutil.move(dirs.video.binary_path, os.path.join(final_video, "binary"))
+        os.makedirs(final_video_overlay, exist_ok=True)
+        shutil.move(dirs.video.overlay_path, final_video_overlay)
+        os.makedirs(final_video_binary, exist_ok=True)
+        shutil.move(dirs.video.binary_path, final_video_binary)
 
     def _process_propagated_frame_output(
         self,
@@ -467,20 +478,20 @@ class SOWLv2Pipeline:
         """
         Create output subdirectories for frame processing.
         """
-        binary_dir = os.path.join(output_dir, "binary")
-        binary_merged_dir = os.path.join(binary_dir, "merged")
-        overlay_dir = os.path.join(output_dir, "overlay")
-        overlay_merged_dir = os.path.join(overlay_dir, "merged")
+        binary_frames_dir = os.path.join(output_dir, "binary", "frames")
+        binary_merged_dir = os.path.join(output_dir, "binary", "merged")
+        overlay_frames_dir = os.path.join(output_dir, "overlay", "frames")
+        overlay_merged_dir = os.path.join(output_dir, "overlay", "merged")
 
-        os.makedirs(binary_dir, exist_ok=True)
+        os.makedirs(binary_frames_dir, exist_ok=True)
         os.makedirs(binary_merged_dir, exist_ok=True)
-        os.makedirs(overlay_dir, exist_ok=True)
+        os.makedirs(overlay_frames_dir, exist_ok=True)
         os.makedirs(overlay_merged_dir, exist_ok=True)
 
         return {
-            "binary": binary_dir,
+            "binary_frames": binary_frames_dir,
             "binary_merged": binary_merged_dir,
-            "overlay": overlay_dir,
+            "overlay_frames": overlay_frames_dir,
             "overlay_merged": overlay_merged_dir
         }
 
