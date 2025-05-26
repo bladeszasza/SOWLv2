@@ -6,6 +6,7 @@ import subprocess
 import shutil
 import tempfile
 from typing import Any, Union, List, Dict, Tuple
+import glob
 import cv2  # pylint: disable=import-error
 import numpy as np
 from PIL import Image
@@ -375,37 +376,50 @@ class SOWLv2Pipeline:
         """
         Move requested outputs from temp directory to final output directory.
         Always copies merged videos to output directory.
+        Avoid nested folders by not pre-creating destination for frames/merged.
+        Print debug info for merged output contents before video generation.
         """
-        # Create final output directories
-        final_binary_frames = os.path.join(output_dir, "binary", "frames")
-        final_binary_merged = os.path.join(output_dir, "binary", "merged")
-        final_overlay_frames = os.path.join(output_dir, "overlay", "frames")
-        final_overlay_merged = os.path.join(output_dir, "overlay", "merged")
+
+        # Define final output directories
+        final_binary_dir = os.path.join(output_dir, "binary")
+        final_overlay_dir = os.path.join(output_dir, "overlay")
         final_video_overlay = os.path.join(output_dir, "video", "overlay")
         final_video_binary = os.path.join(output_dir, "video", "binary")
 
-        # Only move requested per-frame outputs to final directory
+        # Only move requested per-frame outputs to final directory (no pre-mkdir)
         if options.binary:
-            os.makedirs(final_binary_frames, exist_ok=True)
-            if os.path.exists(os.path.join(dirs.binary.path, "frames")):
-                shutil.move(os.path.join(dirs.binary.path, "frames"), final_binary_frames)
-            if options.merged and os.path.exists(os.path.join(dirs.binary.path, "merged")):
-                os.makedirs(final_binary_merged, exist_ok=True)
-                shutil.move(os.path.join(dirs.binary.path, "merged"), final_binary_merged)
+            src_frames = os.path.join(dirs.binary.path, "frames")
+            if os.path.exists(src_frames):
+                shutil.move(src_frames, final_binary_dir)
+            if options.merged:
+                src_merged = os.path.join(dirs.binary.path, "merged")
+                if os.path.exists(src_merged):
+                    shutil.move(src_merged, final_binary_dir)
 
         if options.overlay:
-            os.makedirs(final_overlay_frames, exist_ok=True)
-            if os.path.exists(os.path.join(dirs.overlay.path, "frames")):
-                shutil.move(os.path.join(dirs.overlay.path, "frames"), final_overlay_frames)
-            if options.merged and os.path.exists(os.path.join(dirs.overlay.path, "merged")):
-                os.makedirs(final_overlay_merged, exist_ok=True)
-                shutil.move(os.path.join(dirs.overlay.path, "merged"), final_overlay_merged)
+            src_frames = os.path.join(dirs.overlay.path, "frames")
+            if os.path.exists(src_frames):
+                shutil.move(src_frames, final_overlay_dir)
+            if options.merged:
+                src_merged = os.path.join(dirs.overlay.path, "merged")
+                if os.path.exists(src_merged):
+                    shutil.move(src_merged, final_overlay_dir)
+
+        # Debug print: show contents of merged folders before video generation
+        print("[DEBUG] Contents of binary/merged in temp:",
+              glob.glob(os.path.join(dirs.binary.path, "merged", "*")))
+        print("[DEBUG] Contents of overlay/merged in temp:",
+              glob.glob(os.path.join(dirs.overlay.path, "merged", "*")))
 
         # Always move merged videos to output directory
-        os.makedirs(final_video_overlay, exist_ok=True)
-        shutil.move(dirs.video.overlay_path, final_video_overlay)
-        os.makedirs(final_video_binary, exist_ok=True)
-        shutil.move(dirs.video.binary_path, final_video_binary)
+        if os.path.exists(dirs.video.overlay_path):
+            os.makedirs(final_video_overlay, exist_ok=True)
+            for f in os.listdir(dirs.video.overlay_path):
+                shutil.move(os.path.join(dirs.video.overlay_path, f), final_video_overlay)
+        if os.path.exists(dirs.video.binary_path):
+            os.makedirs(final_video_binary, exist_ok=True)
+            for f in os.listdir(dirs.video.binary_path):
+                shutil.move(os.path.join(dirs.video.binary_path, f), final_video_binary)
 
     def _process_propagated_frame_output(
         self,
