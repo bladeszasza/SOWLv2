@@ -540,7 +540,7 @@ class SOWLv2Pipeline:
             f"{data.frame_num:06d}_obj{data.obj_ctx.sam_id}_"
             f"{data.obj_ctx.core_prompt_str.replace(' ','_')}_mask.png"
         )
-        mask_pil_img.save(os.path.join(data.dirs["binary"], mask_filename))
+        mask_pil_img.save(os.path.join(data.dirs["binary_frames"], mask_filename))
         data.merged_items.binary_items.append(mask_bool_np)
 
         # Save individual overlay
@@ -551,7 +551,7 @@ class SOWLv2Pipeline:
             f"{data.frame_num:06d}_obj{data.obj_ctx.sam_id}_"
             f"{data.obj_ctx.core_prompt_str.replace(' ','_')}_overlay.png"
         )
-        overlay_pil_img.save(os.path.join(data.dirs["overlay"], overlay_filename))
+        overlay_pil_img.save(os.path.join(data.dirs["overlay_frames"], overlay_filename))
         data.merged_items.overlay_items.append((mask_bool_np, data.obj_ctx.object_color))
 
         return mask_bool_np
