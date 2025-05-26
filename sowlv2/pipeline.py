@@ -332,19 +332,18 @@ class SOWLv2Pipeline:
                               dirs: VideoDirectories,
                               options: VideoProcessOptions):
         """
-        Process all frames in the video context and generate videos if enabled.
+        Process all frames in the video context and always generate merged videos.
         """
         self._process_all_frames(video_ctx, dirs)
         print("✅ Video frame segmentation finished")
 
-        # Second phase: Generate videos if merged mode is enabled
-        if options.merged:
-            video_utils.generate_videos(
-                temp_dir=dirs.temp_dir,
-                fps=options.fps,
-                binary=options.binary,
-                overlay=options.overlay
-            )
+        # Always generate merged videos (binary and overlay)
+        video_utils.generate_videos(
+            temp_dir=dirs.temp_dir,
+            fps=options.fps,
+            binary=True,
+            overlay=True
+        )
 
     def _process_all_frames(self, video_ctx: VideoProcessContext, dirs: VideoDirectories):
         """
@@ -375,14 +374,14 @@ class SOWLv2Pipeline:
                                    options: VideoProcessOptions):
         """
         Move requested outputs from temp directory to final output directory.
-        Always processes merged outputs but only copies requested outputs.
+        Always copies merged videos to output directory.
         """
         # Create final output directories
         final_binary = os.path.join(output_dir, "binary")
         final_overlay = os.path.join(output_dir, "overlay")
         final_video = os.path.join(output_dir, "video")
 
-        # Only move requested outputs to final directory
+        # Only move requested per-frame outputs to final directory
         if options.binary:
             os.makedirs(final_binary, exist_ok=True)
             shutil.move(dirs.binary.path, final_binary)
@@ -391,11 +390,11 @@ class SOWLv2Pipeline:
             os.makedirs(final_overlay, exist_ok=True)
             shutil.move(dirs.overlay.path, final_overlay)
 
-        if options.merged:
-            os.makedirs(os.path.join(final_video, "overlay"), exist_ok=True)
-            shutil.move(dirs.video.overlay_path, os.path.join(final_video, "overlay"))
-            os.makedirs(os.path.join(final_video, "binary"), exist_ok=True)
-            shutil.move(dirs.video.binary_path, os.path.join(final_video, "binary"))
+        # Always move merged videos to output directory
+        os.makedirs(os.path.join(final_video, "overlay"), exist_ok=True)
+        shutil.move(dirs.video.overlay_path, os.path.join(final_video, "overlay"))
+        os.makedirs(os.path.join(final_video, "binary"), exist_ok=True)
+        shutil.move(dirs.video.binary_path, os.path.join(final_video, "binary"))
 
     def _process_propagated_frame_output(
         self,
