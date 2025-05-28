@@ -36,6 +36,7 @@ class VideoTrackingConfig:
     prompt_color_map: Dict[str, Tuple[int, int, int]]
     palette: List[Tuple[int, int, int]]
     next_color_idx: int
+    fps: int
 
 @dataclass
 class VideoProcessingConfig:

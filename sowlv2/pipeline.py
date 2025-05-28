@@ -254,6 +254,17 @@ class SOWLv2Pipeline:
         items_for_merged_overlay: List[MergedOverlayItem] = []
 
         for idx, det_detail in enumerate(detections):
+            # Get mask from SAM
+            box = det_detail["box"]
+            mask = self.sam.segment(pil_image, box)
+            if mask is None:
+                print(f"SAM2 failed to segment object {idx} ({det_detail['core_prompt']}).")
+                continue
+
+            # Update detection detail with mask
+            det_detail['mask'] = mask
+            det_detail['color'] = self._get_color_for_prompt(det_detail['core_prompt'])
+
             single_detection_input = SingleDetectionInput(
                 pil_image=pil_image,
                 detection_detail=det_detail,

@@ -33,7 +33,13 @@ def process_single_detection_for_image(
 
     # Validate and process mask
     try:
-        mask = validate_mask(single_detection_input.detection_detail['mask_logits'])
+        # Get mask from detection detail
+        mask = single_detection_input.detection_detail.get('mask')
+        if mask is None:
+            print(f"Warning: No mask found for object {single_detection_input.obj_idx}")
+            return None
+
+        mask = validate_mask(mask)
         if mask is None:
             print(f"Warning: Invalid mask for object {single_detection_input.obj_idx}")
             return None
@@ -41,8 +47,10 @@ def process_single_detection_for_image(
         # Create merged item for overlay
         merged_item = MergedOverlayItem(
             mask=mask,
-            color=single_detection_input.detection_detail['color'],
-            label=single_detection_input.detection_detail['core_prompt']
+            color=single_detection_input.detection_detail.get('color', (255, 0, 0)),
+            label=single_detection_input.detection_detail.get(
+                'core_prompt',
+                f'object_{single_detection_input.obj_idx}')
         )
 
         # Save binary mask if requested
@@ -66,7 +74,7 @@ def process_single_detection_for_image(
             create_overlay(
                 single_detection_input.pil_image,
                 mask,
-                single_detection_input.detection_detail['color']
+                single_detection_input.detection_detail.get('color', (255, 0, 0))
             ).save(overlay_path)
 
         return merged_item
