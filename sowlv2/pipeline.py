@@ -18,6 +18,10 @@ from sowlv2.data.config import (
     PipelineConfig,
     SaveOutputsConfig
 )
+from sowlv2.video_pipeline import (
+    VideoTrackingConfig,
+    VideoProcessingConfig
+)
 from sowlv2.pipeline_utils import (
     DEFAULT_PALETTE, get_prompt_color, create_overlay,
     create_output_directories
@@ -292,12 +296,16 @@ class SOWLv2Pipeline:
         specific_next_color_idx = 0
 
         ctx, specific_prompt_color_map, specific_next_color_idx = prepare_video_context(
-            video_path, prompt,
-            self.owl, self.sam,
-            self.config.fps, self.config.threshold,
-            specific_prompt_color_map,
-            self.palette,
-            specific_next_color_idx
+            video_path,
+            VideoTrackingConfig(
+                prompt=prompt,
+                threshold=self.config.threshold,
+                prompt_color_map=specific_prompt_color_map,
+                palette=self.palette,
+                next_color_idx=specific_next_color_idx
+            ),
+            self.owl,
+            self.sam
         )
 
         if ctx is None:
@@ -312,11 +320,12 @@ class SOWLv2Pipeline:
                     ctx,
                     self.sam,
                     video_temp_dirs,
-                    self.config.pipeline_config,
-                    specific_prompt_color_map,
-                    self.palette,
-                    specific_next_color_idx,
-                    self.config.fps
+                    VideoProcessingConfig(
+                        pipeline_config=self.config.pipeline_config,
+                        prompt_color_map=specific_prompt_color_map,
+                        next_color_idx=specific_next_color_idx,
+                        fps=self.config.fps
+                    )
                 )
                 move_video_outputs_to_final_dir(
                     video_temp_dirs,
