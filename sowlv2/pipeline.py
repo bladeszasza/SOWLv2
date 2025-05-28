@@ -313,7 +313,8 @@ class SOWLv2Pipeline:
                 threshold=self.config.threshold,
                 prompt_color_map=specific_prompt_color_map,
                 palette=self.palette,
-                next_color_idx=specific_next_color_idx
+                next_color_idx=specific_next_color_idx,
+                fps=self.config.fps
             ),
             self.owl,
             self.sam
