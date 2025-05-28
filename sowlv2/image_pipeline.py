@@ -99,34 +99,25 @@ def create_and_save_merged_overlay(
     """
     try:
         # Create merged binary mask
-        binary_merged_path = os.path.join(
-            output_dir,
-            "binary",
-            "merged",
-            f"{frame_num:06d}.png"
-        )
+        binary_merged_dir = os.path.join(output_dir, "binary", "merged")
+        os.makedirs(binary_merged_dir, exist_ok=True)
         create_merged_binary_mask(
             [item.mask for item in items_for_merged_overlay],
-            binary_merged_path,
+            binary_merged_dir,
             f"{frame_num:06d}",
             PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
         # Create merged overlay
-        overlay_merged_path = os.path.join(
-            output_dir,
-            "overlay",
-            "merged",
-            f"{frame_num:06d}.png"
-        )
+        overlay_merged_dir = os.path.join(output_dir, "overlay", "merged")
+        os.makedirs(overlay_merged_dir, exist_ok=True)
         create_merged_overlay(
             original_image,
             [(item.mask, item.color) for item in items_for_merged_overlay],
-            overlay_merged_path,
+            overlay_merged_dir,
             f"{frame_num:06d}",
             PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
     except (IOError, OSError) as e:
         print(f"Error creating merged outputs for frame {frame_num}: {e}")
-        raise
