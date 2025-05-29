@@ -135,10 +135,10 @@ The tool saves results in the specified output directory with the following stru
 output_dir/
 ├── binary/                  # Binary mask images
 │   ├── merged/             # Merged binary masks (all objects combined)
-│   └── [per-object]/       # Individual binary masks per object
+│   └── frames/[per-object]/       # Individual binary masks per object
 ├── overlay/                # RGB overlay images
 │   ├── merged/            # Merged overlays (all objects combined)
-│   └── [per-object]/      # Individual overlays per object
+│   └── frames/[per-object]/      # Individual overlays per object
 └── video/                 # Generated videos
     ├── binary/            # Binary mask videos
     │   ├── merged.mp4     # Merged binary mask video

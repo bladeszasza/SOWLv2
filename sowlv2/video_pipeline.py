@@ -11,8 +11,7 @@ from PIL import Image
 # import torch # Not directly used here, but by SAM/frame_pipeline
 
 from sowlv2 import video_utils # For generate_videos and potentially ffmpeg calls
-from sowlv2.owl import OWLV2Wrapper # For OWLV2 detection in first frame
-from sowlv2.sam2_wrapper import SAM2Wrapper # For SAM state and propagation
+from sowlv2.models import OWLV2Wrapper, SAM2Wrapper
 from sowlv2.data.config import (
     VideoProcessContext, PipelineConfig, # VideoProcessOptions removed, use PipelineConfig
     VideoDirectories, TempBinaryPaths, TempOverlayPaths, TempVideoOutputPaths,

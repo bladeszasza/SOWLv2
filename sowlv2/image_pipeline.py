@@ -44,13 +44,18 @@ def process_single_detection_for_image(
             print(f"Warning: Invalid mask for object {single_detection_input.obj_idx}")
             return None
 
+        # Get prompt and slugify for filename
+        prompt = single_detection_input.detection_detail.get(
+            'core_prompt', f'object_{
+                single_detection_input.obj_idx}')
+        prompt_slug = prompt.replace(' ', '_')
+        idx = single_detection_input.obj_idx
+
         # Create merged item for overlay
         merged_item = MergedOverlayItem(
             mask=mask,
             color=single_detection_input.detection_detail.get('color', (255, 0, 0)),
-            label=single_detection_input.detection_detail.get(
-                'core_prompt',
-                f'object_{single_detection_input.obj_idx}')
+            label=prompt
         )
 
         # Save binary mask if requested
@@ -59,7 +64,7 @@ def process_single_detection_for_image(
                 single_detection_input.output_dir,
                 "binary",
                 "frames",
-                f"{single_detection_input.base_name}_{single_detection_input.obj_idx}.png"
+                f"{prompt_slug}_{idx}.png"
             )
             Image.fromarray(mask).save(binary_path)
 
@@ -69,7 +74,7 @@ def process_single_detection_for_image(
                 single_detection_input.output_dir,
                 "overlay",
                 "frames",
-                f"{single_detection_input.base_name}_{single_detection_input.obj_idx}.png"
+                f"{prompt_slug}_{idx}.png"
             )
             create_overlay(
                 single_detection_input.pil_image,
@@ -98,13 +103,20 @@ def create_and_save_merged_overlay(
         frame_num: Frame number
     """
     try:
+        # Use the original image name for merged outputs
+        if hasattr(original_image, 'filename') and original_image.filename:
+            orig_name = os.path.splitext(os.path.basename(original_image.filename))[0]
+        else:
+            orig_name = str(frame_num) if isinstance(frame_num, int) else str(frame_num)
+        merged_base = f"processed_{orig_name}"
+
         # Create merged binary mask
         binary_merged_dir = os.path.join(output_dir, "binary", "merged")
         os.makedirs(binary_merged_dir, exist_ok=True)
         create_merged_binary_mask(
             [item.mask for item in items_for_merged_overlay],
             binary_merged_dir,
-            f"{frame_num:06d}",
+            merged_base,
             PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
@@ -115,7 +127,7 @@ def create_and_save_merged_overlay(
             original_image,
             [(item.mask, item.color) for item in items_for_merged_overlay],
             overlay_merged_dir,
-            f"{frame_num:06d}",
+            merged_base,
             PipelineConfig(binary=True, overlay=True, merged=True)
         )
 

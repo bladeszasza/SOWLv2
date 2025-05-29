@@ -9,8 +9,7 @@ import numpy as np
 import cv2  # pylint: disable=import-error
 from PIL import Image
 
-from sowlv2.owl import OWLV2Wrapper
-from sowlv2.sam2_wrapper import SAM2Wrapper
+from sowlv2.models import OWLV2Wrapper, SAM2Wrapper
 from sowlv2.data.config import (
     PipelineBaseData,
     MergedOverlayItem,
