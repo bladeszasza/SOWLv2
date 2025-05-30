@@ -8,7 +8,7 @@ from sowlv2.data.config import (
     PropagatedFrameOutput, PipelineConfig,
     MergedOverlayItem, SingleDetectionInput
 )
-from sowlv2.pipeline_utils import (
+from sowlv2.utils.pipeline_utils import (
     create_output_directories
 )
 from sowlv2.image_pipeline import (

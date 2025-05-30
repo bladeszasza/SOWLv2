@@ -18,7 +18,7 @@ from sowlv2.video_pipeline import (
     VideoTrackingConfig,
     VideoProcessingConfig
 )
-from sowlv2.pipeline_utils import (
+from sowlv2.utils.pipeline_utils import (
     DEFAULT_PALETTE, get_prompt_color
 )
 from sowlv2.image_pipeline import (

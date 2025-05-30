@@ -21,7 +21,7 @@ from sowlv2.pipeline_utils import (
     get_prompt_color,
     create_output_directories
 )
-from sowlv2.frame_pipeline import process_propagated_frame # For processing individual frames
+from sowlv2.frame_utils import process_propagated_frame # For processing individual frames
 
 # Constants moved here as they are primarily used in video context
 _FIRST_FRAME = "000001.jpg"
