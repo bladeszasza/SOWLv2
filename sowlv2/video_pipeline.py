@@ -8,20 +8,19 @@ import tempfile
 from typing import Any, Union, List, Dict, Tuple
 from dataclasses import dataclass
 from PIL import Image
-# import torch # Not directly used here, but by SAM/frame_pipeline
 
-from sowlv2 import video_utils # For generate_videos and potentially ffmpeg calls
+from sowlv2.utils import video_utils #
 from sowlv2.models import OWLV2Wrapper, SAM2Wrapper
 from sowlv2.data.config import (
-    VideoProcessContext, PipelineConfig, # VideoProcessOptions removed, use PipelineConfig
+    VideoProcessContext, PipelineConfig,
     VideoDirectories, TempBinaryPaths, TempOverlayPaths, TempVideoOutputPaths,
     PropagatedFrameOutput
 )
-from sowlv2.pipeline_utils import (
+from sowlv2.utils.pipeline_utils import (
     get_prompt_color,
     create_output_directories
 )
-from sowlv2.frame_utils import process_propagated_frame # For processing individual frames
+from sowlv2.utils import frame_utils
 
 # Constants moved here as they are primarily used in video context
 _FIRST_FRAME = "000001.jpg"
@@ -183,7 +182,7 @@ def process_all_video_frames(
             detection_details_map=video_ctx.detection_details_for_video,
             output_dir=temp_output_dir
         )
-        config.prompt_color_map, config.next_color_idx = process_propagated_frame(
+        config.prompt_color_map, config.next_color_idx = frame_utils.process_propagated_frame(
             frame_output_data,
             config.pipeline_config,
             config.prompt_color_map,
