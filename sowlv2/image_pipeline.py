@@ -46,8 +46,7 @@ def process_single_detection_for_image(
 
         # Get prompt and slugify for filename
         prompt = single_detection_input.detection_detail.get(
-            'core_prompt', f'object_{
-                single_detection_input.obj_idx}')
+            'core_prompt', f'object_{single_detection_input.obj_idx}')
         prompt_slug = prompt.replace(' ', '_')
         idx = single_detection_input.obj_idx
 
