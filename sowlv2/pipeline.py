@@ -94,41 +94,6 @@ class SOWLv2Pipeline:
         )
         return color
 
-    def _process_single_detection_for_image(
-        self,
-        single_detection: SingleDetectionInput
-    ) -> MergedOverlayItem | None:
-        """
-        Segment and save mask/overlay for one detection. Return info for merged overlay.
-
-        Args:
-            single_detection (SingleDetectionInput): Dataclass containing all relevant info.
-        """
-        box = single_detection.detection_detail["box"]
-        core_prompt = single_detection.detection_detail["core_prompt"]
-        object_color = self._get_color_for_prompt(core_prompt)
-
-        mask_np = self.sam.segment(single_detection.pil_image, box)
-        if mask_np is None:
-            print(f"SAM2 failed to segment object {single_detection.obj_idx} ({core_prompt}).")
-            return None
-
-        # Prepare config for saving outputs
-        save_config = SaveOutputsConfig(
-            output_dir=single_detection.output_dir,
-            base_name=single_detection.base_name,
-            core_prompt_slug=core_prompt.replace(' ','_'),
-            obj_idx=single_detection.obj_idx,
-            mask_np=mask_np,
-            pil_image=single_detection.pil_image,
-            object_color=object_color
-        )
-
-        # Save outputs
-        self._save_detection_outputs(save_config)
-
-        return MergedOverlayItem(mask=mask_np > 0, color=object_color, label=core_prompt)
-
     def _save_detection_outputs(self, config: SaveOutputsConfig):
         """Helper function to save binary mask and overlay for a single detection."""
         dirs = create_output_directories(config.output_dir)
@@ -278,12 +243,13 @@ class SOWLv2Pipeline:
             if merged_item:
                 items_for_merged_overlay.append(merged_item)
 
-        create_and_save_merged_overlay(
-            items_for_merged_overlay,
-            pil_image,
-            output_dir,
-            int(base_name) if base_name.isdigit() else 0
-        )
+        if self.config.pipeline_config.merged:
+            create_and_save_merged_overlay(
+                items_for_merged_overlay,
+                pil_image,
+                output_dir,
+                int(base_name) if base_name.isdigit() else 0
+            )
 
     def process_frames(self, folder_path: str, prompt: Union[str, List[str]], output_dir: str):
         """

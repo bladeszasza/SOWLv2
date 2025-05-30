@@ -52,10 +52,10 @@ def process_single_detection_for_image(
 
         # Create merged item for overlay
         merged_item = MergedOverlayItem(
-            mask=mask,
-            color=single_detection_input.detection_detail.get('color', (255, 0, 0)),
-            label=prompt
-        )
+                mask=mask,
+                color=single_detection_input.detection_detail.get('color', (255, 0, 0)),
+                label=prompt
+            )
 
         # Save binary mask if requested
         if pipeline_config.binary:

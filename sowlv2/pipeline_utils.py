@@ -134,7 +134,7 @@ def create_merged_binary_mask(
             merged_mask = np.logical_or(merged_mask, bool_mask).astype(np.uint8)
 
         merged_mask_pil = Image.fromarray(merged_mask * 255).convert("L")
-        merged_mask_file = os.path.join(output_dir, f"{base_name}_merged_mask.png")
+        merged_mask_file = os.path.join(output_dir, f"{base_name}_mask.png")
         os.makedirs(os.path.dirname(merged_mask_file), exist_ok=True)
         merged_mask_pil.save(merged_mask_file)
         print(f"Saved merged binary mask: {merged_mask_file}")
@@ -166,7 +166,7 @@ def create_merged_overlay(
             bool_mask = validate_mask(mask)
             merged_overlay_pil = create_overlay(merged_overlay_pil, bool_mask, color)
 
-        merged_overlay_file = os.path.join(output_dir, f"{base_name}_merged_overlay.png")
+        merged_overlay_file = os.path.join(output_dir, f"{base_name}_overlay.png")
         os.makedirs(os.path.dirname(merged_overlay_file), exist_ok=True)
         merged_overlay_pil.save(merged_overlay_file)
         print(f"Saved merged overlay: {merged_overlay_file}")
