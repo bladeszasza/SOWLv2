@@ -1,0 +1,8 @@
+torch>=1.13.0
+transformers>=4.32.1
+sam2>=1.1.0
+opencv-python>=4.5.5.64
+numpy>=1.21.0
+Pillow>=9.0.0
+pyyaml>=6.0
+huggingface_hub>=0.15.0
