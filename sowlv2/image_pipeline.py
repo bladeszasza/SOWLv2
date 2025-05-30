@@ -48,6 +48,8 @@ def process_single_detection_for_image(
         prompt = single_detection_input.detection_detail.get(
             'core_prompt', f'object_{single_detection_input.obj_idx}')
         prompt_slug = prompt.replace(' ', '_')
+        base_name = single_detection_input.base_name
+        base_name_slug = base_name.replace(' ', '_')
         idx = single_detection_input.obj_idx
 
         # Create merged item for overlay
@@ -63,7 +65,7 @@ def process_single_detection_for_image(
                 single_detection_input.output_dir,
                 "binary",
                 "frames",
-                f"{prompt_slug}_{idx}.png"
+                f"{base_name_slug}_{prompt_slug}_{idx}.png"
             )
             Image.fromarray(mask).save(binary_path)
 
@@ -73,7 +75,7 @@ def process_single_detection_for_image(
                 single_detection_input.output_dir,
                 "overlay",
                 "frames",
-                f"{prompt_slug}_{idx}.png"
+                f"{base_name_slug}_{prompt_slug}_{idx}.png"
             )
             create_overlay(
                 single_detection_input.pil_image,

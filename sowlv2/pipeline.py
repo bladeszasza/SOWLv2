@@ -5,8 +5,6 @@ import os
 import shutil
 import tempfile
 from typing import Union, List, Dict, Tuple
-import numpy as np
-import cv2  # pylint: disable=import-error
 from PIL import Image
 
 from sowlv2.models import OWLV2Wrapper, SAM2Wrapper
@@ -14,16 +12,14 @@ from sowlv2.data.config import (
     PipelineBaseData,
     MergedOverlayItem,
     SingleDetectionInput,
-    PipelineConfig,
-    SaveOutputsConfig
+    PipelineConfig
 )
 from sowlv2.video_pipeline import (
     VideoTrackingConfig,
     VideoProcessingConfig
 )
 from sowlv2.pipeline_utils import (
-    DEFAULT_PALETTE, get_prompt_color, create_overlay,
-    create_output_directories
+    DEFAULT_PALETTE, get_prompt_color
 )
 from sowlv2.image_pipeline import (
     process_single_detection_for_image,
@@ -41,15 +37,6 @@ from sowlv2.video_pipeline import (
 
 _FIRST_FRAME = "000001.jpg" # Retained for reference, though primarily used in video_pipeline
 _FIRST_FRAME_IDX = 0     # Retained for reference
-
-# DEFAULT_PALETTE = [
-#     (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255),
-#     (255, 0, 255), (128, 0, 0), (0, 128, 0), (0, 0, 128), (128, 128, 0),
-#     (0, 128, 128), (128, 0, 128), (255, 128, 0), (255, 0, 128), (0, 255, 128),
-#     (128, 255, 0), (0, 128, 255), (128, 0, 255), (192, 192, 192), (255, 215, 0),
-#     (138, 43, 226),(75, 0, 130), (240, 128, 128), (32, 178, 170)
-# ]
-
 
 class SOWLv2Pipeline:
     """
@@ -93,112 +80,6 @@ class SOWLv2Pipeline:
             core_prompt, self.prompt_color_map, self.palette, self.next_color_idx
         )
         return color
-
-    def _save_detection_outputs(self, config: SaveOutputsConfig):
-        """Helper function to save binary mask and overlay for a single detection."""
-        dirs = create_output_directories(config.output_dir)
-
-        # Save binary mask if enabled
-        if self.config.pipeline_config.binary:
-            mask_img_pil = Image.fromarray(config.mask_np * 255).convert("L")
-            mask_file = os.path.join(
-                dirs["binary"],
-                f"{config.base_name}_{config.core_prompt_slug}_"
-                f"{config.obj_idx}_mask.png"
-            )
-            mask_img_pil.save(mask_file)
-
-        # Save overlay if enabled
-        if self.config.pipeline_config.overlay:
-            individual_overlay_pil = create_overlay(
-                config.pil_image, config.mask_np > 0, color=config.object_color)
-            overlay_file = os.path.join(
-                dirs["overlay"],
-                f"{config.base_name}_{config.core_prompt_slug}_"
-                f"{config.obj_idx}_overlay.png"
-            )
-            individual_overlay_pil.save(overlay_file)
-
-    def _create_and_save_merged_overlay(
-        self,
-        original_pil_image: Image.Image,
-        items_for_merge: List[MergedOverlayItem],
-        base_name: str,
-        output_dir: str
-    ):
-        """
-        Create and save a merged overlay image with all detected object masks.
-        """
-        if not self.config.pipeline_config.merged or not items_for_merge:
-            return
-
-        # Create merged subdirectories
-        binary_merged_dir = os.path.join(output_dir, "binary", "merged")
-        overlay_merged_dir = os.path.join(output_dir, "overlay", "merged")
-        os.makedirs(binary_merged_dir, exist_ok=True)
-        os.makedirs(overlay_merged_dir, exist_ok=True)
-
-        # Create and save merged binary mask
-        self._create_merged_binary_mask(items_for_merge, binary_merged_dir, base_name)
-
-        # Create and save merged overlay
-        self._create_merged_overlay_image(
-            original_pil_image, items_for_merge, overlay_merged_dir, base_name
-        )
-
-    def _create_merged_binary_mask(
-        self,
-        items_for_merge: List[MergedOverlayItem],
-        binary_merged_dir: str,
-        base_name: str
-    ):
-        """Create and save a merged binary mask from multiple items."""
-        if not items_for_merge:
-            return
-
-        # Initialize with the shape of the first mask but ensure uint8 type
-        merged_mask = np.zeros_like(items_for_merge[0].mask, dtype=np.uint8)
-        for item in items_for_merge:
-            # Ensure mask is boolean before logical operation
-            bool_mask = item.mask.astype(bool)
-            merged_mask = np.logical_or(merged_mask, bool_mask).astype(np.uint8)
-
-        # Convert to PIL image and save
-        merged_mask_pil = Image.fromarray(merged_mask * 255).convert("L")
-        merged_mask_file = os.path.join(binary_merged_dir, f"{base_name}_merged_mask.png")
-        merged_mask_pil.save(merged_mask_file)
-        print(f"Saved merged binary mask: {merged_mask_file}")
-
-    def _create_merged_overlay_image(
-        self,
-        original_pil_image: Image.Image,
-        items_for_merge: List[MergedOverlayItem],
-        overlay_merged_dir: str,
-        base_name: str
-    ):
-        """Create and save a merged overlay image from multiple items."""
-        merged_overlay_pil = original_pil_image.copy()
-        for item in items_for_merge:
-            merged_overlay_pil = self._blend_overlay_item(merged_overlay_pil, item)
-
-        merged_overlay_file = os.path.join(overlay_merged_dir, f"{base_name}_merged_overlay.png")
-        merged_overlay_pil.save(merged_overlay_file)
-        print(f"Saved merged overlay: {merged_overlay_file}")
-
-    def _blend_overlay_item(self, overlay_pil: Image.Image, item: MergedOverlayItem) -> Image.Image:
-        """Blend a single overlay item into the existing overlay image."""
-        current_image_np = np.array(overlay_pil)
-        color_np = np.array(item.color, dtype=np.uint8)
-
-        if current_image_np.ndim == 2:
-            current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_GRAY2RGB)
-        elif current_image_np.ndim == 3 and current_image_np.shape[2] == 4:
-            current_image_np = cv2.cvtColor(current_image_np, cv2.COLOR_RGBA2RGB)
-
-        current_image_np[item.mask] = (
-            0.5 * current_image_np[item.mask] + 0.5 * color_np
-        ).astype(np.uint8)
-        return Image.fromarray(current_image_np)
 
     def process_image(self, image_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
