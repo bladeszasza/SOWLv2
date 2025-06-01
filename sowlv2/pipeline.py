@@ -146,9 +146,10 @@ class SOWLv2Pipeline:
         files = sorted(os.listdir(folder_path))
         for fname in files:
             infile = os.path.join(folder_path, fname)
-            if not is_image_file(fname):
+            root, ext = os.path.splitext(fname)[1].lower()
+            if not is_image_file(ext):
                 continue
-            self.process_image(infile, prompt, output_dir+"_"+fname)
+            self.process_image(infile, prompt, output_dir+"/"+root)
 
     def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """

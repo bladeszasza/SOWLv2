@@ -3,7 +3,6 @@ Frame processing module for SOWLv2 pipeline.
 Handles processing of individual frames, including mask propagation and output generation.
 """
 from typing import List, Dict, Tuple
-import os
 
 from sowlv2.data.config import (
     PropagatedFrameOutput, PipelineConfig,
@@ -15,7 +14,7 @@ from sowlv2.image_pipeline import (
     create_and_save_merged_overlay
 )
 
-def is_image_file(filename: str) -> bool:
+def is_image_file(ext: str) -> bool:
     """
     Check if the filename has a valid image extension.
     Args:
@@ -24,7 +23,6 @@ def is_image_file(filename: str) -> bool:
         bool: True if the file is an image, False otherwise.
     """
     valid_exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
-    ext = os.path.splitext(filename)[1].lower()
     return ext in valid_exts
 
 def process_propagated_frame(
