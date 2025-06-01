@@ -7,7 +7,7 @@ def remove_empty_folders(root_dir: str) -> None:
     Args:
         root_dir (str): The root directory to start searching for empty folders.
     """
-    for dirpath, dirnames in os.walk(root_dir, topdown=False):
+    for dirpath, dirnames, _ in os.walk(root_dir, topdown=False):
         for dirname in dirnames:
             full_path = os.path.join(dirpath, dirname)
             remove_empty_folders(full_path)
