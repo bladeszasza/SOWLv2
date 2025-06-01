@@ -201,18 +201,13 @@ def run_video_processing_steps(
         video_ctx, sam_model, config, video_temp_dirs.temp_dir
     )
 
-    generate_bin_vid = config.pipeline_config.binary and config.pipeline_config.merged
-    generate_overlay_vid = config.pipeline_config.overlay and config.pipeline_config.merged
-
-    if generate_bin_vid or generate_overlay_vid:
-        video_utils.generate_videos(
+    video_utils.generate_videos(
             temp_dir=video_temp_dirs.temp_dir,
             fps=config.fps,
-            binary=generate_bin_vid,
-            overlay=generate_overlay_vid
+            binary=config.pipeline_config.binary,
+            overlay=config.pipeline_config.overlay,
+            merged=config.pipeline_config.merged
         )
-    else:
-        print("Skipping temporary merged video generation as per pipeline_config.")
 
     return config.prompt_color_map, config.next_color_idx
 

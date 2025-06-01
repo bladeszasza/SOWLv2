@@ -34,8 +34,6 @@ from sowlv2.video_pipeline import (
 from sowlv2.utils.frame_utils import is_valid_image_extension
 from sowlv2.utils.filesystem_utils import remove_empty_folders
 
-# Disable no-member for cv2 (OpenCV) for the whole file
-# pylint: disable=no-member
 
 _FIRST_FRAME = "000001.jpg" # Retained for reference, though primarily used in video_pipeline
 _FIRST_FRAME_IDX = 0     # Retained for reference

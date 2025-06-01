@@ -111,7 +111,8 @@ def generate_videos(
     temp_dir: str,
     fps: int,
     binary: bool = True,
-    overlay: bool = True
+    overlay: bool = True,
+    merged: bool = True
 ):
     """
     Generate videos from processed frames in the temp directory.
@@ -130,7 +131,8 @@ def generate_videos(
     _generate_per_object_videos(mask_files, video_dirs, binary, overlay, fps)
 
     # Generate merged videos if available
-    _generate_merged_videos(temp_dir, video_dirs, binary, overlay, fps)
+    if merged:
+        _generate_merged_videos(temp_dir, video_dirs, fps)
 
 def _create_video_directories(temp_dir: str) -> Dict[str, str]:
     """Create and return video output directories."""
@@ -165,22 +167,20 @@ def _generate_per_object_videos(
 def _generate_merged_videos(
     temp_dir: str,
     video_dirs: Dict[str, str],
-    binary: bool,
-    overlay: bool,
     fps: int
 ):
     """Generate merged videos if available."""
     merged_binary_dir = os.path.join(temp_dir, "binary", "merged")
     merged_overlay_dir = os.path.join(temp_dir, "overlay", "merged")
 
-    if binary and os.path.exists(merged_binary_dir):
+    if os.path.exists(merged_binary_dir):
         merged_mask_files = sorted(glob.glob(os.path.join(merged_binary_dir, "*_merged_mask.png")))
         if merged_mask_files:
             merged_mask_video = os.path.join(video_dirs["binary"], "merged_mask.mp4")
             images_to_video(merged_mask_files, merged_mask_video, fps)
             print(f"Generated merged binary mask video: {merged_mask_video}")
 
-    if overlay and os.path.exists(merged_overlay_dir):
+    if os.path.exists(merged_overlay_dir):
         merged_overlay_files = sorted(glob.glob(
             os.path.join(merged_overlay_dir, "*_merged_overlay.png")))
         if merged_overlay_files:
