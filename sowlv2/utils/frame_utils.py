@@ -15,6 +15,7 @@ from sowlv2.image_pipeline import (
 )
 
 VALID_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+VALID_VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv"}
 
 def is_valid_image_extension(ext: str) -> bool:
     """Check if the file extension is a valid image extension."""

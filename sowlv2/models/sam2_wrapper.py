@@ -7,6 +7,7 @@ import numpy as np
 from huggingface_hub import hf_hub_download
 from sam2.build_sam import build_sam2_video_predictor
 from sam2.sam2_image_predictor import SAM2ImagePredictor
+from sowlv2.utils.pipeline_utils import CUDA, CPU
 # Unused imports: os, tempfile. They were W0611.
 
 _SAM_MODELS = {
@@ -32,7 +33,7 @@ class SAM2Wrapper:
     • lazy-built video predictor (build_sam2_video_predictor)
     Both share weights & device.
     """
-    def __init__(self, model_name="facebook/sam2.1-hiera-small", device="cpu"):
+    def __init__(self, model_name="facebook/sam2.1-hiera-small", device=CPU):
         if model_name not in _SAM_MODELS:
             raise ValueError(f"Unsupported SAM-2 model: {model_name}")
         ckpt_name, _, vid_cfg_rel = _SAM_MODELS[model_name]
@@ -47,7 +48,7 @@ class SAM2Wrapper:
         self._vid_pred = build_sam2_video_predictor(
             vid_cfg_rel, self._ckpt_path, device=self.device)
 
-        if self.device.type == "cuda": # Check device type correctly
+        if self.device.type == CUDA: # Check device type correctly
             # Move SAM2 model to GPU if requested
             self._img_pred.model.to(self.device) # model is already on self.device for _vid_pred
 

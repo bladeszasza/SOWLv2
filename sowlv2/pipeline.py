@@ -19,7 +19,7 @@ from sowlv2.video_pipeline import (
     VideoProcessingConfig
 )
 from sowlv2.utils.pipeline_utils import (
-    DEFAULT_PALETTE, get_prompt_color
+    DEFAULT_PALETTE, get_prompt_color, CUDA
 )
 from sowlv2.image_pipeline import (
     process_single_detection_for_image,
@@ -56,7 +56,7 @@ class SOWLv2Pipeline:
                 sam_model="facebook/sam2.1-hiera-small",
                 threshold=0.1,
                 fps=24,
-                device="cuda",
+                device=CUDA,
                 pipeline_config=PipelineConfig(merged=True,
                                                binary=True,
                                                overlay=True)

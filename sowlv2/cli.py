@@ -11,7 +11,8 @@ import sys
 import yaml
 from sowlv2.data.config import PipelineBaseData, PipelineConfig
 from sowlv2.pipeline import SOWLv2Pipeline
-from sowlv2.utils.frame_utils import VALID_EXTS
+from sowlv2.utils.frame_utils import VALID_EXTS, VALID_VIDEO_EXTS
+from sowlv2.utils.pipeline_utils import CPU, CUDA
 
 def parse_args():
     """Parse command line arguments."""
@@ -23,7 +24,7 @@ def parse_args():
         type=str,
         required=False,
         nargs='+', # Allows one or more arguments for prompt
-        help="Text prompt(s) for object detection (e.g. 'cat' or 'cat' 'dog' 'a red bicycle')"
+        help="Text prompt(s) for object detection (e.g. 'cat' or 'lizard' 'dog' 'a red bicycle')"
     )
     parser.add_argument(
         "--input", type=str, required=False,
@@ -50,7 +51,7 @@ def parse_args():
         help="Sampling rate (frames per second) for video"
     )
     parser.add_argument(
-        "--device", type=str, default="cuda",
+        "--device", type=str, default=CUDA,
         help="PyTorch device (cpu or cuda). Default uses GPU if available."
     )
     parser.add_argument(
@@ -115,12 +116,12 @@ def main():
 
     # Determine device
     device_choice = args.device
-    if device_choice == "cuda" and hasattr(__import__("torch"), 'cuda') and \
+    if device_choice == CUDA and hasattr(__import__("torch"), 'cuda') and \
        __import__("torch").cuda.is_available():
-        device = "cuda"
+        device = CUDA
     else:
-        device = "cpu"
-        if device_choice == "cuda":
+        device = CPU
+        if device_choice == CUDA:
             print("CUDA selected, but not available. Falling back to CPU.")
 
     # PipelineConfig options from CLI/config, with defaults
@@ -149,7 +150,7 @@ def main():
         ext = os.path.splitext(input_path)[1].lower()
         if ext in VALID_EXTS:
             pipeline.process_image(input_path, prompt_input, output_path)
-        elif ext in [".mp4", ".avi", ".mov", ".mkv"]:
+        elif ext in VALID_VIDEO_EXTS:
             pipeline.process_video(input_path, prompt_input, output_path)
         else:
             print(f"Unsupported file extension: {ext}")

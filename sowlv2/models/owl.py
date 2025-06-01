@@ -4,6 +4,7 @@ Wrapper for OWLv2 text-conditioned object detection models from HuggingFace Tran
 from typing import Union, List, Dict, Any
 from transformers import Owlv2Processor, Owlv2ForObjectDetection
 import torch
+from sowlv2.utils.pipeline_utils import CPU
 
 # It's a focused wrapper, so R0903 (too-few-public-methods) might be flagged
 # but is acceptable for this type of class. We can add the disable if Pylint complains.
@@ -18,7 +19,7 @@ class OWLV2Wrapper:
     It formats the output to include both the full label matched by OWLv2
     and the original "core" prompt term provided by the user.
     """
-    def __init__(self, model_name: str ="google/owlv2-base-patch16-ensemble", device: str = "cpu"):
+    def __init__(self, model_name: str ="google/owlv2-base-patch16-ensemble", device: str = CPU):
         """
         Initialize the OWLV2Wrapper.
 

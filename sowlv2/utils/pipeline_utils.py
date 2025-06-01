@@ -22,6 +22,9 @@ DEFAULT_PALETTE = [
     (138, 43, 226), (75, 0, 130), (240, 128, 128), (32, 178, 170)
 ]
 
+CUDA = "cuda"
+CPU = "cpu"
+
 def validate_mask(mask: Union[np.ndarray, torch.Tensor], name: str = "mask") -> np.ndarray:
     """Validate and convert a mask to the correct format.
 
