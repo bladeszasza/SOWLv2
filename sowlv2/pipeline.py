@@ -143,7 +143,7 @@ class SOWLv2Pipeline:
         files = sorted(os.listdir(folder_path))
         for fname in files:
             infile = os.path.join(folder_path, fname)
-            root, ext = os.path.splitext(fname)[1].lower()
+            root, ext = map(str.lower, os.path.splitext(fname))
             if not is_valid_image_extension(ext):
                 continue
             self.process_image(infile, prompt, output_dir+"/"+root)
