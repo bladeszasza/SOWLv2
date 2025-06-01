@@ -3,6 +3,8 @@ Frame processing module for SOWLv2 pipeline.
 Handles processing of individual frames, including mask propagation and output generation.
 """
 from typing import List, Dict, Tuple
+import torch
+import numpy as np
 
 from sowlv2.data.config import (
     PropagatedFrameOutput, PipelineConfig,
@@ -60,13 +62,24 @@ def process_propagated_frame(
             print(f"Warning: No detection details found for SAM object ID {sam_obj_id}")
             continue
 
+        # Convert mask_logits to binary mask
+        # SAM2 mask_logits are usually logit values, threshold at 0.0
+        if isinstance(mask_logits, torch.Tensor):
+            mask = (mask_logits > 0.0).cpu().numpy().astype(np.uint8) * 255
+        else:
+            mask = (mask_logits > 0.0).astype(np.uint8) * 255
+        
+        # Ensure mask is 2D
+        if mask.ndim > 2:
+            mask = mask.squeeze()
+
         # Create input for single detection processing
         single_detection_input = SingleDetectionInput(
             pil_image=frame_output_data.current_pil_img,
             detection_detail={
                 'core_prompt': det_details['core_prompt'],
                 'color': det_details['color'],
-                'mask_logits': mask_logits
+                'mask': mask  # Changed from 'mask_logits' to 'mask'
             },
             obj_idx=obj_idx + 1,
             base_name=f"{frame_output_data.frame_num:06d}",
