@@ -14,16 +14,11 @@ from sowlv2.image_pipeline import (
     create_and_save_merged_overlay
 )
 
-def is_image_file(ext: str) -> bool:
-    """
-    Check if the filename has a valid image extension.
-    Args:
-        filename (str): The filename to check.
-    Returns:
-        bool: True if the file is an image, False otherwise.
-    """
-    valid_exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
-    return ext in valid_exts
+VALID_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+
+def is_valid_image_extension(ext: str) -> bool:
+    """Check if the file extension is a valid image extension."""
+    return ext in VALID_EXTS
 
 def process_propagated_frame(
     frame_output_data: PropagatedFrameOutput,
