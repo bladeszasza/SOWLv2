@@ -11,6 +11,7 @@ import sys
 import yaml
 from sowlv2.data.config import PipelineBaseData, PipelineConfig
 from sowlv2.pipeline import SOWLv2Pipeline
+from sowlv2.utils.frame_utils import VALID_EXTS
 
 def parse_args():
     """Parse command line arguments."""
@@ -146,7 +147,7 @@ def main():
         pipeline.process_frames(input_path, prompt_input, output_path)
     elif os.path.isfile(input_path):
         ext = os.path.splitext(input_path)[1].lower()
-        if ext in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"]:
+        if ext in VALID_EXTS:
             pipeline.process_image(input_path, prompt_input, output_path)
         elif ext in [".mp4", ".avi", ".mov", ".mkv"]:
             pipeline.process_video(input_path, prompt_input, output_path)
