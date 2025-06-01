@@ -8,10 +8,12 @@ import re
 from typing import List, Dict
 import cv2  # pylint: disable=import-error
 
+from sowlv2.utils.path_config import (
+    FilePattern, DirectoryStructure, FilePatternMatcher
+)
 
 # Disable no-member for cv2 (OpenCV) for the whole file
 # pylint: disable=no-member
-
 
 def images_to_video(image_paths: List[str], output_path: str, fps: int):
     """
@@ -82,15 +84,15 @@ def _get_obj_files(temp_dir: str) -> Dict[str, Dict[str, List[str]]]:
     Returns a dictionary mapping object IDs to their mask and overlay files.
     """
     mask_files = {}
-    binary_dir = os.path.join(temp_dir, "binary")
-    overlay_dir = os.path.join(temp_dir, "overlay")
+    binary_dir = os.path.join(temp_dir, DirectoryStructure.BINARY)
+    overlay_dir = os.path.join(temp_dir, DirectoryStructure.OVERLAY)
 
     # Get all mask files
     mask_pattern = os.path.join(binary_dir, "*_mask.png")
-    for mask_file in sorted(glob.glob(mask_pattern)):
+    for mask_file in sorted(glob.glob(mask_pattern), key=FilePatternMatcher.natural_sort_key):
         # Extract object ID from filename
         filename = os.path.basename(mask_file)
-        match = re.match(r"(\d+)_obj(\d+)_(.*?)_mask\.png", filename)
+        match = re.match(FilePatternMatcher.get_individual_mask_pattern(), filename)
         if match:
             frame_num, obj_id, prompt = match.groups()
             if obj_id not in mask_files:
@@ -100,7 +102,11 @@ def _get_obj_files(temp_dir: str) -> Dict[str, Dict[str, List[str]]]:
             # Get corresponding overlay file
             overlay_file = os.path.join(
                 overlay_dir,
-                f"{frame_num}_obj{obj_id}_{prompt}_overlay.png"
+                FilePattern.INDIVIDUAL_OVERLAY.format(
+                    frame_num=frame_num,
+                    obj_id=obj_id,
+                    prompt=prompt
+                )
             )
             if os.path.exists(overlay_file):
                 mask_files[obj_id]["overlay"].append(overlay_file)
@@ -136,13 +142,10 @@ def generate_videos(
 
 def _create_video_directories(temp_dir: str) -> Dict[str, str]:
     """Create and return video output directories."""
-    video_binary_dir = os.path.join(temp_dir, "video", "binary")
-    video_overlay_dir = os.path.join(temp_dir, "video", "overlay")
-    os.makedirs(video_binary_dir, exist_ok=True)
-    os.makedirs(video_overlay_dir, exist_ok=True)
+    dirs = DirectoryStructure.get_directory_map(temp_dir, include_video=True)
     return {
-        "binary": video_binary_dir,
-        "overlay": video_overlay_dir
+        "binary": dirs[f"{DirectoryStructure.VIDEO}_binary"],
+        "overlay": dirs[f"{DirectoryStructure.VIDEO}_overlay"]
     }
 
 def _generate_per_object_videos(
@@ -155,12 +158,18 @@ def _generate_per_object_videos(
     """Generate videos for individual objects."""
     for obj_id, files in mask_files.items():
         if binary:
-            mask_video_path = os.path.join(video_dirs["binary"], f"{obj_id}_mask.mp4")
+            mask_video_path = os.path.join(
+                video_dirs["binary"],
+                FilePattern.VIDEO_MASK.format(obj_id=obj_id)
+            )
             images_to_video(files["mask"], mask_video_path, fps)
             print(f"Generated binary mask video: {mask_video_path}")
 
         if overlay:
-            overlay_video_path = os.path.join(video_dirs["overlay"], f"{obj_id}_overlay.mp4")
+            overlay_video_path = os.path.join(
+                video_dirs["overlay"],
+                FilePattern.VIDEO_OVERLAY.format(obj_id=obj_id)
+            )
             images_to_video(files["overlay"], overlay_video_path, fps)
             print(f"Generated overlay video: {overlay_video_path}")
 
@@ -170,20 +179,32 @@ def _generate_merged_videos(
     fps: int
 ):
     """Generate merged videos if available."""
-    merged_binary_dir = os.path.join(temp_dir, "binary", "merged")
-    merged_overlay_dir = os.path.join(temp_dir, "overlay", "merged")
+    dirs = DirectoryStructure.get_directory_map(temp_dir)
+    merged_binary_dir = dirs[f"{DirectoryStructure.BINARY}_merged"]
+    merged_overlay_dir = dirs[f"{DirectoryStructure.OVERLAY}_merged"]
 
     if os.path.exists(merged_binary_dir):
-        merged_mask_files = sorted(glob.glob(os.path.join(merged_binary_dir, "*_merged_mask.png")))
+        merged_mask_files = sorted(
+            glob.glob(os.path.join(merged_binary_dir, "*_merged_mask.png")),
+            key=FilePatternMatcher.natural_sort_key
+        )
         if merged_mask_files:
-            merged_mask_video = os.path.join(video_dirs["binary"], "merged_mask.mp4")
+            merged_mask_video = os.path.join(
+                video_dirs["binary"],
+                FilePattern.VIDEO_MERGED_MASK
+            )
             images_to_video(merged_mask_files, merged_mask_video, fps)
             print(f"Generated merged binary mask video: {merged_mask_video}")
 
     if os.path.exists(merged_overlay_dir):
-        merged_overlay_files = sorted(glob.glob(
-            os.path.join(merged_overlay_dir, "*_merged_overlay.png")))
+        merged_overlay_files = sorted(
+            glob.glob(os.path.join(merged_overlay_dir, "*_merged_overlay.png")),
+            key=FilePatternMatcher.natural_sort_key
+        )
         if merged_overlay_files:
-            merged_overlay_video = os.path.join(video_dirs["overlay"], "merged_overlay.mp4")
+            merged_overlay_video = os.path.join(
+                video_dirs["overlay"],
+                FilePattern.VIDEO_MERGED_OVERLAY
+            )
             images_to_video(merged_overlay_files, merged_overlay_video, fps)
             print(f"Generated merged overlay video: {merged_overlay_video}")

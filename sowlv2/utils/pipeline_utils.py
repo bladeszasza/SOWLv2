@@ -1,5 +1,5 @@
 """
-Utility functions for the SOWLv2 pipeline.
+Pipeline utilities for SOWLv2.
 """
 import os
 from typing import Dict, List, Tuple, Union
@@ -9,6 +9,7 @@ import torch
 from PIL import Image
 
 from sowlv2.data.config import PipelineConfig
+from sowlv2.utils.path_config import FilePattern
 
 # Disable no-member for cv2 (OpenCV) for the whole file
 # pylint: disable=no-member
@@ -25,29 +26,20 @@ DEFAULT_PALETTE = [
 CUDA = "cuda"
 CPU = "cpu"
 
-def validate_mask(mask: Union[np.ndarray, torch.Tensor], name: str = "mask") -> np.ndarray:
-    """Validate and convert a mask to the correct format.
-
-    Args:
-        mask: Input mask (numpy array or torch tensor)
-        name: Name of the mask for error messages
-
-    Returns:
-        Validated numpy array mask
-
-    Raises:
-        ValueError: If mask is invalid
-    """
-    if isinstance(mask, torch.Tensor):
-        mask = mask.cpu().numpy()
-
+def validate_mask(mask: np.ndarray) -> np.ndarray:
+    """Validate and convert mask to binary format."""
+    if mask is None:
+        return None
     if not isinstance(mask, np.ndarray):
-        raise ValueError(f"{name} must be a numpy array or torch tensor")
-
-    if mask.ndim != 2:
-        raise ValueError(f"{name} must be 2D, got shape {mask.shape}")
-
-    return mask.astype(bool)
+        try:
+            mask = np.array(mask)
+        except (TypeError, ValueError):
+            return None
+    if mask.ndim > 2:
+        mask = mask.squeeze()
+    if mask.dtype != np.uint8:
+        mask = (mask > 0).astype(np.uint8) * 255
+    return mask
 
 def create_overlay(
     pil_image: Image.Image,
@@ -64,7 +56,7 @@ def create_overlay(
     Returns:
         PIL Image with overlay applied
     """
-    bool_mask_np = validate_mask(bool_mask_np, "bool_mask_np")
+    bool_mask_np = validate_mask(bool_mask_np)
 
     overlay_pil = pil_image.copy()
     overlay_np = np.array(overlay_pil)
@@ -106,7 +98,10 @@ def create_merged_binary_mask(
             merged_mask = np.logical_or(merged_mask, bool_mask).astype(np.uint8)
 
         merged_mask_pil = Image.fromarray(merged_mask * 255).convert("L")
-        merged_mask_file = os.path.join(output_dir, f"{base_name}_mask.png")
+        merged_mask_file = os.path.join(
+            output_dir,
+            FilePattern.MERGED_MASK.format(frame_num=base_name)
+        )
         os.makedirs(os.path.dirname(merged_mask_file), exist_ok=True)
         merged_mask_pil.save(merged_mask_file)
         print(f"Saved merged binary mask: {merged_mask_file}")
@@ -138,7 +133,10 @@ def create_merged_overlay(
             bool_mask = validate_mask(mask)
             merged_overlay_pil = create_overlay(merged_overlay_pil, bool_mask, color)
 
-        merged_overlay_file = os.path.join(output_dir, f"{base_name}_overlay.png")
+        merged_overlay_file = os.path.join(
+            output_dir,
+            FilePattern.MERGED_OVERLAY.format(frame_num=base_name)
+        )
         os.makedirs(os.path.dirname(merged_overlay_file), exist_ok=True)
         merged_overlay_pil.save(merged_overlay_file)
         print(f"Saved merged overlay: {merged_overlay_file}")

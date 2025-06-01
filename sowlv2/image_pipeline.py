@@ -15,6 +15,9 @@ from sowlv2.utils.pipeline_utils import (
     create_merged_binary_mask, create_merged_overlay,
     create_overlay
 )
+from sowlv2.utils.path_config import (
+    FilePattern, DirectoryStructure
+)
 
 def process_single_detection_for_image(
     single_detection_input: SingleDetectionInput,
@@ -64,9 +67,13 @@ def process_single_detection_for_image(
         if pipeline_config.binary:
             binary_path = os.path.join(
                 single_detection_input.output_dir,
-                "binary",
-                "frames",
-                f"{base_name_slug}_{prompt_slug}_{idx}.png"
+                DirectoryStructure.BINARY,
+                DirectoryStructure.FRAMES,
+                FilePattern.INDIVIDUAL_MASK.format(
+                    frame_num=base_name_slug,
+                    obj_id=idx,
+                    prompt=prompt_slug
+                )
             )
             Image.fromarray(mask).save(binary_path)
 
@@ -74,9 +81,13 @@ def process_single_detection_for_image(
         if pipeline_config.overlay:
             overlay_path = os.path.join(
                 single_detection_input.output_dir,
-                "overlay",
-                "frames",
-                f"{base_name_slug}_{prompt_slug}_{idx}.png"
+                DirectoryStructure.OVERLAY,
+                DirectoryStructure.FRAMES,
+                FilePattern.INDIVIDUAL_OVERLAY.format(
+                    frame_num=base_name_slug,
+                    obj_id=idx,
+                    prompt=prompt_slug
+                )
             )
             create_overlay(
                 single_detection_input.pil_image,
@@ -87,7 +98,7 @@ def process_single_detection_for_image(
         return merged_item
 
     except (IOError, OSError) as e:
-        print(f"Error processing detection for object {single_detection_input.obj_idx}: {e}")
+        print(f"Error processing detection {idx}: {e}")
         return None
 
 def create_and_save_merged_overlay(
@@ -110,26 +121,34 @@ def create_and_save_merged_overlay(
             orig_name = os.path.splitext(os.path.basename(original_image.filename))[0]
         else:
             orig_name = str(frame_num) if isinstance(frame_num, int) else str(frame_num)
-        merged_base = f"processed_{orig_name}"
+        frame_num_str = FilePattern.FRAME_NUM_FORMAT.format(int(orig_name))
 
         # Create merged binary mask
-        binary_merged_dir = os.path.join(output_dir, "binary", "merged")
+        binary_merged_dir = os.path.join(
+            output_dir,
+            DirectoryStructure.BINARY,
+            DirectoryStructure.MERGED
+        )
         os.makedirs(binary_merged_dir, exist_ok=True)
         create_merged_binary_mask(
             [item.mask for item in items_for_merged_overlay],
             binary_merged_dir,
-            merged_base,
+            frame_num_str,
             PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
         # Create merged overlay
-        overlay_merged_dir = os.path.join(output_dir, "overlay", "merged")
+        overlay_merged_dir = os.path.join(
+            output_dir,
+            DirectoryStructure.OVERLAY,
+            DirectoryStructure.MERGED
+        )
         os.makedirs(overlay_merged_dir, exist_ok=True)
         create_merged_overlay(
             original_image,
             [(item.mask, item.color) for item in items_for_merged_overlay],
             overlay_merged_dir,
-            merged_base,
+            frame_num_str,
             PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
