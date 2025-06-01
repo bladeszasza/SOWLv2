@@ -2,10 +2,9 @@
 Pipeline utilities for SOWLv2.
 """
 import os
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 import numpy as np
 import cv2
-import torch
 from PIL import Image
 
 from sowlv2.data.config import PipelineConfig
