@@ -9,8 +9,9 @@ from sowlv2.data.config import (
     PipelineConfig, SingleDetectionInput,
     MergedOverlayItem
 )
+from sowlv2.utils.filesystem_utils import create_output_directories
 from sowlv2.utils.pipeline_utils import (
-    create_output_directories, validate_mask,
+    validate_mask,
     create_merged_binary_mask, create_merged_overlay,
     create_overlay
 )

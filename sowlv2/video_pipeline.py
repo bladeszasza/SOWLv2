@@ -16,11 +16,11 @@ from sowlv2.data.config import (
     VideoDirectories, TempBinaryPaths, TempOverlayPaths, TempVideoOutputPaths,
     PropagatedFrameOutput
 )
-from sowlv2.utils.pipeline_utils import (
-    get_prompt_color,
-    create_output_directories
-)
+from sowlv2.utils.filesystem_utils import create_output_directories
 from sowlv2.utils import frame_utils
+from sowlv2.utils.pipeline_utils import (
+    get_prompt_color
+)
 
 # Constants moved here as they are primarily used in video context
 _FIRST_FRAME = "000001.jpg"

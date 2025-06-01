@@ -3,18 +3,29 @@ Frame processing module for SOWLv2 pipeline.
 Handles processing of individual frames, including mask propagation and output generation.
 """
 from typing import List, Dict, Tuple
+import os
 
 from sowlv2.data.config import (
     PropagatedFrameOutput, PipelineConfig,
     MergedOverlayItem, SingleDetectionInput
 )
-from sowlv2.utils.pipeline_utils import (
-    create_output_directories
-)
+from sowlv2.utils.filesystem_utils import create_output_directories
 from sowlv2.image_pipeline import (
     process_single_detection_for_image,
     create_and_save_merged_overlay
 )
+
+def is_image_file(filename: str) -> bool:
+    """
+    Check if the filename has a valid image extension.
+    Args:
+        filename (str): The filename to check.
+    Returns:
+        bool: True if the file is an image, False otherwise.
+    """
+    valid_exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+    ext = os.path.splitext(filename)[1].lower()
+    return ext in valid_exts
 
 def process_propagated_frame(
     frame_output_data: PropagatedFrameOutput,

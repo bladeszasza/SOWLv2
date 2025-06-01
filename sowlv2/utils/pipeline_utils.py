@@ -22,37 +22,6 @@ DEFAULT_PALETTE = [
     (138, 43, 226), (75, 0, 130), (240, 128, 128), (32, 178, 170)
 ]
 
-def create_output_directories(base_dir: str, include_video: bool = False) -> Dict[str, str]:
-    """Create a standardized directory structure for pipeline outputs.
-
-    Args:
-        base_dir: Base directory for outputs
-        include_video: Whether to create video-specific directories
-
-    Returns:
-        Dictionary mapping directory types to their paths
-    """
-    dirs = {
-        "binary": os.path.join(base_dir, "binary"),
-        "binary_frames": os.path.join(base_dir, "binary", "frames"),
-        "binary_merged": os.path.join(base_dir, "binary", "merged"),
-        "overlay": os.path.join(base_dir, "overlay"),
-        "overlay_frames": os.path.join(base_dir, "overlay", "frames"),
-        "overlay_merged": os.path.join(base_dir, "overlay", "merged")
-    }
-
-    if include_video:
-        dirs.update({
-            "video": os.path.join(base_dir, "video"),
-            "video_binary": os.path.join(base_dir, "video", "binary"),
-            "video_overlay": os.path.join(base_dir, "video", "overlay")
-        })
-
-    for dir_path in dirs.values():
-        os.makedirs(dir_path, exist_ok=True)
-
-    return dirs
-
 def validate_mask(mask: Union[np.ndarray, torch.Tensor], name: str = "mask") -> np.ndarray:
     """Validate and convert a mask to the correct format.
 

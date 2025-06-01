@@ -31,6 +31,8 @@ from sowlv2.video_pipeline import (
     run_video_processing_steps,
     move_video_outputs_to_final_dir
 )
+from sowlv2.utils.frame_utils import is_image_file
+from sowlv2.utils.filesystem_utils import remove_empty_folders
 
 # Disable no-member for cv2 (OpenCV) for the whole file
 # pylint: disable=no-member
@@ -85,6 +87,10 @@ class SOWLv2Pipeline:
         """
         Detect, segment, and save masks/overlays for a single image.
         """
+        if not is_image_file(image_path):
+            print(f"Skipping non-image file: {image_path}")
+            return
+
         pil_image = Image.open(image_path).convert("RGB")
         detections = self.owl.detect(
             image=pil_image,
@@ -131,6 +137,7 @@ class SOWLv2Pipeline:
                 output_dir,
                 int(base_name) if base_name.isdigit() else 0
             )
+        remove_empty_folders(output_dir)
 
     def process_frames(self, folder_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
@@ -139,10 +146,9 @@ class SOWLv2Pipeline:
         files = sorted(os.listdir(folder_path))
         for fname in files:
             infile = os.path.join(folder_path, fname)
-            ext = os.path.splitext(fname)[1].lower()
-            if ext not in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"]:
+            if not is_image_file(fname):
                 continue
-            self.process_image(infile, prompt, output_dir)
+            self.process_image(infile, prompt, output_dir+"_"+fname)
 
     def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
