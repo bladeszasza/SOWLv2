@@ -189,6 +189,7 @@ graph LR
 ```
 
 These diagrams provide a comprehensive view of the SOWLv2 architecture, including:
+
 1. System overview and component interaction
 2. Class structure and relationships
 3. Data flow through the system
@@ -196,4 +197,4 @@ These diagrams provide a comprehensive view of the SOWLv2 architecture, includin
 5. Error handling flow
 6. Configuration management
 
-Each diagram focuses on a different aspect of the system, making it easier to understand the overall architecture and how different components interact with each other. 
+Each diagram focuses on a different aspect of the system, making it easier to understand the overall architecture and how different components interact with each other.

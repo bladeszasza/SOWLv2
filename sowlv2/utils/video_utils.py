@@ -43,40 +43,6 @@ def images_to_video(image_paths: List[str], output_path: str, fps: int):
     out.release()
     print(f"Video saved to: {output_path}")
 
-def _parse_mask_filename(fname):
-    """
-    Parse a mask filename to extract sam_id_token and core_prompt_slug.
-    Returns (sam_id_token, core_prompt_slug) or (None, None) if not matched.
-    """
-    # Example: 000001_obj1_dog_mask.png
-    match = re.match(r"^\d+_(obj\d+)_([a-zA-Z0-9_]+)_mask\.png$", fname)
-    if match:
-        return match.group(1), match.group(2)
-    # Fallback: 000001_obj1_mask.png (no prompt)
-    match_simple = re.match(r"^\d+_(obj\d+)_mask\.png$", fname)
-    if match_simple:
-        return match_simple.group(1), None
-    return None, None
-
-def _collect_unique_tracked_objects(mask_files):
-    """
-    Collect unique (sam_id_token, core_prompt_slug) pairs from mask filenames.
-    Returns a dict with keys as (sam_id_token, core_prompt_slug).
-    """
-    unique_tracked_objects = {}
-    for f_path in mask_files:
-        fname = os.path.basename(f_path)
-        sam_id_token, core_prompt_slug = _parse_mask_filename(fname)
-        if sam_id_token is not None:
-            key = (sam_id_token, core_prompt_slug)
-            if key not in unique_tracked_objects:
-                unique_tracked_objects[key] = {
-                    "sam_id_token": sam_id_token,
-                    "core_prompt_slug": core_prompt_slug
-                }
-        else:
-            print(f"Warning: Filename {fname} did not match expected pattern.")
-    return unique_tracked_objects
 
 def _get_obj_files(temp_dir: str) -> Dict[str, Dict[str, List[str]]]:
     """

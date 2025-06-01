@@ -93,6 +93,11 @@ class FilePatternMatcher:
         return r"(\d+)_obj(\d+)_(.*?)_mask\.png"
 
     @staticmethod
+    def get_simple_mask_pattern() -> str:
+        """Get the regex pattern for simple mask files without prompt."""
+        return r"(\d+)_(obj\d+)_mask\.png"
+
+    @staticmethod
     def get_merged_mask_pattern() -> str:
         """Get the regex pattern for merged mask files."""
         return r"(\d+)_merged_mask\.png"
