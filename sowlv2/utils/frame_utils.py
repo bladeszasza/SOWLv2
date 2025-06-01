@@ -68,7 +68,7 @@ def process_propagated_frame(
             mask = (mask_logits > 0.0).cpu().numpy().astype(np.uint8) * 255
         else:
             mask = (mask_logits > 0.0).astype(np.uint8) * 255
-        
+
         # Ensure mask is 2D
         if mask.ndim > 2:
             mask = mask.squeeze()
