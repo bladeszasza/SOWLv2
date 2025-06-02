@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sowlv2"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
     { name="Csaba Bolyos", email="bladeszasza@gmail.com" },
 ]
 description = "SOWLv2: Text-prompted object segmentation using OWLv2 and SAM 2"
 readme = "README.md"
 license = { file="LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
@@ -22,7 +22,7 @@ classifiers = [
 dependencies = [
     "torch>=1.13.0",
     "transformers>=4.32.1",
-    "sam2>=1.1.0", # Check exact version needed after fixing bug
+    "sam2>=1.1.0",
     "opencv-python>=4.5.5.64",
     "numpy>=1.21.0",
     "Pillow>=9.0.0",
