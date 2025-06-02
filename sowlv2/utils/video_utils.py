@@ -50,17 +50,18 @@ def _get_obj_files(temp_dir: str) -> Dict[str, Dict[str, List[str]]]:
     Returns a dictionary mapping object IDs to their mask and overlay files.
     """
     mask_files = {}
-    binary_dir = os.path.join(temp_dir, DirectoryStructure.BINARY)
-    overlay_dir = os.path.join(temp_dir, DirectoryStructure.OVERLAY)
+    binary_dir = os.path.join(temp_dir, DirectoryStructure.BINARY, DirectoryStructure.MERGED)
+    overlay_dir = os.path.join(temp_dir, DirectoryStructure.OVERLAY, DirectoryStructure.MERGED)
 
     # Get all mask files
-    mask_pattern = os.path.join(binary_dir, "*_mask.png")
+    mask_pattern = os.path.join(binary_dir, "*_merged_mask.png")
     for mask_file in sorted(glob.glob(mask_pattern), key=FilePatternMatcher.natural_sort_key):
         # Extract object ID from filename
         filename = os.path.basename(mask_file)
-        match = re.match(FilePatternMatcher.get_individual_mask_pattern(), filename)
+        match = re.match(FilePatternMatcher.get_merged_mask_pattern(), filename)
         if match:
-            frame_num, obj_id, prompt = match.groups()
+            frame_num = match.group(1)
+            obj_id = "merged"  # Use "merged" as the object ID for merged masks
             if obj_id not in mask_files:
                 mask_files[obj_id] = {"mask": [], "overlay": []}
             mask_files[obj_id]["mask"].append(mask_file)
@@ -68,11 +69,7 @@ def _get_obj_files(temp_dir: str) -> Dict[str, Dict[str, List[str]]]:
             # Get corresponding overlay file
             overlay_file = os.path.join(
                 overlay_dir,
-                FilePattern.INDIVIDUAL_OVERLAY.format(
-                    frame_num=frame_num,
-                    obj_id=obj_id,
-                    prompt=prompt
-                )
+                FilePattern.MERGED_OVERLAY.format(frame_num=frame_num)
             )
             if os.path.exists(overlay_file):
                 mask_files[obj_id]["overlay"].append(overlay_file)
