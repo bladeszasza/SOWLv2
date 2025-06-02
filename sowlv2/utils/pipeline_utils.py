@@ -68,8 +68,10 @@ def create_overlay(
     elif overlay_np.ndim == 3 and overlay_np.shape[2] != 3:
         raise ValueError(f"Invalid image shape {overlay_np.shape}")
 
-    overlay_np[bool_mask_np] = (
-        0.5 * overlay_np[bool_mask_np] + 0.5 * color_np
+    # Convert mask to boolean array for proper indexing
+    bool_mask = bool_mask_np > 0
+    overlay_np[bool_mask] = (
+        0.5 * overlay_np[bool_mask] + 0.5 * color_np
     ).astype(np.uint8)
     return Image.fromarray(overlay_np)
 
@@ -94,9 +96,10 @@ def create_merged_binary_mask(
         merged_mask = np.zeros_like(items[0], dtype=np.uint8)
         for mask in items:
             bool_mask = validate_mask(mask)
-            merged_mask = np.logical_or(merged_mask, bool_mask).astype(np.uint8)
+            # Convert to boolean for logical operation
+            merged_mask = np.logical_or(merged_mask > 0, bool_mask > 0).astype(np.uint8) * 255
 
-        merged_mask_pil = Image.fromarray(merged_mask * 255).convert("L")
+        merged_mask_pil = Image.fromarray(merged_mask).convert("L")
         merged_mask_file = os.path.join(
             output_dir,
             FilePattern.MERGED_MASK.format(frame_num=base_name)
