@@ -88,8 +88,7 @@ Note: If a single prompt contains spaces, it should be enclosed in quotes (e.g.,
 
 ### Command-Line Options:
 
-| Argument        | Description                                                                                                                        | Default Value                        |
-|-----------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------|
+/
 | `--prompt`      | **(Required)** One or more text queries for object detection (e.g., `"cat"`, or `"dog" "person" "a red car"`).                       | `None`                               |
 | `--input`       | **(Required)** Path to the input: a single image file, a directory of image frames, or a video file.                                | `None`                               |
 | `--output`      | Directory where outputs (masks and overlays) will be saved. Created if it doesn't exist.                                           | `output/`                            |
