@@ -201,12 +201,14 @@ def run_video_processing_steps(
         video_ctx, sam_model, config, video_temp_dirs.temp_dir
     )
 
+    # Always generate all video types in temp directory
+    # Selective copying will be handled by move_video_outputs_to_final_dir
     video_utils.generate_videos(
             temp_dir=video_temp_dirs.temp_dir,
             fps=config.fps,
-            binary=config.pipeline_config.binary,
-            overlay=config.pipeline_config.overlay,
-            merged=config.pipeline_config.merged
+            binary=True,
+            overlay=True,
+            merged=True
         )
 
     return config.prompt_color_map, config.next_color_idx
@@ -265,8 +267,11 @@ def move_video_outputs_to_final_dir(
                 final_dirs["overlay_merged"]
             )
 
-    _robust_move_and_mkdir(temp_dirs.video.overlay_path, final_dirs["video_overlay"])
-    _robust_move_and_mkdir(temp_dirs.video.binary_path, final_dirs["video_binary"])
+    # Copy video outputs only if the corresponding binary/overlay flags are enabled
+    if pipeline_config.binary:
+        _robust_move_and_mkdir(temp_dirs.video.binary_path, final_dirs["video_binary"])
+    if pipeline_config.overlay:
+        _robust_move_and_mkdir(temp_dirs.video.overlay_path, final_dirs["video_overlay"])
 
     base_video_temp_dir = temp_dirs.temp_dir
     if os.path.exists(base_video_temp_dir) and not os.listdir(base_video_temp_dir):

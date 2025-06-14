@@ -98,8 +98,9 @@ def process_propagated_frame(
             print(f"Error {obj_idx + 1} in frame {frame_output_data.frame_num}: {e}")
             continue
 
-    # Create merged outputs if requested
-    if items_for_merged_overlay and pipeline_config.merged:
+    # Always create merged outputs in temp directory
+    # Selective copying will be handled by move_video_outputs_to_final_dir
+    if items_for_merged_overlay:
         try:
             create_and_save_merged_overlay(
                 items_for_merged_overlay,

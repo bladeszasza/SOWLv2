@@ -63,37 +63,37 @@ def process_single_detection_for_image(
                 label=prompt
             )
 
-        # Save binary mask if requested
-        if pipeline_config.binary:
-            binary_path = os.path.join(
-                single_detection_input.output_dir,
-                DirectoryStructure.BINARY,
-                DirectoryStructure.FRAMES,
-                FilePattern.INDIVIDUAL_MASK.format(
-                    frame_num=base_name_slug,
-                    obj_id=idx,
-                    prompt=prompt_slug
-                )
+        # Always save binary mask in temp directory
+        # Selective copying will be handled by output copying logic
+        binary_path = os.path.join(
+            single_detection_input.output_dir,
+            DirectoryStructure.BINARY,
+            DirectoryStructure.FRAMES,
+            FilePattern.INDIVIDUAL_MASK.format(
+                frame_num=base_name_slug,
+                obj_id=idx,
+                prompt=prompt_slug
             )
-            Image.fromarray(mask).save(binary_path)
+        )
+        Image.fromarray(mask).save(binary_path)
 
-        # Create and save overlay if requested
-        if pipeline_config.overlay:
-            overlay_path = os.path.join(
-                single_detection_input.output_dir,
-                DirectoryStructure.OVERLAY,
-                DirectoryStructure.FRAMES,
-                FilePattern.INDIVIDUAL_OVERLAY.format(
-                    frame_num=base_name_slug,
-                    obj_id=idx,
-                    prompt=prompt_slug
-                )
+        # Always create and save overlay in temp directory
+        # Selective copying will be handled by output copying logic
+        overlay_path = os.path.join(
+            single_detection_input.output_dir,
+            DirectoryStructure.OVERLAY,
+            DirectoryStructure.FRAMES,
+            FilePattern.INDIVIDUAL_OVERLAY.format(
+                frame_num=base_name_slug,
+                obj_id=idx,
+                prompt=prompt_slug
             )
-            create_overlay(
-                single_detection_input.pil_image,
-                mask,
-                single_detection_input.detection_detail.get('color', (255, 0, 0))
-            ).save(overlay_path)
+        )
+        create_overlay(
+            single_detection_input.pil_image,
+            mask,
+            single_detection_input.detection_detail.get('color', (255, 0, 0))
+        ).save(overlay_path)
 
         return merged_item
 

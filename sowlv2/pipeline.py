@@ -81,6 +81,29 @@ class SOWLv2Pipeline:
         )
         return color
 
+    def _filter_outputs_by_flags(self, output_dir: str):
+        """Filter outputs based on pipeline configuration flags."""
+        import shutil
+
+        # If binary is disabled, remove binary directory
+        if not self.config.pipeline_config.binary:
+            binary_dir = os.path.join(output_dir, "binary")
+            if os.path.exists(binary_dir):
+                shutil.rmtree(binary_dir)
+
+        # If overlay is disabled, remove overlay directory
+        if not self.config.pipeline_config.overlay:
+            overlay_dir = os.path.join(output_dir, "overlay")
+            if os.path.exists(overlay_dir):
+                shutil.rmtree(overlay_dir)
+
+        # If merged is disabled, remove merged subdirectories
+        if not self.config.pipeline_config.merged:
+            for base_type in ["binary", "overlay"]:
+                merged_dir = os.path.join(output_dir, base_type, "merged")
+                if os.path.exists(merged_dir):
+                    shutil.rmtree(merged_dir)
+
     def process_image(self, image_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
         Detect, segment, and save masks/overlays for a single image.
@@ -125,13 +148,16 @@ class SOWLv2Pipeline:
             if merged_item:
                 items_for_merged_overlay.append(merged_item)
 
-        if self.config.pipeline_config.merged:
-            create_and_save_merged_overlay(
-                items_for_merged_overlay,
-                pil_image,
-                output_dir,
-                int(base_name) if base_name.isdigit() else 0
-            )
+        # Always create merged overlay, selective copying is handled by flag logic
+        create_and_save_merged_overlay(
+            items_for_merged_overlay,
+            pil_image,
+            output_dir,
+            int(base_name) if base_name.isdigit() else 0
+        )
+
+        # Apply output filtering based on flags
+        self._filter_outputs_by_flags(output_dir)
         remove_empty_folders(output_dir)
 
     def process_frames(self, folder_path: str, prompt: Union[str, List[str]], output_dir: str):
