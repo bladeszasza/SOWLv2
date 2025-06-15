@@ -140,11 +140,11 @@ def generate_videos(
             # Only generate merged videos if merged flag is True
             if merged:
                 _generate_videos_for_object(
-                    obj_id, files, video_dirs, binary, overlay, fps)
+                    obj_id, files, video_dirs, {'binary': binary, 'overlay': overlay}, fps)
         else:
             # Always generate individual object videos (controlled by binary/overlay flags)
             _generate_videos_for_object(
-                obj_id, files, video_dirs, binary, overlay, fps)
+                obj_id, files, video_dirs, {'binary': binary, 'overlay': overlay}, fps)
 
 def _create_video_directories(temp_dir: str) -> Dict[str, str]:
     """Create and return video output directories."""
@@ -158,11 +158,12 @@ def _generate_videos_for_object(
     obj_id: str,
     files: Dict[str, List[str]],
     video_dirs: Dict[str, str],
-    binary: bool,
-    overlay: bool,
+    flags: Dict[str, bool],
     fps: int
 ):
     """Generate videos for a specific object (individual or merged)."""
+    binary = flags.get('binary', True)
+    overlay = flags.get('overlay', True)
     # Generate binary mask video
     if binary and files.get("mask"):
         if obj_id == "merged":

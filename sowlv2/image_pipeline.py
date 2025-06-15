@@ -21,7 +21,7 @@ from sowlv2.utils.path_config import (
 
 def process_single_detection_for_image(
     single_detection_input: SingleDetectionInput,
-    pipeline_config: PipelineConfig
+    pipeline_config: PipelineConfig  # pylint: disable=unused-argument
 ) -> Optional[MergedOverlayItem]:
     """Process a single detection for an image.
 

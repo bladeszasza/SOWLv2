@@ -2,6 +2,7 @@
 Core pipeline for SOWLv2: text-prompted detection (OWLv2) and segmentation (SAM2) for images/videos.
 """
 import os
+import shutil
 import tempfile
 from typing import Union, List, Dict, Tuple
 from PIL import Image
@@ -77,7 +78,6 @@ class SOWLv2Pipeline:
 
     def _filter_outputs_by_flags(self, output_dir: str):
         """Filter outputs based on pipeline configuration flags."""
-        import shutil
 
         # If binary is disabled, remove binary directory
         if not self.config.pipeline_config.binary:

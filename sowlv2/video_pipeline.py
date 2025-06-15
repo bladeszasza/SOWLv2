@@ -222,7 +222,6 @@ def move_video_outputs_to_final_dir(
     # Create the base video directory first if any video output is needed
     if pipeline_config.binary or pipeline_config.overlay:
         os.makedirs(os.path.join(final_output_dir, "video"), exist_ok=True)
-    
     final_dirs = {
         "binary_frames": os.path.join(final_output_dir, "binary", "frames"),
         "binary_merged": os.path.join(final_output_dir, "binary", "merged"),
@@ -277,7 +276,6 @@ def move_video_outputs_to_final_dir(
     # Check if video directories exist in temp before moving
     if os.path.exists(temp_dirs.video.binary_path) and os.listdir(temp_dirs.video.binary_path):
         _robust_move_and_mkdir(temp_dirs.video.binary_path, final_dirs["video_binary"])
-    
     if os.path.exists(temp_dirs.video.overlay_path) and os.listdir(temp_dirs.video.overlay_path):
         _robust_move_and_mkdir(temp_dirs.video.overlay_path, final_dirs["video_overlay"])
 
