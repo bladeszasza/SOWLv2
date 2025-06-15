@@ -9,7 +9,7 @@ from typing import Any, Union, List, Dict, Tuple
 from dataclasses import dataclass
 from PIL import Image
 
-from sowlv2.utils import video_utils #
+from sowlv2.utils import video_utils
 from sowlv2.models import OWLV2Wrapper, SAM2Wrapper
 from sowlv2.data.config import (
     VideoProcessContext, PipelineConfig,
@@ -219,6 +219,10 @@ def move_video_outputs_to_final_dir(
     pipeline_config: PipelineConfig
 ):
     """Move video outputs to final directory."""
+    # Create the base video directory first if any video output is needed
+    if pipeline_config.binary or pipeline_config.overlay:
+        os.makedirs(os.path.join(final_output_dir, "video"), exist_ok=True)
+    
     final_dirs = {
         "binary_frames": os.path.join(final_output_dir, "binary", "frames"),
         "binary_merged": os.path.join(final_output_dir, "binary", "merged"),
@@ -245,6 +249,7 @@ def move_video_outputs_to_final_dir(
             except OSError as e:
                 print(f"Could not remove empty source directory {src_folder}: {e}")
 
+    # Move frame outputs based on flags
     if pipeline_config.binary:
         _robust_move_and_mkdir(
             os.path.join(temp_dirs.binary.path, "frames"),
@@ -267,12 +272,16 @@ def move_video_outputs_to_final_dir(
                 final_dirs["overlay_merged"]
             )
 
-    # Copy video outputs only if the corresponding binary/overlay flags are enabled
-    if pipeline_config.binary:
+    # CRITICAL FIX: Always move video outputs when they exist, regardless of binary/overlay flags
+    # When both --no-binary and --no-overlay are used, we still generate video outputs
+    # Check if video directories exist in temp before moving
+    if os.path.exists(temp_dirs.video.binary_path) and os.listdir(temp_dirs.video.binary_path):
         _robust_move_and_mkdir(temp_dirs.video.binary_path, final_dirs["video_binary"])
-    if pipeline_config.overlay:
+    
+    if os.path.exists(temp_dirs.video.overlay_path) and os.listdir(temp_dirs.video.overlay_path):
         _robust_move_and_mkdir(temp_dirs.video.overlay_path, final_dirs["video_overlay"])
 
+    # Clean up temporary directory
     base_video_temp_dir = temp_dirs.temp_dir
     if os.path.exists(base_video_temp_dir) and not os.listdir(base_video_temp_dir):
         try:

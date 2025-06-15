@@ -2,7 +2,6 @@
 Core pipeline for SOWLv2: text-prompted detection (OWLv2) and segmentation (SAM2) for images/videos.
 """
 import os
-import shutil
 import tempfile
 from typing import Union, List, Dict, Tuple
 from PIL import Image
@@ -16,7 +15,11 @@ from sowlv2.data.config import (
 )
 from sowlv2.video_pipeline import (
     VideoTrackingConfig,
-    VideoProcessingConfig
+    VideoProcessingConfig,
+    prepare_video_context,
+    create_temp_directories_for_video,
+    run_video_processing_steps,
+    move_video_outputs_to_final_dir
 )
 from sowlv2.utils.pipeline_utils import (
     DEFAULT_PALETTE, get_prompt_color, CUDA
@@ -25,18 +28,9 @@ from sowlv2.image_pipeline import (
     process_single_detection_for_image,
     create_and_save_merged_overlay
 )
-from sowlv2.video_pipeline import (
-    prepare_video_context,
-    create_temp_directories_for_video,
-    run_video_processing_steps,
-    move_video_outputs_to_final_dir
-)
 from sowlv2.utils.frame_utils import is_valid_image_extension
 from sowlv2.utils.filesystem_utils import remove_empty_folders
 
-
-_FIRST_FRAME = "000001.jpg" # Retained for reference, though primarily used in video_pipeline
-_FIRST_FRAME_IDX = 0     # Retained for reference
 
 class SOWLv2Pipeline:
     """
