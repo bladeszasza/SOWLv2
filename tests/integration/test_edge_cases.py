@@ -391,7 +391,7 @@ class TestFileSystemEdgeCases:
         """Test handling of read-only output directory."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
-        
+
         output_dir = tmp_path / "readonly_output"
         output_dir.mkdir()
 
