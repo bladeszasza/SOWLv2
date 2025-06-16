@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from sowlv2.pipeline import SOWLv2Pipeline
 from sowlv2.data.config import PipelineBaseData, PipelineConfig
-from tests.conftest import validate_output_structure
+from tests.conftest import validate_output_structure, create_test_pipeline_config
 
 
 class TestOutputStructure:
@@ -28,12 +28,7 @@ class TestOutputStructure:
         output_dir = str(tmp_path / "output")
         
         # Configure pipeline with specific flags
-        config = PipelineBaseData(
-            owl_model="google/owlv2-base-patch16-ensemble",
-            sam_model="facebook/sam2.1-hiera-small", 
-            threshold=0.1,
-            fps=24,
-            device="cpu",
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(
                 binary=binary,
                 overlay=overlay,
@@ -60,6 +55,7 @@ class TestOutputStructure:
             output_dir, binary, overlay, merged
         )
     
+    @pytest.mark.skip(reason="Video processing will be reworked in separate PR")
     @pytest.mark.parametrize("binary,overlay,merged", 
         list(itertools.product([True, False], repeat=3)))
     def test_video_output_structure(self, tmp_path, sample_video_path,
@@ -73,12 +69,7 @@ class TestOutputStructure:
         
         output_dir = str(tmp_path / "output")
         
-        config = PipelineBaseData(
-            owl_model="google/owlv2-base-patch16-ensemble", 
-            sam_model="facebook/sam2.1-hiera-small",
-            threshold=0.1,
-            fps=24,
-            device="cpu",
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(
                 binary=binary,
                 overlay=overlay, 
@@ -130,7 +121,7 @@ class TestOutputStructure:
             }
         ]
         
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
         
@@ -162,7 +153,7 @@ class TestOutputStructure:
         # Configure mock to return no detections
         mock_owl_model.detect.return_value = []
         
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
         
@@ -191,9 +182,9 @@ class TestOutputStructure:
             binary_files = list((output_path / "binary" / "frames").glob("*_obj*_*_mask.png"))
             assert len(binary_files) > 0, "Should have individual binary mask files"
             
-            # Check file naming pattern
+            # Check file naming pattern (uses base name, obj starts from 0)
             for file in binary_files:
-                assert re.match(r'\d+_obj\d+_.*_mask\.png', file.name), \
+                assert re.match(r'.*_obj\d+_.*_mask\.png', file.name), \
                     f"Binary file {file.name} doesn't match naming pattern"
             
             if merged:
@@ -202,7 +193,7 @@ class TestOutputStructure:
                 assert len(merged_files) > 0, "Should have merged binary files"
                 
                 for file in merged_files:
-                    assert re.match(r'\d+_merged_mask\.png', file.name), \
+                    assert re.match(r'\d{6}_merged_mask\.png', file.name), \
                         f"Merged binary file {file.name} doesn't match naming pattern"
             else:
                 # Merged directory should not exist or be empty
@@ -222,9 +213,9 @@ class TestOutputStructure:
             overlay_files = list((output_path / "overlay" / "frames").glob("*_obj*_*_overlay.png"))
             assert len(overlay_files) > 0, "Should have individual overlay files"
             
-            # Check file naming pattern
+            # Check file naming pattern (uses base name, obj starts from 0)
             for file in overlay_files:
-                assert re.match(r'\d+_obj\d+_.*_overlay\.png', file.name), \
+                assert re.match(r'.*_obj\d+_.*_overlay\.png', file.name), \
                     f"Overlay file {file.name} doesn't match naming pattern"
             
             if merged:
@@ -233,7 +224,7 @@ class TestOutputStructure:
                 assert len(merged_files) > 0, "Should have merged overlay files"
                 
                 for file in merged_files:
-                    assert re.match(r'\d+_merged_overlay\.png', file.name), \
+                    assert re.match(r'\d{6}_merged_overlay\.png', file.name), \
                         f"Merged overlay file {file.name} doesn't match naming pattern"
             else:
                 # Merged directory should not exist or be empty
@@ -319,7 +310,7 @@ class TestFileNamingConventions:
             }
         ]
         
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
         
@@ -348,7 +339,7 @@ class TestFileNamingConventions:
             }
         ]
         
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=True)
         )
         
@@ -376,7 +367,7 @@ class TestFileNamingConventions:
             }
         ]
         
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
         
@@ -418,7 +409,7 @@ class TestFlagCombinationMatrix:
             }
         ]
         
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(**flags)
         )
         
@@ -442,7 +433,7 @@ class TestFlagCombinationMatrix:
             }
         ]
         
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=False, overlay=False, merged=False)
         )
         

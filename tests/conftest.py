@@ -120,7 +120,8 @@ def pipeline_base_data_default():
 @pytest.fixture
 def mock_owl_model(mocker):
     """Mock OWLv2 model to avoid loading actual models."""
-    mock = mocker.patch('sowlv2.models.owl.OWLV2Wrapper')
+    # Patch at the pipeline import location
+    mock = mocker.patch('sowlv2.pipeline.OWLV2Wrapper')
     instance = mock.return_value
     # Default return: single detection
     instance.detect.return_value = [
@@ -134,10 +135,11 @@ def mock_owl_model(mocker):
     return instance
 
 
-@pytest.fixture
+@pytest.fixture  
 def mock_sam_model(mocker, sample_mask):
     """Mock SAM2 model."""
-    mock = mocker.patch('sowlv2.models.sam2_wrapper.SAM2Wrapper')
+    # Patch at the pipeline import location
+    mock = mocker.patch('sowlv2.pipeline.SAM2Wrapper')
     instance = mock.return_value
     instance.segment.return_value = sample_mask
     instance.init_state.return_value = "mock_state"
@@ -154,6 +156,7 @@ def test_config_yaml(tmp_path):
     """Create a test YAML configuration file."""
     config_data = {
         'prompt': ['cat', 'dog'],
+        'input': 'test_input.jpg',  # Add required input field
         'owl-model': 'google/owlv2-base-patch16-ensemble',
         'sam-model': 'facebook/sam2.1-hiera-small',
         'threshold': 0.15,
@@ -265,6 +268,20 @@ def create_test_video(path: str, num_frames: int = 10, fps: int = 24):
         out.write(frame)
     
     out.release()
+
+
+def create_test_pipeline_config(**kwargs):
+    """Create a complete PipelineBaseData configuration for testing."""
+    defaults = {
+        "owl_model": "google/owlv2-base-patch16-ensemble",
+        "sam_model": "facebook/sam2.1-hiera-small", 
+        "threshold": 0.1,
+        "fps": 24,
+        "device": "cpu",
+        "pipeline_config": PipelineConfig(binary=True, overlay=True, merged=True)
+    }
+    defaults.update(kwargs)
+    return PipelineBaseData(**defaults)
 
 
 def validate_output_structure(output_dir: str, flags: Dict[str, bool], input_type: str = "image"):
