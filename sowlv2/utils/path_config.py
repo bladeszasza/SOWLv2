@@ -26,8 +26,8 @@ class FilePattern:
     MERGED_OVERLAY = "{frame_num}_merged_overlay.png"
 
     # Video file patterns
-    VIDEO_MASK = "{obj_id}_mask.mp4"
-    VIDEO_OVERLAY = "{obj_id}_overlay.mp4"
+    VIDEO_MASK = "{obj_id}_{prompt}_mask.mp4"
+    VIDEO_OVERLAY = "{obj_id}_{prompt}_overlay.mp4"
     VIDEO_MERGED_MASK = "merged_mask.mp4"
     VIDEO_MERGED_OVERLAY = "merged_overlay.mp4"
 
