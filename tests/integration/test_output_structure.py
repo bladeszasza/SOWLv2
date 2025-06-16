@@ -1,6 +1,7 @@
 """Test output directory structure with various flag combinations."""
 import itertools
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,36 +12,60 @@ from sowlv2.data.config import PipelineConfig
 from tests.conftest import validate_output_structure, create_test_pipeline_config
 
 
+@dataclass
+class TestConfig:
+    """Configuration for test methods to reduce parameter count."""
+    tmp_path: str
+    sample_image_path: str = None
+    sample_video_path: str = None
+    mock_owl_model = None
+    mock_sam_model = None
+    binary: bool = True
+    overlay: bool = True
+    merged: bool = True
+    flags: dict = None
+
+
 class TestOutputStructure:
     """Test output directory structure with all flag combinations."""
 
     @pytest.mark.parametrize("binary,overlay,merged",
         list(itertools.product([True, False], repeat=3)))
-    # pylint: disable-next=too-many-arguments
     def test_image_output_structure(self, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model,
                                    binary, overlay, merged):
         """Test all combinations of --no-binary, --no-overlay, --no-merged flags for images."""
+        # Create test config dataclass to reduce parameter count
+        config = TestConfig(
+            tmp_path=str(tmp_path),
+            sample_image_path=sample_image_path,
+            mock_owl_model=mock_owl_model,
+            mock_sam_model=mock_sam_model,
+            binary=binary,
+            overlay=overlay,
+            merged=merged
+        )
+
         # mock_sam_model fixture is needed for test setup but not used directly
-        _ = mock_sam_model
+        _ = config.mock_sam_model
 
         # Skip the case where all flags are disabled (no output)
-        if not any([binary, overlay, merged]):
+        if not any([config.binary, config.overlay, config.merged]):
             pytest.skip("No output expected when all flags are disabled")
 
         output_dir = str(tmp_path / "output")
 
         # Configure pipeline with specific flags
-        config = create_test_pipeline_config(
+        pipeline_config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(
-                binary=binary,
-                overlay=overlay,
-                merged=merged
+                binary=config.binary,
+                overlay=config.overlay,
+                merged=config.merged
             )
         )
 
         # Configure mock to return detection
-        mock_owl_model.detect.return_value = [
+        config.mock_owl_model.detect.return_value = [
             {
                 "box": [100, 100, 300, 200],
                 "score": 0.95,
@@ -50,41 +75,51 @@ class TestOutputStructure:
         ]
 
         # Run pipeline
-        pipeline = SOWLv2Pipeline(config)
-        pipeline.process_image(sample_image_path, "cat", output_dir)
+        pipeline = SOWLv2Pipeline(pipeline_config)
+        pipeline.process_image(config.sample_image_path, "cat", output_dir)
 
         # Validate output structure
         self._validate_image_output_structure(
-            output_dir, binary, overlay, merged
+            output_dir, config.binary, config.overlay, config.merged
         )
 
     @pytest.mark.skip(reason="Video processing will be reworked in separate PR")
     @pytest.mark.parametrize("binary,overlay,merged",
         list(itertools.product([True, False], repeat=3)))
-    # pylint: disable-next=too-many-arguments
     def test_video_output_structure(self, tmp_path, sample_video_path,
                                    mock_owl_model, mock_sam_model,
                                    binary, overlay, merged):
         """Test video output structure with all flag combinations."""
+        # Create test config dataclass to reduce parameter count
+        config = TestConfig(
+            tmp_path=str(tmp_path),
+            sample_video_path=sample_video_path,
+            mock_owl_model=mock_owl_model,
+            mock_sam_model=mock_sam_model,
+            binary=binary,
+            overlay=overlay,
+            merged=merged
+        )
+
         # mock_sam_model fixture is needed for test setup but not used directly
-        _ = mock_sam_model
+        _ = config.mock_sam_model
 
         # Skip the impossible case
-        if not any([binary, overlay, merged]):
+        if not any([config.binary, config.overlay, config.merged]):
             pytest.skip("No output expected when all flags are disabled")
 
         output_dir = str(tmp_path / "output")
 
-        config = create_test_pipeline_config(
+        pipeline_config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(
-                binary=binary,
-                overlay=overlay,
-                merged=merged
+                binary=config.binary,
+                overlay=config.overlay,
+                merged=config.merged
             )
         )
 
         # Configure mock to return detection
-        mock_owl_model.detect.return_value = [
+        config.mock_owl_model.detect.return_value = [
             {
                 "box": [100, 100, 300, 200],
                 "score": 0.95,
@@ -98,12 +133,12 @@ class TestOutputStructure:
             mock_subprocess.return_value = None
 
             # Run pipeline
-            pipeline = SOWLv2Pipeline(config)
-            pipeline.process_video(sample_video_path, "cat", output_dir)
+            pipeline = SOWLv2Pipeline(pipeline_config)
+            pipeline.process_video(config.sample_video_path, "cat", output_dir)
 
         # Validate output structure
         self._validate_video_output_structure(
-            output_dir, binary, overlay, merged
+            output_dir, config.binary, config.overlay, config.merged
         )
 
     def test_multiple_objects_output_structure(self, tmp_path, sample_image_path,
@@ -417,15 +452,23 @@ class TestFlagCombinationMatrix:
         {"binary": False, "overlay": True, "merged": False},   # --no-binary --no-merged
         {"binary": True, "overlay": False, "merged": False},   # --no-overlay --no-merged
     ])
-    # pylint: disable-next=too-many-arguments
     def test_valid_flag_combinations(self, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model, flags):
         """Test all valid flag combinations produce expected output."""
+        # Create test config dataclass to reduce parameter count
+        config = TestConfig(
+            tmp_path=str(tmp_path),
+            sample_image_path=sample_image_path,
+            mock_owl_model=mock_owl_model,
+            mock_sam_model=mock_sam_model,
+            flags=flags
+        )
+
         # mock_sam_model fixture is needed for test setup but not used directly
-        _ = mock_sam_model
+        _ = config.mock_sam_model
         output_dir = str(tmp_path / "output")
 
-        mock_owl_model.detect.return_value = [
+        config.mock_owl_model.detect.return_value = [
             {
                 "box": [100, 100, 300, 200],
                 "score": 0.95,
@@ -434,15 +477,15 @@ class TestFlagCombinationMatrix:
             }
         ]
 
-        config = create_test_pipeline_config(
-            pipeline_config=PipelineConfig(**flags)
+        pipeline_config = create_test_pipeline_config(
+            pipeline_config=PipelineConfig(**config.flags)
         )
 
-        pipeline = SOWLv2Pipeline(config)
-        pipeline.process_image(sample_image_path, "cat", output_dir)
+        pipeline = SOWLv2Pipeline(pipeline_config)
+        pipeline.process_image(config.sample_image_path, "cat", output_dir)
 
         # Validate using our utility function
-        validate_output_structure(output_dir, flags, "image")
+        validate_output_structure(output_dir, config.flags, "image")
 
     def test_all_flags_disabled_edge_case(self, tmp_path, sample_image_path,
                                         mock_owl_model, mock_sam_model):

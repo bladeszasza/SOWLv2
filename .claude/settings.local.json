@@ -41,7 +41,8 @@
       "Bash(python -m pytest tests/ -x --disable-warnings)",
       "Bash(python -m pytest tests/unit/utils/test_path_config.py::TestIntegrationPatterns::test_video_pattern_consistency tests/unit/test_cli.py::TestCLIArgumentParsing::test_config_file_argument -v)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }
