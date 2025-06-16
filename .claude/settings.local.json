@@ -4,7 +4,10 @@
       "Bash(git add:*)",
       "Bash(git reset:*)",
       "Bash(pylint:*)",
-      "Bash(python -m py_compile:*)"
+      "Bash(python -m py_compile:*)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }
