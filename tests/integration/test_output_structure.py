@@ -48,7 +48,7 @@ class TestOutputStructure:
 
     @pytest.mark.parametrize("binary,overlay,merged",
         list(itertools.product([True, False], repeat=3)))
-    def test_image_output_structure(self, tmp_path, sample_image_path,
+    def test_image_output_structure(self, *, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model,
                                    binary, overlay, merged):
         """Test all combinations of --no-binary, --no-overlay, --no-merged flags for images."""
@@ -102,7 +102,7 @@ class TestOutputStructure:
     @pytest.mark.skip(reason="Video processing will be reworked in separate PR")
     @pytest.mark.parametrize("binary,overlay,merged",
         list(itertools.product([True, False], repeat=3)))
-    def test_video_output_structure(self, tmp_path, sample_video_path,
+    def test_video_output_structure(self, *, tmp_path, sample_video_path,
                                    mock_owl_model, mock_sam_model,
                                    binary, overlay, merged):
         """Test video output structure with all flag combinations."""
@@ -156,7 +156,7 @@ class TestOutputStructure:
             output_dir, flags.binary, flags.overlay, flags.merged
         )
 
-    def test_multiple_objects_output_structure(self, tmp_path, sample_image_path,
+    def test_multiple_objects_output_structure(self, *, tmp_path, sample_image_path,
                                              mock_owl_model, mock_sam_model):
         """Test output structure with multiple detected objects."""
         # mock_sam_model fixture is needed for test setup but not used directly
@@ -204,7 +204,7 @@ class TestOutputStructure:
         assert len(binary_merged) == 1
         assert len(overlay_merged) == 1
 
-    def test_empty_directories_cleanup(self, tmp_path, sample_image_path,
+    def test_empty_directories_cleanup(self, *, tmp_path, sample_image_path,
                                       mock_owl_model, mock_sam_model):
         """Test that empty directories are cleaned up."""
         # mock_sam_model fixture is needed for test setup but not used directly
@@ -359,7 +359,7 @@ class TestOutputStructure:
 class TestFileNamingConventions:
     """Test file naming conventions are followed correctly."""
 
-    def test_individual_mask_naming_pattern(self, tmp_path, sample_image_path,
+    def test_individual_mask_naming_pattern(self, *, tmp_path, sample_image_path,
                                           mock_owl_model, mock_sam_model):
         """Test individual mask files follow {frame_num}_obj{obj_id}_{prompt}_mask.png pattern."""
         # mock_sam_model fixture is needed for test setup but not used directly
@@ -391,7 +391,7 @@ class TestFileNamingConventions:
         assert re.match(r'.*_obj\d+_cat_mask\.png', filename), \
             f"File {filename} doesn't match expected pattern"
 
-    def test_merged_mask_naming_pattern(self, tmp_path, sample_image_path,
+    def test_merged_mask_naming_pattern(self, *, tmp_path, sample_image_path,
                                       mock_owl_model, mock_sam_model):
         """Test merged mask files follow {frame_num}_merged_mask.png pattern."""
         # mock_sam_model fixture is needed for test setup but not used directly
@@ -422,7 +422,7 @@ class TestFileNamingConventions:
         assert re.match(r'.*_merged_mask\.png', filename), \
             f"Merged file {filename} doesn't match expected pattern"
 
-    def test_special_characters_in_prompt(self, tmp_path, sample_image_path,
+    def test_special_characters_in_prompt(self, *, tmp_path, sample_image_path,
                                         mock_owl_model, mock_sam_model):
         """Test handling of spaces and special characters in prompts."""
         # mock_sam_model fixture is needed for test setup but not used directly
@@ -467,7 +467,7 @@ class TestFlagCombinationMatrix:
         {"binary": False, "overlay": True, "merged": False},   # --no-binary --no-merged
         {"binary": True, "overlay": False, "merged": False},   # --no-overlay --no-merged
     ])
-    def test_valid_flag_combinations(self, tmp_path, sample_image_path,
+    def test_valid_flag_combinations(self, *, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model, flags):
         """Test all valid flag combinations produce expected output."""
         # Create test config dataclass to reduce parameter count
@@ -502,7 +502,7 @@ class TestFlagCombinationMatrix:
         # Validate using our utility function
         validate_output_structure(output_dir, config.flags, "image")
 
-    def test_all_flags_disabled_edge_case(self, tmp_path, sample_image_path,
+    def test_all_flags_disabled_edge_case(self, *, tmp_path, sample_image_path,
                                         mock_owl_model, mock_sam_model):
         """Test behavior when all flags are disabled."""
         # mock_sam_model fixture is needed for test setup but not used directly
