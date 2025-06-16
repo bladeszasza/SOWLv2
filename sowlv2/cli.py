@@ -73,20 +73,23 @@ def parse_args():
     args = parser.parse_args()
     # If config file is provided, override defaults
     if args.config:
-        with open(args.config, "r", encoding="utf-8") as f:
-            config_from_file = yaml.safe_load(f)
+        with open(args.config, "r", encoding="utf-8") as config_file:
+            config_from_file = yaml.safe_load(config_file)
         # Override args with config values if not explicitly provided
         for key, value in config_from_file.items():
+            # Convert hyphenated keys to underscore format for argparse compatibility
+            attr_key = key.replace('-', '_')
+
             # For 'prompt', CLI takes precedence if provided. Otherwise, use config.
             if key == "prompt":
-                if getattr(args, key) is None and args.config and key in config_from_file:
+                if getattr(args, attr_key) is None and args.config and key in config_from_file:
                     # Ensure prompt from config is a list
-                    setattr(args, key, value if isinstance(value, list) else [value])
-            elif getattr(args, key) is None or (
+                    setattr(args, attr_key, value if isinstance(value, list) else [value])
+            elif hasattr(args, attr_key) and (getattr(args, attr_key) is None or (
                 args.config and key in config_from_file and
-                getattr(args, key) == parser.get_default(key)):
+                getattr(args, attr_key) == parser.get_default(attr_key))):
                 # Allow config to override if arg is None or if it's still the default CLI value
-                setattr(args, key, value)
+                setattr(args, attr_key, value)
 
 
     # Validate required fields

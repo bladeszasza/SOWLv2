@@ -2,10 +2,11 @@
 Utilities for video processing, such as converting image frames to video
 and generating per-object mask/overlay videos.
 """
-import os
 import glob
+import os
 import re
 from typing import List, Dict
+
 import cv2  # pylint: disable=import-error
 
 from sowlv2.utils.path_config import (

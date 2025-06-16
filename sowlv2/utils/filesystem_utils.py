@@ -7,16 +7,20 @@ def remove_empty_folders(root_dir: str) -> None:
     Args:
         root_dir (str): The root directory to start searching for empty folders.
     """
+    # Check if directory exists
+    if not os.path.exists(root_dir):
+        return
+
     for dirpath, dirnames, _ in os.walk(root_dir, topdown=False):
         for dirname in dirnames:
             full_path = os.path.join(dirpath, dirname)
             remove_empty_folders(full_path)
 
-    if not os.listdir(root_dir):
-        try:
+    try:
+        if not os.listdir(root_dir):
             os.rmdir(root_dir)
-        except OSError as e:
-            print(f"Failed to remove {root_dir}: {e}")
+    except OSError as error:
+        print(f"Failed to remove {root_dir}: {error}")
 
 def create_output_directories(base_dir: str, include_video: bool = False) -> dict:
     """Create a standardized directory structure for pipeline outputs.
