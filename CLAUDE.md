@@ -66,16 +66,39 @@ sowlv2-detect --config config.yaml
 
 ```
 output_dir/
-├── binary/               # Binary mask images/videos
-│   ├── merged/          # All objects combined
-│   └── frames/[per-object]/
-├── overlay/             # Visual overlays  
-│   ├── merged/         # All objects combined
-│   └── frames/[per-object]/
-└── video/              # Generated videos (for video input)
-    ├── binary/
-    └── overlay/
+├── binary/                  # Binary mask images/videos
+│   ├── merged/             # Merged binary masks (all objects combined)
+│   │   ├── 000001_merged_mask.png
+│   │   ├── 000002_merged_mask.png
+│   │   └── ...
+│   └── frames/             # Individual binary masks per object
+│       ├── 000001_obj1_cat_mask.png
+│       ├── 000001_obj2_dog_mask.png
+│       └── ...
+├── overlay/                # RGB overlay images/videos
+│   ├── merged/            # Merged overlays (all objects combined)
+│   │   ├── 000001_merged_overlay.png
+│   │   ├── 000002_merged_overlay.png
+│   │   └── ...
+│   └── frames/            # Individual overlays per object
+│       ├── 000001_obj1_cat_overlay.png
+│       ├── 000001_obj2_dog_overlay.png
+│       └── ...
+└── video/                 # Generated videos (for video input)
+    ├── binary/            # Binary mask videos
+    │   ├── merged_mask.mp4
+    │   ├── obj1_cat_mask.mp4
+    │   └── obj2_dog_mask.mp4
+    └── overlay/           # Overlay videos
+        ├── merged_overlay.mp4
+        ├── obj1_cat_overlay.mp4
+        └── obj2_dog_overlay.mp4
 ```
+
+### File Naming Convention:
+- **Individual files**: `{frame_num}_obj{obj_id}_{prompt}_mask.png` / `{frame_num}_obj{obj_id}_{prompt}_overlay.png`
+- **Merged files**: `{frame_num}_merged_mask.png` / `{frame_num}_merged_overlay.png`
+- **Videos**: `obj{obj_id}_{prompt}_mask.mp4` / `merged_mask.mp4`
 
 ## Dependencies
 

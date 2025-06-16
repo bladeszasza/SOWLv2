@@ -132,28 +132,56 @@ The tool saves results in the specified output directory with the following stru
 
 ```
 output_dir/
-├── binary/                  # Binary mask images
+├── binary/                  # Binary mask images/videos
 │   ├── merged/             # Merged binary masks (all objects combined)
-│   └── frames/[per-object]/       # Individual binary masks per object
-├── overlay/                # RGB overlay images
+│   │   ├── 000001_merged_mask.png
+│   │   ├── 000002_merged_mask.png
+│   │   └── ...
+│   └── frames/             # Individual binary masks per object
+│       ├── 000001_obj1_cat_mask.png
+│       ├── 000001_obj2_dog_mask.png
+│       ├── 000002_obj1_cat_mask.png
+│       └── ...
+├── overlay/                # RGB overlay images/videos
 │   ├── merged/            # Merged overlays (all objects combined)
-│   └── frames/[per-object]/      # Individual overlays per object
-└── video/                 # Generated videos
+│   │   ├── 000001_merged_overlay.png
+│   │   ├── 000002_merged_overlay.png
+│   │   └── ...
+│   └── frames/            # Individual overlays per object
+│       ├── 000001_obj1_cat_overlay.png
+│       ├── 000001_obj2_dog_overlay.png
+│       ├── 000002_obj1_cat_overlay.png
+│       └── ...
+└── video/                 # Generated videos (for video input)
     ├── binary/            # Binary mask videos
-    │   ├── merged.mp4     # Merged binary mask video
-    │   └── [per-object].mp4
+    │   ├── merged_mask.mp4     # Merged binary mask video
+    │   ├── obj1_cat_mask.mp4   # Individual object videos
+    │   └── obj2_dog_mask.mp4
     └── overlay/           # Overlay videos
-        ├── merged.mp4     # Merged overlay video
-        └── [per-object].mp4
+        ├── merged_overlay.mp4  # Merged overlay video
+        ├── obj1_cat_overlay.mp4
+        └── obj2_dog_overlay.mp4
 ```
 
-For each detected object instance (corresponding to any of the given prompts), SOWLv2 generates:
-*   A **binary mask** image (e.g., `imagename_object0_mask.png`): Grayscale PNG where foreground pixels are white (255) and background pixels are black (0). The filename includes a sequential object ID.
-*   An **overlay image** (e.g., `imagename_object0_overlay.png`): The original image with the segmentation mask overlaid (typically colored with transparency).
+#### File Naming Convention:
 
-Objects are numbered sequentially (e.g., `obj1`, `obj2`) in the order they are detected by OWLv2, regardless of which text prompt they matched. For video inputs, output filenames include frame identifiers, and separate videos for each object's masks and overlays are generated (e.g., `1_mask.mp4`, `1_overlay.mp4`).
+For each detected object instance, SOWLv2 generates files using the following patterns:
 
-SOWLv2 automatically assigns a unique color to each detected OWLv2 label, making it easy to visually distinguish different object classes in the output overlays and merged results.
+**Individual Object Files:**
+*   **Binary masks**: `{frame_num}_obj{obj_id}_{prompt}_mask.png` (e.g., `000001_obj1_cat_mask.png`)
+*   **Overlay images**: `{frame_num}_obj{obj_id}_{prompt}_overlay.png` (e.g., `000001_obj1_cat_overlay.png`)
+
+**Merged Files (all objects combined):**
+*   **Binary masks**: `{frame_num}_merged_mask.png` (e.g., `000001_merged_mask.png`)
+*   **Overlay images**: `{frame_num}_merged_overlay.png` (e.g., `000001_merged_overlay.png`)
+
+**Video Files:**
+*   **Individual object videos**: `obj{obj_id}_{prompt}_mask.mp4` / `obj{obj_id}_{prompt}_overlay.mp4`
+*   **Merged videos**: `merged_mask.mp4` / `merged_overlay.mp4`
+
+Objects are numbered sequentially (`obj1`, `obj2`, etc.) in the order they are detected by OWLv2, regardless of which text prompt they matched. Frame numbers use 6-digit zero-padding (`000001`, `000002`, etc.).
+
+SOWLv2 automatically assigns a unique color to each detected object class, making it easy to visually distinguish different object types in the output overlays and merged results.
 
 ### <a name="configuration"></a>Configuration File (Optional):
 
