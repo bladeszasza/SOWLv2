@@ -18,7 +18,7 @@ class TestOutputStructure:
         list(itertools.product([True, False], repeat=3)))
     def test_image_output_structure(self, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged):
+                                   binary, overlay, merged):  # pylint: disable=R0917
         """Test all combinations of --no-binary, --no-overlay, --no-merged flags for images."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -62,7 +62,7 @@ class TestOutputStructure:
         list(itertools.product([True, False], repeat=3)))
     def test_video_output_structure(self, tmp_path, sample_video_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged):
+                                   binary, overlay, merged):  # pylint: disable=R0917
         """Test video output structure with all flag combinations."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -416,7 +416,7 @@ class TestFlagCombinationMatrix:
         {"binary": True, "overlay": False, "merged": False},   # --no-overlay --no-merged
     ])
     def test_valid_flag_combinations(self, tmp_path, sample_image_path,
-                                   mock_owl_model, mock_sam_model, flags):
+                                   mock_owl_model, mock_sam_model, flags):  # pylint: disable=too-many-positional-arguments
         """Test all valid flag combinations produce expected output."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model

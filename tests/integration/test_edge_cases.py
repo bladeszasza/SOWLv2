@@ -1,6 +1,7 @@
 """Test edge cases and error handling throughout the pipeline."""
 import os
 from pathlib import Path
+from subprocess import CalledProcessError, TimeoutExpired
 from unittest.mock import patch
 
 import numpy as np
@@ -8,7 +9,8 @@ import pytest
 from PIL import Image
 
 from sowlv2.pipeline import SOWLv2Pipeline
-from sowlv2.data.config import PipelineBaseData, PipelineConfig
+from sowlv2.data.config import PipelineConfig
+from tests.conftest import create_test_pipeline_config
 
 
 @pytest.mark.skip(reason="Complex edge case - not critical for CI")
@@ -18,12 +20,14 @@ class TestNoDetectionsScenario:
     def test_no_detections_image(self, tmp_path, sample_image_path,
                                 mock_owl_model, mock_sam_model):
         """Test handling when OWL detects no objects in image."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
         output_dir = str(tmp_path / "output")
 
         # Configure mock to return no detections
         mock_owl_model.detect.return_value = []
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
@@ -43,12 +47,14 @@ class TestNoDetectionsScenario:
     def test_no_detections_video(self, tmp_path, sample_video_path,
                                 mock_owl_model, mock_sam_model):
         """Test handling when OWL detects no objects in video."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
         output_dir = str(tmp_path / "output")
 
         # Configure mock to return no detections
         mock_owl_model.detect.return_value = []
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
@@ -68,6 +74,8 @@ class TestNoDetectionsScenario:
     def test_partial_detections_across_frames(self, tmp_path, sample_frames_directory,
                                             mock_owl_model, mock_sam_model):
         """Test handling when only some frames have detections."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
         output_dir = str(tmp_path / "output")
 
         # Configure mock to alternate between detections and no detections
@@ -78,7 +86,7 @@ class TestNoDetectionsScenario:
         ]
 
         call_count = 0
-        def side_effect(*args, **kwargs):
+        def side_effect(*_args, **_kwargs):
             nonlocal call_count
             result = detection_results[call_count % len(detection_results)]
             call_count += 1
@@ -86,7 +94,7 @@ class TestNoDetectionsScenario:
 
         mock_owl_model.detect.side_effect = side_effect
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
@@ -116,7 +124,7 @@ class TestInvalidMasksHandling:
         ]
         mock_sam_model.segment.return_value = None
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
@@ -143,7 +151,7 @@ class TestInvalidMasksHandling:
         ]
         mock_sam_model.segment.return_value = empty_mask
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
@@ -167,7 +175,7 @@ class TestInvalidMasksHandling:
         ]
         mock_sam_model.segment.return_value = wrong_mask
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
@@ -176,7 +184,7 @@ class TestInvalidMasksHandling:
         # Should handle gracefully (might resize or skip)
         try:
             pipeline.process_image(sample_image_path, "cat", output_dir)
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             # If it raises an exception, it should be handled gracefully
             assert "shape" in str(e).lower() or "dimension" in str(e).lower()
 
@@ -201,22 +209,25 @@ class TestDeviceHandling:
                 pipeline = SOWLv2Pipeline(config)
                 # If initialization succeeds, device should be CPU
                 assert pipeline.config.device in ["cpu", "cuda"]
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 # Should provide meaningful error message about CUDA availability
                 assert "cuda" in str(e).lower() or "device" in str(e).lower()
 
     def test_invalid_device_specification(self, tmp_path):
         """Test handling of invalid device specification."""
+        # tmp_path fixture is needed for test setup but not used directly
+        _ = tmp_path
+        
         # Test with invalid device
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             device="invalid_device",
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
         # Should either handle gracefully or raise meaningful error
         try:
-            pipeline = SOWLv2Pipeline(config)
-        except Exception as e:
+            _ = SOWLv2Pipeline(config)
+        except (RuntimeError, ValueError) as e:
             # Should provide meaningful error message
             assert "device" in str(e).lower() or "invalid" in str(e).lower()
 
@@ -232,7 +243,7 @@ class TestVideoProcessingEdgeCases:
         # Create video path (doesn't need to exist for this mock test)
         video_path = str(tmp_path / "test_video.mp4")
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
@@ -260,11 +271,9 @@ class TestVideoProcessingEdgeCases:
         output_dir = str(tmp_path / "output")
         video_path = str(tmp_path / "test_video.mp4")
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
-
-        from subprocess import CalledProcessError
 
         with patch('subprocess.run') as mock_subprocess:
             # Mock ffmpeg failure
@@ -286,11 +295,9 @@ class TestVideoProcessingEdgeCases:
         output_dir = str(tmp_path / "output")
         video_path = str(tmp_path / "test_video.mp4")
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
-
-        from subprocess import TimeoutExpired
 
         with patch('subprocess.run') as mock_subprocess:
             # Mock timeout
@@ -309,6 +316,8 @@ class TestMemoryAndPerformance:
     @pytest.mark.slow
     def test_large_image_processing(self, tmp_path, mock_owl_model, mock_sam_model):
         """Test processing of large images."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
         output_dir = str(tmp_path / "output")
 
         # Create a large test image
@@ -323,7 +332,7 @@ class TestMemoryAndPerformance:
         ]
         mock_sam_model.segment.return_value = large_mask
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
@@ -354,7 +363,7 @@ class TestMemoryAndPerformance:
 
         mock_owl_model.detect.return_value = many_detections
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
@@ -381,7 +390,7 @@ class TestFileSystemEdgeCases:
         try:
             os.chmod(output_dir, 0o444)
 
-            config = PipelineBaseData(
+            config = create_test_pipeline_config(
                 pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
             )
 
@@ -397,7 +406,7 @@ class TestFileSystemEdgeCases:
             except PermissionError:
                 # Expected behavior
                 pass
-            except Exception as e:
+            except (OSError, PermissionError) as e:
                 # Should provide meaningful error message
                 assert "permission" in str(e).lower() or "access" in str(e).lower()
 
@@ -405,7 +414,7 @@ class TestFileSystemEdgeCases:
             # Restore permissions for cleanup
             try:
                 os.chmod(output_dir, 0o755)
-            except:
+            except OSError:
                 pass
 
     def test_disk_space_full_simulation(self, tmp_path, sample_image_path,
@@ -413,7 +422,7 @@ class TestFileSystemEdgeCases:
         """Test handling when disk space is full (simulated)."""
         output_dir = str(tmp_path / "output")
 
-        config = PipelineBaseData(
+        config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
@@ -430,7 +439,7 @@ class TestFileSystemEdgeCases:
                 pipeline.process_image(sample_image_path, "cat", output_dir)
             except OSError as e:
                 assert "space" in str(e).lower()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 # Should provide meaningful error message
                 assert len(str(e)) > 0
 
@@ -441,6 +450,8 @@ class TestConfigurationEdgeCases:
 
     def test_extreme_threshold_values(self, tmp_path, sample_image_path, mock_sam_model):
         """Test handling of extreme threshold values."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
         output_dir = str(tmp_path / "output")
 
         # Test with very low threshold
@@ -461,6 +472,10 @@ class TestConfigurationEdgeCases:
 
     def test_extreme_fps_values(self, tmp_path, sample_video_path, mock_owl_model, mock_sam_model):
         """Test handling of extreme FPS values."""
+        # mock_sam_model and mock_owl_model fixtures are needed for test setup but not used directly
+        _ = mock_sam_model
+        _ = mock_owl_model
+        
         output_dir = str(tmp_path / "output")
 
         config = PipelineBaseData(
