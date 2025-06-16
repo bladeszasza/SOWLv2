@@ -88,19 +88,20 @@ Note: If a single prompt contains spaces, it should be enclosed in quotes (e.g.,
 
 ### Command-Line Options:
 
-
-| `--prompt`      | **(Required)** One or more text queries for object detection (e.g., `"cat"`, or `"dog" "person" "a red car"`).                       | `None`                               |
-| `--input`       | **(Required)** Path to the input: a single image file, a directory of image frames, or a video file.                                | `None`                               |
-| `--output`      | Directory where outputs (masks and overlays) will be saved. Created if it doesn't exist.                                           | `output/`                            |
-| `--owl-model`   | (Optional) OWLv2 model name from Hugging Face Model Hub.                                                                           | `google/owlv2-base-patch16-ensemble` |
-| `--sam-model`   | (Optional) SAM 2 model name from Hugging Face Model Hub.                                                                           | `facebook/sam2.1-hiera-small`        |
-| `--threshold`   | (Optional) Detection confidence threshold for OWLv2 (a float between 0 and 1).                                                     | `0.1`                                |
-| `--fps`         | (Optional) Frame sampling rate (frames per second) for video inputs.                                                               | `24`                                 |
-| `--device`      | (Optional) Compute device (`"cuda"` or `"cpu"`).                                                                                     | Auto-detects GPU, else `cpu`         |
-| `--no-merged`   | (Optional) Disables merged mode. Merged mode (where all masks are combined into a single output [image/video] ) is enabled by default.                   | Enabled                              |
-| `--no-binary`   | (Optional) Disables binary mask generation. Binary mask output is enabled by default.                                                  | Enabled                              |
-| `--no-overlay`  | (Optional) Disables overlay image generation. Overlay image output (original image with masks) is enabled by default.                  | Enabled                              |
-| `--config`      | (Optional) Path to a YAML configuration file to specify arguments (see [Configuration](#configuration)). Prompts can also be a list in YAML. | `None`                               |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--prompt` | **(Required)** One or more text queries for object detection (e.g., `"cat"`, or `"dog" "person" "a red car"`). | `None` |
+| `--input` | **(Required)** Path to the input: a single image file, a directory of image frames, or a video file. | `None` |
+| `--output` | Directory where outputs (masks and overlays) will be saved. Created if it doesn't exist. | `output/` |
+| `--owl-model` | (Optional) OWLv2 model name from Hugging Face Model Hub. | `google/owlv2-base-patch16-ensemble` |
+| `--sam-model` | (Optional) SAM 2 model name from Hugging Face Model Hub. | `facebook/sam2.1-hiera-small` |
+| `--threshold` | (Optional) Detection confidence threshold for OWLv2 (a float between 0 and 1). | `0.1` |
+| `--fps` | (Optional) Frame sampling rate (frames per second) for video inputs. | `24` |
+| `--device` | (Optional) Compute device (`"cuda"` or `"cpu"`). | Auto-detects GPU, else `cpu` |
+| `--no-merged` | (Optional) Disables merged mode. Merged mode (where all masks are combined into a single output [image/video]) is enabled by default. | Enabled |
+| `--no-binary` | (Optional) Disables binary mask generation. Binary mask output is enabled by default. | Enabled |
+| `--no-overlay` | (Optional) Disables overlay image generation. Overlay image output (original image with masks) is enabled by default. | Enabled |
+| `--config` | (Optional) Path to a YAML configuration file to specify arguments (see Configuration). Prompts can also be a list in YAML. | `None` |
 
 ### Examples:
 
