@@ -3,7 +3,8 @@ import itertools
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import patch
+from typing import Union
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,14 +17,14 @@ from tests.conftest import validate_output_structure, create_test_pipeline_confi
 class TestConfig:
     """Configuration for test methods to reduce parameter count."""
     tmp_path: str
-    sample_image_path: str = None
-    sample_video_path: str = None
-    mock_owl_model = None
-    mock_sam_model = None
+    sample_image_path: Union[str, None] = None
+    sample_video_path: Union[str, None] = None
+    mock_owl_model: Union[MagicMock, None] = None  # type: ignore
+    mock_sam_model: Union[MagicMock, None] = None  # type: ignore
     binary: bool = True
     overlay: bool = True
     merged: bool = True
-    flags: dict = None
+    flags: Union[dict, None] = None
 
 
 class TestOutputStructure:
