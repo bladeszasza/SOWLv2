@@ -35,7 +35,8 @@
       "Bash(python -m pytest tests/ -v --tb=line)",
       "Bash(python -m pytest tests/ -v --tb=no -q)",
       "Bash(python -m pytest tests/integration/test_output_structure.py::TestFileNamingConventions::test_individual_mask_naming_pattern -v --tb=short)",
-      "Bash(python -m pytest tests/integration/test_output_structure.py::TestFlagCombinationMatrix::test_all_flags_disabled_edge_case -v --tb=short)"
+      "Bash(python -m pytest tests/integration/test_output_structure.py::TestFlagCombinationMatrix::test_all_flags_disabled_edge_case -v --tb=short)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

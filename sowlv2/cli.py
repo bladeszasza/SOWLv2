@@ -73,13 +73,13 @@ def parse_args():
     args = parser.parse_args()
     # If config file is provided, override defaults
     if args.config:
-        with open(args.config, "r", encoding="utf-8") as f:
-            config_from_file = yaml.safe_load(f)
+        with open(args.config, "r", encoding="utf-8") as config_file:
+            config_from_file = yaml.safe_load(config_file)
         # Override args with config values if not explicitly provided
         for key, value in config_from_file.items():
             # Convert hyphenated keys to underscore format for argparse compatibility
             attr_key = key.replace('-', '_')
-            
+
             # For 'prompt', CLI takes precedence if provided. Otherwise, use config.
             if key == "prompt":
                 if getattr(args, attr_key) is None and args.config and key in config_from_file:

@@ -3,6 +3,7 @@ Image processing module for SOWLv2 pipeline.
 """
 import os
 from typing import List, Optional
+
 from PIL import Image
 
 from sowlv2.data.config import (

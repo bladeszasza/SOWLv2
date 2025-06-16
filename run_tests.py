@@ -14,7 +14,7 @@ def run_command(cmd, description=""):
     print(f"\n{'='*60}")
     print(f"Running: {description or ' '.join(cmd)}")
     print(f"{'='*60}")
-    
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         print(result.stdout)
@@ -29,9 +29,9 @@ def run_command(cmd, description=""):
 def run_unit_tests():
     """Run unit tests."""
     cmd = [
-        "pytest", 
-        "tests/unit/", 
-        "-v", 
+        "pytest",
+        "tests/unit/",
+        "-v",
         "--cov=sowlv2",
         "--cov-report=term-missing",
         "--cov-report=html:htmlcov/unit",
@@ -48,7 +48,7 @@ def run_integration_tests():
         "-v",
         "--cov=sowlv2",
         "--cov-append",
-        "--cov-report=term-missing", 
+        "--cov-report=term-missing",
         "--cov-report=html:htmlcov/integration",
         "--tb=short"
     ]
@@ -140,7 +140,7 @@ def generate_coverage_report():
     print(f"\n{'='*60}")
     print("Coverage Report Summary")
     print(f"{'='*60}")
-    
+
     # Try to read coverage data
     try:
         result = subprocess.run(
@@ -160,7 +160,7 @@ def validate_test_structure():
     print(f"\n{'='*60}")
     print("Validating Test Structure")
     print(f"{'='*60}")
-    
+
     required_files = [
         "tests/conftest.py",
         "tests/unit/test_cli.py",
@@ -172,12 +172,12 @@ def validate_test_structure():
         "tests/test_requirements.txt",
         "pytest.ini"
     ]
-    
+
     missing_files = []
     for file_path in required_files:
         if not os.path.exists(file_path):
             missing_files.append(file_path)
-    
+
     if missing_files:
         print("❌ Missing test files:")
         for file_path in missing_files:
@@ -209,70 +209,70 @@ def main():
     parser.add_argument("--validate", action="store_true", help="Validate test structure")
     parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
     parser.add_argument("--all", action="store_true", help="Run all tests")
-    
+
     args = parser.parse_args()
-    
+
     # Change to project root directory
     os.chdir(Path(__file__).parent)
-    
+
     success = True
-    
+
     if args.install_deps:
         success &= install_test_dependencies()
-    
+
     if args.validate:
         success &= validate_test_structure()
-    
+
     if args.lint:
         success &= run_lint()
-    
+
     if args.unit:
         success &= run_unit_tests()
-    
+
     if args.integration:
         success &= run_integration_tests()
-    
+
     if args.output_structure:
         success &= run_output_structure_tests()
-    
+
     if args.flags:
         success &= run_flag_combination_tests()
-    
+
     if args.cli:
         success &= run_cli_tests()
-    
+
     if args.edge_cases:
         success &= run_edge_case_tests()
-    
+
     if args.slow:
         success &= run_slow_tests()
-    
-    if args.all or not any([args.unit, args.integration, args.output_structure, 
-                           args.flags, args.cli, args.edge_cases, args.slow, 
+
+    if args.all or not any([args.unit, args.integration, args.output_structure,
+                           args.flags, args.cli, args.edge_cases, args.slow,
                            args.lint, args.validate]):
         # Run all tests by default
         success &= validate_test_structure()
         success &= run_all_tests()
-    
+
     if args.coverage:
         generate_coverage_report()
-    
+
     # Final summary
     print(f"\n{'='*60}")
     print("Test Run Summary")
     print(f"{'='*60}")
-    
+
     if success:
         print("✅ All tests completed successfully!")
-        
+
         # Show coverage location
         if os.path.exists("htmlcov"):
             print(f"\n📊 Coverage reports available at:")
             print(f"  - HTML: file://{os.path.abspath('htmlcov')}/index.html")
-        
+
         if os.path.exists("coverage.xml"):
             print(f"  - XML: {os.path.abspath('coverage.xml')}")
-        
+
         return 0
     else:
         print("❌ Some tests failed or encountered errors")

@@ -79,7 +79,7 @@ def process_propagated_frame(
             detection_detail={
                 'core_prompt': det_details['core_prompt'],
                 'color': det_details['color'],
-                'mask': mask 
+                'mask': mask
             },
             obj_idx=obj_idx + 1,
             base_name=f"{frame_output_data.frame_num:06d}",

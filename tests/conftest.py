@@ -24,7 +24,7 @@ def sample_image():
     img_array[250:350, 350:550] = [0, 0, 255]
     # Green background
     img_array[img_array.sum(axis=2) == 0] = [0, 255, 0]
-    
+
     return Image.fromarray(img_array, 'RGB')
 
 
@@ -54,7 +54,7 @@ def sample_detections():
         {
             "box": [100, 100, 300, 200],
             "score": 0.95,
-            "label": "a photo of cat", 
+            "label": "a photo of cat",
             "core_prompt": "cat"
         },
         {
@@ -79,10 +79,10 @@ def sample_masks():
     """Create multiple sample binary masks."""
     mask1 = np.zeros((480, 640), dtype=np.uint8)
     mask1[100:200, 100:300] = 255
-    
+
     mask2 = np.zeros((480, 640), dtype=np.uint8)
     mask2[250:350, 350:550] = 255
-    
+
     return [mask1, mask2]
 
 
@@ -135,7 +135,7 @@ def mock_owl_model(mocker):
     return instance
 
 
-@pytest.fixture  
+@pytest.fixture
 def mock_sam_model(mocker, sample_mask):
     """Mock SAM2 model."""
     # Patch at the pipeline import location
@@ -163,11 +163,11 @@ def test_config_yaml(tmp_path):
         'fps': 30,
         'device': 'cpu'
     }
-    
+
     config_path = tmp_path / "test_config.yaml"
     with open(config_path, 'w') as f:
         yaml.dump(config_data, f)
-    
+
     return str(config_path)
 
 
@@ -175,11 +175,11 @@ def test_config_yaml(tmp_path):
 def sample_video_path(tmp_path):
     """Create a sample video file for testing."""
     video_path = tmp_path / "test_video.mp4"
-    
+
     # Create a simple video with colored frames
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(str(video_path), fourcc, 24.0, (640, 480))
-    
+
     # Create 5 frames
     for i in range(5):
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -187,7 +187,7 @@ def sample_video_path(tmp_path):
         x_offset = i * 20
         frame[100:200, 100+x_offset:200+x_offset] = [255, 0, 0]  # Red moving rectangle
         out.write(frame)
-    
+
     out.release()
     return str(video_path)
 
@@ -197,19 +197,19 @@ def sample_frames_directory(tmp_path, sample_image):
     """Create a directory with sample frame images."""
     frames_dir = tmp_path / "frames"
     frames_dir.mkdir()
-    
+
     # Create 3 sample frames
     for i in range(3):
         frame_path = frames_dir / f"{i+1:06d}.jpg"
         sample_image.save(frame_path, "JPEG")
-    
+
     return str(frames_dir)
 
 
 @pytest.fixture(params=[
     (True, True, True),   # All enabled
     (False, True, True),  # --no-binary
-    (True, False, True),  # --no-overlay  
+    (True, False, True),  # --no-overlay
     (True, True, False),  # --no-merged
     (False, False, True), # --no-binary --no-overlay
     (False, True, False), # --no-binary --no-merged
@@ -221,7 +221,7 @@ def flag_combinations(request):
     binary, overlay, merged = request.param
     return {
         'binary': binary,
-        'overlay': overlay, 
+        'overlay': overlay,
         'merged': merged,
         'config': PipelineConfig(binary=binary, overlay=overlay, merged=merged)
     }
@@ -249,7 +249,7 @@ def expected_output_structure():
 def create_test_frames(directory: str, count: int = 5):
     """Utility function to create test frame images."""
     os.makedirs(directory, exist_ok=True)
-    
+
     for i in range(count):
         frame_path = os.path.join(directory, f"{i+1:06d}.jpg")
         # Create simple test image
@@ -262,11 +262,11 @@ def create_test_video(path: str, num_frames: int = 10, fps: int = 24):
     """Utility function to create a test video."""
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(path, fourcc, fps, (640, 480))
-    
+
     for i in range(num_frames):
         frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
         out.write(frame)
-    
+
     out.release()
 
 
@@ -274,7 +274,7 @@ def create_test_pipeline_config(**kwargs):
     """Create a complete PipelineBaseData configuration for testing."""
     defaults = {
         "owl_model": "google/owlv2-base-patch16-ensemble",
-        "sam_model": "facebook/sam2.1-hiera-small", 
+        "sam_model": "facebook/sam2.1-hiera-small",
         "threshold": 0.1,
         "fps": 24,
         "device": "cpu",
@@ -287,7 +287,7 @@ def create_test_pipeline_config(**kwargs):
 def validate_output_structure(output_dir: str, flags: Dict[str, bool], input_type: str = "image"):
     """Utility function to validate output directory structure."""
     output_path = Path(output_dir)
-    
+
     # Check base directories based on flags
     if flags.get('binary', True):
         assert (output_path / 'binary').exists(), "Binary directory should exist"
@@ -296,7 +296,7 @@ def validate_output_structure(output_dir: str, flags: Dict[str, bool], input_typ
         assert (output_path / 'binary' / 'frames').exists(), "Binary frames directory should exist"
     else:
         assert not (output_path / 'binary').exists(), "Binary directory should not exist"
-    
+
     if flags.get('overlay', True):
         assert (output_path / 'overlay').exists(), "Overlay directory should exist"
         if flags.get('merged', True):
@@ -304,7 +304,7 @@ def validate_output_structure(output_dir: str, flags: Dict[str, bool], input_typ
         assert (output_path / 'overlay' / 'frames').exists(), "Overlay frames directory should exist"
     else:
         assert not (output_path / 'overlay').exists(), "Overlay directory should not exist"
-    
+
     # Video directory should exist for video inputs regardless of flags
     if input_type == "video":
         assert (output_path / 'video').exists(), "Video directory should exist for video input"
