@@ -16,9 +16,10 @@ class TestOutputStructure:
 
     @pytest.mark.parametrize("binary,overlay,merged",
         list(itertools.product([True, False], repeat=3)))
+    # pylint: disable-next=too-many-arguments
     def test_image_output_structure(self, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged):  # pylint: disable=R0917
+                                   binary, overlay, merged):
         """Test all combinations of --no-binary, --no-overlay, --no-merged flags for images."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -60,9 +61,10 @@ class TestOutputStructure:
     @pytest.mark.skip(reason="Video processing will be reworked in separate PR")
     @pytest.mark.parametrize("binary,overlay,merged",
         list(itertools.product([True, False], repeat=3)))
+    # pylint: disable-next=too-many-arguments
     def test_video_output_structure(self, tmp_path, sample_video_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged):  # pylint: disable=R0917
+                                   binary, overlay, merged):
         """Test video output structure with all flag combinations."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -415,8 +417,9 @@ class TestFlagCombinationMatrix:
         {"binary": False, "overlay": True, "merged": False},   # --no-binary --no-merged
         {"binary": True, "overlay": False, "merged": False},   # --no-overlay --no-merged
     ])
+    # pylint: disable-next=too-many-arguments
     def test_valid_flag_combinations(self, tmp_path, sample_image_path,
-                                   mock_owl_model, mock_sam_model, flags):  # pylint: disable=too-many-positional-arguments
+                                   mock_owl_model, mock_sam_model, flags):
         """Test all valid flag combinations produce expected output."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
