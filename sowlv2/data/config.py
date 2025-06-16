@@ -7,6 +7,19 @@ import numpy as np
 from PIL import Image
 
 @dataclass
+class PipelineConfig:
+    """
+    Configuration class for pipeline settings.
+    Attributes:
+        merged (bool): Indicates whether the pipeline should operate in merged mode.
+        binary (bool): Specifies if binary processing is enabled.
+        overlay (bool): Determines if overlay functionality is active.
+    """
+    merged: bool
+    binary: bool
+    overlay: bool
+
+@dataclass
 class PipelineBaseData:
     """
     Stores all core configuration parameters for initializing and running the SOWLv2 pipeline.
@@ -16,6 +29,8 @@ class PipelineBaseData:
     threshold: float
     fps: int
     device: str
+    pipeline_config: PipelineConfig
+
 
 @dataclass
 class SaveMaskOverlayConfig:
@@ -149,3 +164,89 @@ class VideoProcessContext:
     first_pil_img: Image.Image
     detection_details_for_video: List[Dict[str, Any]]
     updated_sam_state: Any
+
+@dataclass
+class TempBinaryPaths:
+    """Paths for temporary binary files."""
+    path: str
+    merged_path: str
+
+@dataclass
+class TempOverlayPaths:
+    """Paths for temporary overlay files."""
+    path: str
+    merged_path: str
+
+@dataclass
+class TempVideoOutputPaths:
+    """Paths for temporary video output files."""
+    path: str
+    binary_path: str
+    overlay_path: str
+
+@dataclass
+class VideoDirectories:
+    """
+    Data class to store video processing directory paths.
+    """
+    temp_dir: str
+    binary: TempBinaryPaths
+    overlay: TempOverlayPaths
+    video: TempVideoOutputPaths
+
+@dataclass
+class VideoProcessOptions:
+    """
+    Data class to store video processing options and flags.
+    """
+    binary: bool
+    overlay: bool
+    merged: bool
+    fps: int
+
+@dataclass
+class MergedFrameItems:
+    """
+    Data class to store items for merged frame processing.
+    """
+    binary_items: List[np.ndarray]  # Store binary masks
+    overlay_items: List[Tuple[np.ndarray, Tuple[int, int, int]]]  # Store (mask, color) pairs
+
+@dataclass
+class ObjectContext:
+    """Context for a single object in a frame."""
+    sam_id: int
+    core_prompt_str: str
+    object_color: Tuple[int, int, int]
+
+@dataclass
+class ObjectMaskProcessData:
+    """
+    Data class to store parameters for processing object masks.
+    """
+    mask_for_obj: Any  # The mask tensor/logits for the current object
+    obj_ctx: ObjectContext  # Context of the object being processed
+    frame_num: int
+    pil_image: Image.Image  # The full frame PIL image
+    dirs: Dict[str, str]  # Output directories for this frame's individual objects
+    merged_items: MergedFrameItems # Collection for items to be merged later
+
+@dataclass
+class SaveOutputsConfig:
+    """Configuration for saving detection outputs."""
+    output_dir: str
+    base_name: str
+    core_prompt_slug: str
+    obj_idx: int
+    mask_np: np.ndarray
+    pil_image: Image.Image
+    object_color: Tuple[int, int, int]
+
+@dataclass
+class ProcessSingleObjectConfig:
+    """Configuration for processing a single object in a frame."""
+    frame_output: PropagatedFrameOutput
+    sam_id: int
+    obj_idx: int
+    dirs_frame_output: Dict[str, str]
+    merged_items: MergedFrameItems

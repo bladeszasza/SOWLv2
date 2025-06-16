@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(pylint:*)",
+      "Bash(python -m py_compile:*)"
+    ],
+    "deny": []
+  }
+}

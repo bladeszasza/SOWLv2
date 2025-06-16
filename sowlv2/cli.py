@@ -9,8 +9,10 @@ import argparse
 import os
 import sys
 import yaml
-from sowlv2.data.config import PipelineBaseData
+from sowlv2.data.config import PipelineBaseData, PipelineConfig
 from sowlv2.pipeline import SOWLv2Pipeline
+from sowlv2.utils.frame_utils import VALID_EXTS, VALID_VIDEO_EXTS
+from sowlv2.utils.pipeline_utils import CPU, CUDA
 
 def parse_args():
     """Parse command line arguments."""
@@ -22,7 +24,7 @@ def parse_args():
         type=str,
         required=False,
         nargs='+', # Allows one or more arguments for prompt
-        help="Text prompt(s) for object detection (e.g. 'cat' or 'cat' 'dog' 'a red bicycle')"
+        help="Text prompt(s) for object detection (e.g. 'cat' or 'lizard' 'dog' 'a red bicycle')"
     )
     parser.add_argument(
         "--input", type=str, required=False,
@@ -49,8 +51,20 @@ def parse_args():
         help="Sampling rate (frames per second) for video"
     )
     parser.add_argument(
-        "--device", type=str, default="cuda",
+        "--device", type=str, default=CUDA,
         help="PyTorch device (cpu or cuda). Default uses GPU if available."
+    )
+    parser.add_argument(
+        "--no-merged", dest="merged", action="store_false",
+        help="Disables merged mode (enabled by default)."
+    )
+    parser.add_argument(
+        "--no-binary", dest="binary", action="store_false",
+        help="Disables binary processing (enabled by default)."
+    )
+    parser.add_argument(
+        "--no-overlay", dest="overlay", action="store_false",
+        help="Disables overlay functionality (enabled by default)."
     )
     parser.add_argument(
         "--config", type=str, default=None,
@@ -100,27 +114,30 @@ def main():
     # If list has one item, pass it as str. Otherwise, pass the list.
     prompt_input = args.prompt[0] if len(args.prompt) == 1 else args.prompt
 
-    owl_model = args.owl_model
-    sam_model = args.sam_model
-    threshold = args.threshold
-    fps = args.fps
     # Determine device
     device_choice = args.device
-    if device_choice == "cuda" and hasattr(__import__("torch"), 'cuda') and \
+    if device_choice == CUDA and hasattr(__import__("torch"), 'cuda') and \
        __import__("torch").cuda.is_available():
-        device = "cuda"
+        device = CUDA
     else:
-        device = "cpu"
-        if device_choice == "cuda":
+        device = CPU
+        if device_choice == CUDA:
             print("CUDA selected, but not available. Falling back to CPU.")
 
+    # PipelineConfig options from CLI/config, with defaults
+
+    pipeline_config = PipelineConfig(merged=args.merged,
+                                    binary=args.binary,
+                                    overlay=args.overlay)
+
     config = PipelineBaseData(
-                owl_model=owl_model,
-                sam_model=sam_model,
-                threshold=threshold,
-                fps=fps,
-                device=device
-            )
+        owl_model=args.owl_model,
+        sam_model=args.sam_model,
+        threshold=args.threshold,
+        fps=args.fps,
+        device=device,
+        pipeline_config=pipeline_config
+    )
     pipeline = SOWLv2Pipeline(config=config)
 
     # Create output directory
@@ -131,9 +148,9 @@ def main():
         pipeline.process_frames(input_path, prompt_input, output_path)
     elif os.path.isfile(input_path):
         ext = os.path.splitext(input_path)[1].lower()
-        if ext in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"]:
+        if ext in VALID_EXTS:
             pipeline.process_image(input_path, prompt_input, output_path)
-        elif ext in [".mp4", ".avi", ".mov", ".mkv"]:
+        elif ext in VALID_VIDEO_EXTS:
             pipeline.process_video(input_path, prompt_input, output_path)
         else:
             print(f"Unsupported file extension: {ext}")
