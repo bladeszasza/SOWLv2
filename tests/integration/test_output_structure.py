@@ -1,13 +1,13 @@
 """Test output directory structure with various flag combinations."""
-import pytest
-import os
-import re
 import itertools
+import re
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from sowlv2.pipeline import SOWLv2Pipeline
-from sowlv2.data.config import PipelineBaseData, PipelineConfig
+from sowlv2.data.config import PipelineConfig
 from tests.conftest import validate_output_structure, create_test_pipeline_config
 
 
@@ -398,6 +398,8 @@ class TestFlagCombinationMatrix:
     def test_valid_flag_combinations(self, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model, flags):
         """Test all valid flag combinations produce expected output."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
         output_dir = str(tmp_path / "output")
 
         mock_owl_model.detect.return_value = [
@@ -422,6 +424,8 @@ class TestFlagCombinationMatrix:
     def test_all_flags_disabled_edge_case(self, tmp_path, sample_image_path,
                                         mock_owl_model, mock_sam_model):
         """Test behavior when all flags are disabled."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
         output_dir = str(tmp_path / "output")
 
         mock_owl_model.detect.return_value = [

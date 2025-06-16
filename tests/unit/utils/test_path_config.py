@@ -1,8 +1,6 @@
 """Test path configuration and file naming patterns."""
-import pytest
 import os
 import re
-from pathlib import Path
 
 from sowlv2.utils.path_config import (
     FilePattern, DirectoryStructure, FilePatternMatcher, OutputType
@@ -358,7 +356,9 @@ class TestIntegrationPatterns:
         dirs = DirectoryStructure.get_directory_map(base_dir, include_video=True)
 
         video_path = os.path.join(dirs["video_binary"], video_filename)
-        assert video_path == "/test/video/binary/1_cat_mask.mp4"
+        expected_path = "/test/video/binary/1_cat_mask.mp4"
+        # Normalize paths to handle OS differences
+        assert video_path.replace('\\', '/') == expected_path
 
 
 class TestEdgeCases:
@@ -384,7 +384,8 @@ class TestEdgeCases:
 
     def test_very_long_prompts(self):
         """Test handling of very long prompts."""
-        long_prompt = "a very long prompt that describes a specific object in great detail with many adjectives"
+        long_prompt = ("a very long prompt that describes a specific object "
+                       "in great detail with many adjectives")
 
         filename = FilePattern.INDIVIDUAL_MASK.format(
             frame_num="000001", obj_id="1", prompt=long_prompt

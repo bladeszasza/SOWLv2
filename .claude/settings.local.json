@@ -36,7 +36,10 @@
       "Bash(python -m pytest tests/ -v --tb=no -q)",
       "Bash(python -m pytest tests/integration/test_output_structure.py::TestFileNamingConventions::test_individual_mask_naming_pattern -v --tb=short)",
       "Bash(python -m pytest tests/integration/test_output_structure.py::TestFlagCombinationMatrix::test_all_flags_disabled_edge_case -v --tb=short)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(python -m pytest tests/unit/utils/test_path_config.py::TestIntegrationPatterns::test_video_pattern_consistency -v)",
+      "Bash(python -m pytest tests/ -x --disable-warnings)",
+      "Bash(python -m pytest tests/unit/utils/test_path_config.py::TestIntegrationPatterns::test_video_pattern_consistency tests/unit/test_cli.py::TestCLIArgumentParsing::test_config_file_argument -v)"
     ],
     "deny": []
   }

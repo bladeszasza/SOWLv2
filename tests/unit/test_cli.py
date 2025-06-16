@@ -1,12 +1,11 @@
 """Test command-line interface functionality."""
+from unittest.mock import patch
+
 import pytest
-import sys
 import yaml
-from unittest.mock import patch, MagicMock
-from argparse import Namespace
 
 from sowlv2.cli import main, parse_args
-from sowlv2.data.config import PipelineBaseData, PipelineConfig
+from sowlv2.data.config import PipelineBaseData
 
 
 class TestCLIArgumentParsing:
@@ -67,7 +66,8 @@ class TestCLIArgumentParsing:
 
     def test_config_file_argument(self):
         """Test parsing of config file argument."""
-        with patch('sys.argv', ['sowlv2-detect', '--prompt', 'cat', '--input', 'test.jpg', '--config', 'config.yaml']):
+        with patch('sys.argv', ['sowlv2-detect', '--prompt', 'cat', '--input', 'test.jpg',
+                               '--config', 'config.yaml']):
             # Mock file opening to test argument parsing only
             with patch('builtins.open'), patch('yaml.safe_load', return_value={}):
                 args = parse_args()
@@ -117,7 +117,7 @@ class TestConfigFileHandling:
         }
 
         config_path = tmp_path / "test_config.yaml"
-        with open(config_path, 'w') as f:
+        with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f)
 
         with patch('sys.argv', ['sowlv2-detect', '--config', str(config_path)]):
@@ -154,7 +154,7 @@ class TestConfigFileHandling:
         }
 
         config_path = tmp_path / "test_config.yaml"
-        with open(config_path, 'w') as f:
+        with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f)
 
         with patch('sys.argv', ['sowlv2-detect', '--config', str(config_path),
@@ -299,7 +299,7 @@ class TestInputValidation:
                                '--input', 'nonexistent.jpg', '--output', 'output/']):
             with patch('os.path.isfile', return_value=False):
                 with patch('os.path.isdir', return_value=False):
-                    with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+                    with patch('sowlv2.cli.SOWLv2Pipeline'):
                         with patch('os.makedirs'):
                             with patch('builtins.print'):  # Suppress error message
                                 with pytest.raises(SystemExit):
@@ -318,7 +318,7 @@ class TestErrorHandling:
     def test_invalid_config_file(self, tmp_path):
         """Test handling of invalid YAML config file."""
         config_path = tmp_path / "invalid.yaml"
-        with open(config_path, 'w') as f:
+        with open(config_path, 'w', encoding='utf-8') as f:
             f.write("invalid: yaml: content:")  # Invalid YAML
 
         with patch('sys.argv', ['sowlv2-detect', '--config', str(config_path)]):
@@ -334,7 +334,7 @@ class TestErrorHandling:
                                '--threshold', '-0.5']):  # Invalid threshold
             # Should either handle gracefully or raise appropriate error
             try:
-                args = parse_args()
+                parse_args()
                 # If parsing succeeds, threshold should be validated elsewhere
             except (SystemExit, ValueError):
                 # Either is acceptable for invalid values

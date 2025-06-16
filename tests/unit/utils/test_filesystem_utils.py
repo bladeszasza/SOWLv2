@@ -1,9 +1,7 @@
 """Test filesystem utility functions."""
-import pytest
 import os
-import tempfile
-import shutil
-from pathlib import Path
+
+import pytest
 
 from sowlv2.utils.filesystem_utils import remove_empty_folders, create_output_directories
 
@@ -69,7 +67,7 @@ class TestRemoveEmptyFolders:
         # Should not raise exception
         try:
             remove_empty_folders(str(nonexistent))
-        except Exception as e:
+        except (OSError, FileNotFoundError) as e:
             pytest.fail(f"Should handle nonexistent directory gracefully: {e}")
 
     def test_complex_directory_structure(self, tmp_path):
