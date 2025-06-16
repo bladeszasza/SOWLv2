@@ -1,14 +1,13 @@
 """Shared fixtures and configuration for SOWLv2 tests."""
-import pytest
-import tempfile
-import shutil
 import os
 from pathlib import Path
-from PIL import Image
-import numpy as np
-import yaml
-from typing import Dict, List, Any
+from typing import Dict
+
 import cv2
+import numpy as np
+import pytest
+import yaml
+from PIL import Image
 
 from sowlv2.data.config import PipelineBaseData, PipelineConfig
 
@@ -29,7 +28,7 @@ def sample_image():
 
 
 @pytest.fixture
-def sample_image_path(tmp_path, sample_image):
+def sample_image_path(tmp_path, sample_image):  # pylint: disable=redefined-outer-name
     """Create a sample image file."""
     image_path = tmp_path / "test_image.jpg"
     sample_image.save(image_path, "JPEG")
@@ -136,7 +135,7 @@ def mock_owl_model(mocker):
 
 
 @pytest.fixture
-def mock_sam_model(mocker, sample_mask):
+def mock_sam_model(mocker, sample_mask):  # pylint: disable=redefined-outer-name
     """Mock SAM2 model."""
     # Patch at the pipeline import location
     mock = mocker.patch('sowlv2.pipeline.SAM2Wrapper')
@@ -165,7 +164,7 @@ def test_config_yaml(tmp_path):
     }
 
     config_path = tmp_path / "test_config.yaml"
-    with open(config_path, 'w') as f:
+    with open(config_path, 'w', encoding='utf-8') as f:
         yaml.dump(config_data, f)
 
     return str(config_path)
@@ -193,7 +192,7 @@ def sample_video_path(tmp_path):
 
 
 @pytest.fixture
-def sample_frames_directory(tmp_path, sample_image):
+def sample_frames_directory(tmp_path, sample_image):  # pylint: disable=redefined-outer-name
     """Create a directory with sample frame images."""
     frames_dir = tmp_path / "frames"
     frames_dir.mkdir()
@@ -263,7 +262,7 @@ def create_test_video(path: str, num_frames: int = 10, fps: int = 24):
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(path, fourcc, fps, (640, 480))
 
-    for i in range(num_frames):
+    for _ in range(num_frames):
         frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
         out.write(frame)
 
@@ -284,7 +283,8 @@ def create_test_pipeline_config(**kwargs):
     return PipelineBaseData(**defaults)
 
 
-def validate_output_structure(output_dir: str, flags: Dict[str, bool], input_type: str = "image"):
+def validate_output_structure(output_dir: str, flags: Dict[str, bool],
+                            input_type: str = "image"):
     """Utility function to validate output directory structure."""
     output_path = Path(output_dir)
 
@@ -292,18 +292,24 @@ def validate_output_structure(output_dir: str, flags: Dict[str, bool], input_typ
     if flags.get('binary', True):
         assert (output_path / 'binary').exists(), "Binary directory should exist"
         if flags.get('merged', True):
-            assert (output_path / 'binary' / 'merged').exists(), "Binary merged directory should exist"
-        assert (output_path / 'binary' / 'frames').exists(), "Binary frames directory should exist"
+            assert (output_path / 'binary' / 'merged').exists(), \
+                "Binary merged directory should exist"
+        assert (output_path / 'binary' / 'frames').exists(), \
+            "Binary frames directory should exist"
     else:
-        assert not (output_path / 'binary').exists(), "Binary directory should not exist"
+        assert not (output_path / 'binary').exists(), \
+            "Binary directory should not exist"
 
     if flags.get('overlay', True):
         assert (output_path / 'overlay').exists(), "Overlay directory should exist"
         if flags.get('merged', True):
-            assert (output_path / 'overlay' / 'merged').exists(), "Overlay merged directory should exist"
-        assert (output_path / 'overlay' / 'frames').exists(), "Overlay frames directory should exist"
+            assert (output_path / 'overlay' / 'merged').exists(), \
+                "Overlay merged directory should exist"
+        assert (output_path / 'overlay' / 'frames').exists(), \
+            "Overlay frames directory should exist"
     else:
-        assert not (output_path / 'overlay').exists(), "Overlay directory should not exist"
+        assert not (output_path / 'overlay').exists(), \
+            "Overlay directory should not exist"
 
     # Video directory should exist for video inputs regardless of flags
     if input_type == "video":

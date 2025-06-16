@@ -21,7 +21,7 @@ def run_command(cmd, description=""):
         if result.stderr:
             print("STDERR:", result.stderr)
         return result.returncode == 0
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError) as e:
         print(f"Error running command: {e}")
         return False
 
@@ -183,9 +183,9 @@ def validate_test_structure():
         for file_path in missing_files:
             print(f"  - {file_path}")
         return False
-    else:
-        print("✅ All required test files are present")
-        return True
+
+    print("✅ All required test files are present")
+    return True
 
 
 def install_test_dependencies():
@@ -199,7 +199,8 @@ def main():
     parser = argparse.ArgumentParser(description="SOWLv2 Test Runner")
     parser.add_argument("--unit", action="store_true", help="Run unit tests only")
     parser.add_argument("--integration", action="store_true", help="Run integration tests only")
-    parser.add_argument("--output-structure", action="store_true", help="Run output structure tests")
+    parser.add_argument("--output-structure", action="store_true",
+                        help="Run output structure tests")
     parser.add_argument("--flags", action="store_true", help="Run flag combination tests")
     parser.add_argument("--cli", action="store_true", help="Run CLI tests")
     parser.add_argument("--edge-cases", action="store_true", help="Run edge case tests")
@@ -267,16 +268,16 @@ def main():
 
         # Show coverage location
         if os.path.exists("htmlcov"):
-            print(f"\n📊 Coverage reports available at:")
+            print("\n📊 Coverage reports available at:")
             print(f"  - HTML: file://{os.path.abspath('htmlcov')}/index.html")
 
         if os.path.exists("coverage.xml"):
             print(f"  - XML: {os.path.abspath('coverage.xml')}")
 
         return 0
-    else:
-        print("❌ Some tests failed or encountered errors")
-        return 1
+
+    print("❌ Some tests failed or encountered errors")
+    return 1
 
 
 if __name__ == "__main__":

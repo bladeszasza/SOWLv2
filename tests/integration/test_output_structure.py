@@ -20,6 +20,8 @@ class TestOutputStructure:
                                    mock_owl_model, mock_sam_model,
                                    binary, overlay, merged):
         """Test all combinations of --no-binary, --no-overlay, --no-merged flags for images."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
 
         # Skip the case where all flags are disabled (no output)
         if not any([binary, overlay, merged]):
@@ -62,6 +64,8 @@ class TestOutputStructure:
                                    mock_owl_model, mock_sam_model,
                                    binary, overlay, merged):
         """Test video output structure with all flag combinations."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
 
         # Skip the impossible case
         if not any([binary, overlay, merged]):
@@ -103,6 +107,9 @@ class TestOutputStructure:
     def test_multiple_objects_output_structure(self, tmp_path, sample_image_path,
                                              mock_owl_model, mock_sam_model):
         """Test output structure with multiple detected objects."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
+
         output_dir = str(tmp_path / "output")
 
         # Configure mock to return multiple detections
@@ -148,6 +155,9 @@ class TestOutputStructure:
     def test_empty_directories_cleanup(self, tmp_path, sample_image_path,
                                       mock_owl_model, mock_sam_model):
         """Test that empty directories are cleaned up."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
+
         output_dir = str(tmp_path / "output")
 
         # Configure mock to return no detections
@@ -220,7 +230,8 @@ class TestOutputStructure:
 
             if merged:
                 assert (output_path / "overlay" / "merged").exists()
-                merged_files = list((output_path / "overlay" / "merged").glob("*_merged_overlay.png"))
+                merged_files = list((output_path / "overlay" / "merged")
+                                   .glob("*_merged_overlay.png"))
                 assert len(merged_files) > 0, "Should have merged overlay files"
 
                 for file in merged_files:
@@ -299,6 +310,9 @@ class TestFileNamingConventions:
     def test_individual_mask_naming_pattern(self, tmp_path, sample_image_path,
                                           mock_owl_model, mock_sam_model):
         """Test individual mask files follow {frame_num}_obj{obj_id}_{prompt}_mask.png pattern."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
+
         output_dir = str(tmp_path / "output")
 
         mock_owl_model.detect.return_value = [
@@ -328,6 +342,9 @@ class TestFileNamingConventions:
     def test_merged_mask_naming_pattern(self, tmp_path, sample_image_path,
                                       mock_owl_model, mock_sam_model):
         """Test merged mask files follow {frame_num}_merged_mask.png pattern."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
+
         output_dir = str(tmp_path / "output")
 
         mock_owl_model.detect.return_value = [
@@ -356,6 +373,9 @@ class TestFileNamingConventions:
     def test_special_characters_in_prompt(self, tmp_path, sample_image_path,
                                         mock_owl_model, mock_sam_model):
         """Test handling of spaces and special characters in prompts."""
+        # mock_sam_model fixture is needed for test setup but not used directly
+        _ = mock_sam_model
+
         output_dir = str(tmp_path / "output")
 
         mock_owl_model.detect.return_value = [
@@ -449,5 +469,7 @@ class TestFlagCombinationMatrix:
         if output_path.exists():
             # Check that no significant output was created
             all_files = list(output_path.rglob("*"))
-            image_files = [f for f in all_files if f.suffix in ['.png', '.jpg', '.mp4']]
-            assert len(image_files) == 0, "No image/video files should be created when all flags disabled"
+            image_files = [f for f in all_files
+                          if f.suffix in ['.png', '.jpg', '.mp4']]
+            assert len(image_files) == 0, \
+                "No image/video files should be created when all flags disabled"

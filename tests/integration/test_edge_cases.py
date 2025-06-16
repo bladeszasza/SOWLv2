@@ -1,9 +1,10 @@
 """Test edge cases and error handling throughout the pipeline."""
-import pytest
 import os
-import numpy as np
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import numpy as np
+import pytest
 from PIL import Image
 
 from sowlv2.pipeline import SOWLv2Pipeline
