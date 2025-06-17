@@ -183,26 +183,29 @@ class ParallelSegmentationProcessor:
             return []
         
         # Use ThreadPoolExecutor for I/O-bound SAM operations
+        indexed_detections = [(idx, det) for idx, det in enumerate(detections)]
         results = []
         with ThreadPoolExecutor(max_workers=self.config.thread_pool_size) as executor:
             future_to_det = {
                 executor.submit(
                     self._segment_single_detection,
                     image, det
-                ): det
-                for det in detections
+                ): (idx, det)
+                for idx, det in indexed_detections
             }
             
             for future in as_completed(future_to_det):
-                det = future_to_det[future]
+                idx, det = future_to_det[future]
                 try:
                     mask = future.result()
-                    results.append((det, mask))
+                    results.append((idx, det, mask))
                 except Exception as e:
                     print(f"Error segmenting detection: {e}")
-                    results.append((det, None))
+                    results.append((idx, det, None))
         
-        return results
+        # Sort results by original index to ensure deterministic output
+        results.sort(key=lambda x: x[0])
+        return [(det, mask) for _, det, mask in results]
     
     def _segment_single_detection(
         self,
