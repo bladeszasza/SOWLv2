@@ -3,7 +3,7 @@ Command Line Interface for SOWLv2.
 
 This script provides a CLI to detect and segment objects in images,
 folders of frames, or video files using a text prompt.
-It leverages the SOWLv2Pipeline for processing.
+It leverages the optimized SOWLv2Pipeline by default for faster processing.
 """
 import argparse
 import os
@@ -11,6 +11,7 @@ import sys
 import yaml
 from sowlv2.data.config import PipelineBaseData, PipelineConfig
 from sowlv2.pipeline import SOWLv2Pipeline
+from sowlv2.optimizations import OptimizedSOWLv2Pipeline, ParallelConfig, create_vjepa2_optimizer
 from sowlv2.utils.frame_utils import VALID_EXTS, VALID_VIDEO_EXTS
 from sowlv2.utils.pipeline_utils import CPU, CUDA
 
@@ -69,6 +70,31 @@ def parse_args():
     parser.add_argument(
         "--config", type=str, default=None,
         help="Path to YAML config file (optional)"
+    )
+    # Optimization options
+    parser.add_argument(
+        "--use-standard-pipeline", action="store_true",
+        help="Use standard pipeline instead of optimized (default: optimized)"
+    )
+    parser.add_argument(
+        "--max-workers", type=int, default=None,
+        help="Maximum number of parallel workers (default: auto-detect)"
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=4,
+        help="Batch size for GPU processing (default: 4)"
+    )
+    parser.add_argument(
+        "--disable-gpu-batching", action="store_true",
+        help="Disable GPU batching optimization"
+    )
+    parser.add_argument(
+        "--enable-vjepa2", action="store_true",
+        help="Enable V-JEPA 2 video optimization (experimental)"
+    )
+    parser.add_argument(
+        "--vjepa2-frames-per-clip", type=int, default=16,
+        help="Number of frames per clip for V-JEPA 2 processing"
     )
     args = parser.parse_args()
     # If config file is provided, override defaults
@@ -141,7 +167,34 @@ def main():
         device=device,
         pipeline_config=pipeline_config
     )
-    pipeline = SOWLv2Pipeline(config=config)
+
+    # Use optimized pipeline by default
+    if args.use_standard_pipeline:
+        print("Using standard SOWLv2 pipeline...")
+        pipeline = SOWLv2Pipeline(config=config)
+    else:
+        print("Using optimized SOWLv2 pipeline...")
+        # Configure parallel processing
+        parallel_config = ParallelConfig(
+            max_workers=args.max_workers,
+            batch_size=args.batch_size,
+            use_gpu_batching=(not args.disable_gpu_batching and device == CUDA)
+        )
+        pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
+        
+        # Configure V-JEPA 2 if enabled
+        if args.enable_vjepa2:
+            print("Enabling V-JEPA 2 video optimization...")
+            vjepa2_optimizer = create_vjepa2_optimizer(
+                config, 
+                enable_vjepa2=True
+            )
+            if vjepa2_optimizer:
+                print("V-JEPA 2 optimization ready!")
+                # Store optimizer reference for potential use in video processing
+                pipeline.vjepa2_optimizer = vjepa2_optimizer
+            else:
+                print("V-JEPA 2 optimization not available, continuing without it.")
 
     # Create output directory
     os.makedirs(output_path, exist_ok=True)

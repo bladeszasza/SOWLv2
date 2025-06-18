@@ -3,16 +3,13 @@ Parallel processing optimizations for SOWLv2 pipeline.
 Implements multiprocessing for multiple prompts and batch processing.
 """
 import os
-import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
-from typing import List, Dict, Any, Union, Tuple, Optional
+from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
-import torch
 from PIL import Image
 import numpy as np
 
-from sowlv2.data.config import SingleDetectionInput, MergedOverlayItem
-from sowlv2.utils.pipeline_utils import validate_mask, create_overlay
+from sowlv2.data.config import DetectionResult
 
 
 @dataclass
@@ -23,7 +20,7 @@ class BatchDetectionResult:
     prompt_idx: int
 
 
-@dataclass 
+@dataclass
 class ParallelConfig:
     """Configuration for parallel processing."""
     max_workers: Optional[int] = None  # None = use CPU count
@@ -34,28 +31,28 @@ class ParallelConfig:
 
 class ParallelDetectionProcessor:
     """Handles parallel detection processing for multiple prompts."""
-    
+
     def __init__(self, owl_model, sam_model, config: ParallelConfig = None):
         """Initialize parallel processor with models."""
         self.owl_model = owl_model
         self.sam_model = sam_model
         self.config = config or ParallelConfig()
         self.device = owl_model.device
-        
+
     def detect_multiple_prompts_parallel(
-        self, 
-        image: Image.Image, 
-        prompts: List[str], 
+        self,
+        image: Image.Image,
+        prompts: List[str],
         threshold: float
     ) -> List[BatchDetectionResult]:
         """
         Process multiple prompts in parallel using batch processing.
-        
+
         Args:
             image: Input PIL image
             prompts: List of text prompts
             threshold: Detection threshold
-            
+
         Returns:
             List of BatchDetectionResult objects
         """
@@ -65,68 +62,68 @@ class ParallelDetectionProcessor:
                 image=image, prompt=prompts[0], threshold=threshold
             )
             return [BatchDetectionResult(prompts[0], detections, 0)]
-        
-        # Batch process prompts for GPU efficiency
+
+        # Batch process prompts for GPU efficiency  
         if self.config.use_gpu_batching and self.device != "cpu":
             return self._batch_detect_gpu(image, prompts, threshold)
-        else:
-            # CPU parallel processing
-            return self._parallel_detect_cpu(image, prompts, threshold)
-    
+        
+        # CPU parallel processing
+        return self._parallel_detect_cpu(image, prompts, threshold)
+
     def _batch_detect_gpu(
-        self, 
-        image: Image.Image, 
-        prompts: List[str], 
+        self,
+        image: Image.Image,
+        prompts: List[str],
         threshold: float
     ) -> List[BatchDetectionResult]:
         """Batch process prompts on GPU for efficiency."""
         results = []
-        
+
         # Process in batches
         for i in range(0, len(prompts), self.config.batch_size):
             batch_prompts = prompts[i:i + self.config.batch_size]
-            
+
             # OWLv2 can handle multiple prompts at once
             batch_detections = self.owl_model.detect(
-                image=image, 
-                prompt=batch_prompts, 
+                image=image,
+                prompt=batch_prompts,
                 threshold=threshold
             )
-            
+
             # Group detections by prompt
             prompt_detections = {p: [] for p in batch_prompts}
             for det in batch_detections:
                 prompt_detections[det['core_prompt']].append(det)
-            
+
             # Create results
             for j, prompt in enumerate(batch_prompts):
                 results.append(BatchDetectionResult(
-                    prompt, 
-                    prompt_detections[prompt], 
+                    prompt,
+                    prompt_detections[prompt],
                     i + j
                 ))
-        
+
         return sorted(results, key=lambda x: x.prompt_idx)
-    
+
     def _parallel_detect_cpu(
-        self, 
-        image: Image.Image, 
-        prompts: List[str], 
+        self,
+        image: Image.Image,
+        prompts: List[str],
         threshold: float
     ) -> List[BatchDetectionResult]:
         """Process prompts in parallel on CPU."""
         results = []
-        
+
         with ProcessPoolExecutor(max_workers=self.config.max_workers) as executor:
             # Submit detection tasks
             future_to_prompt = {
                 executor.submit(
-                    self._detect_single_prompt, 
+                    self._detect_single_prompt,
                     image, prompt, threshold, idx
                 ): (prompt, idx)
                 for idx, prompt in enumerate(prompts)
             }
-            
+
             # Collect results
             for future in as_completed(future_to_prompt):
                 prompt, idx = future_to_prompt[future]
@@ -136,13 +133,13 @@ class ParallelDetectionProcessor:
                 except Exception as e:
                     print(f"Error detecting prompt '{prompt}': {e}")
                     results.append(BatchDetectionResult(prompt, [], idx))
-        
+
         return sorted(results, key=lambda x: x.prompt_idx)
-    
+
     def _detect_single_prompt(
-        self, 
-        image: Image.Image, 
-        prompt: str, 
+        self,
+        image: Image.Image,
+        prompt: str,
         threshold: float,
         idx: int
     ) -> List[Dict[str, Any]]:
@@ -154,12 +151,12 @@ class ParallelDetectionProcessor:
 
 class ParallelSegmentationProcessor:
     """Handles parallel segmentation processing."""
-    
+
     def __init__(self, sam_model, config: ParallelConfig = None):
         """Initialize parallel segmentation processor."""
         self.sam_model = sam_model
         self.config = config or ParallelConfig()
-        
+
     def segment_detections_parallel(
         self,
         image: Image.Image,
@@ -167,11 +164,11 @@ class ParallelSegmentationProcessor:
     ) -> List[Tuple[Dict[str, Any], Optional[np.ndarray]]]:
         """
         Process multiple detections in parallel for segmentation.
-        
+
         Args:
             image: Input PIL image
             detections: List of detection dictionaries
-            
+
         Returns:
             List of tuples (detection, mask)
         """
@@ -181,7 +178,7 @@ class ParallelSegmentationProcessor:
                 mask = self.sam_model.segment(image, detections[0]['box'])
                 return [(detections[0], mask)]
             return []
-        
+
         # Use ThreadPoolExecutor for I/O-bound SAM operations
         results = []
         with ThreadPoolExecutor(max_workers=self.config.thread_pool_size) as executor:
@@ -192,7 +189,7 @@ class ParallelSegmentationProcessor:
                 ): det
                 for det in detections
             }
-            
+
             for future in as_completed(future_to_det):
                 det = future_to_det[future]
                 try:
@@ -201,9 +198,9 @@ class ParallelSegmentationProcessor:
                 except Exception as e:
                     print(f"Error segmenting detection: {e}")
                     results.append((det, None))
-        
+
         return results
-    
+
     def _segment_single_detection(
         self,
         image: Image.Image,
@@ -215,11 +212,11 @@ class ParallelSegmentationProcessor:
 
 class ParallelFrameProcessor:
     """Handles parallel frame processing for videos."""
-    
+
     def __init__(self, config: ParallelConfig = None):
         """Initialize parallel frame processor."""
         self.config = config or ParallelConfig()
-        
+
     def process_frames_parallel(
         self,
         frame_paths: List[str],
@@ -229,17 +226,17 @@ class ParallelFrameProcessor:
     ) -> List[Any]:
         """
         Process multiple frames in parallel.
-        
+
         Args:
             frame_paths: List of frame file paths
             process_func: Function to process each frame
             *args, **kwargs: Additional arguments for process_func
-            
+
         Returns:
             List of processing results
         """
         results = [None] * len(frame_paths)
-        
+
         with ThreadPoolExecutor(max_workers=self.config.thread_pool_size) as executor:
             future_to_idx = {
                 executor.submit(
@@ -250,7 +247,7 @@ class ParallelFrameProcessor:
                 ): idx
                 for idx, frame_path in enumerate(frame_paths)
             }
-            
+
             for future in as_completed(future_to_idx):
                 idx = future_to_idx[future]
                 try:
@@ -258,24 +255,24 @@ class ParallelFrameProcessor:
                 except Exception as e:
                     print(f"Error processing frame {idx}: {e}")
                     results[idx] = None
-        
+
         return results
 
 
 class ParallelIOProcessor:
     """Handles parallel I/O operations for saving outputs."""
-    
+
     def __init__(self, config: ParallelConfig = None):
         """Initialize parallel I/O processor."""
         self.config = config or ParallelConfig()
-        
+
     def save_outputs_parallel(
         self,
         save_tasks: List[Tuple[str, Image.Image]]
     ):
         """
         Save multiple images in parallel.
-        
+
         Args:
             save_tasks: List of (filepath, image) tuples
         """
@@ -284,15 +281,15 @@ class ParallelIOProcessor:
                 executor.submit(self._save_single_image, filepath, img)
                 for filepath, img in save_tasks
             ]
-            
+
             # Wait for all saves to complete
             for future in as_completed(futures):
                 try:
                     future.result()
                 except Exception as e:
                     print(f"Error saving image: {e}")
-    
+
     def _save_single_image(self, filepath: str, image: Image.Image):
         """Helper to save single image."""
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        image.save(filepath) 
+        image.save(filepath)

@@ -5,7 +5,6 @@ Addresses GitHub Issue #19: Decrease inference time
 """
 import argparse
 import time
-from pathlib import Path
 import torch
 
 from sowlv2.optimizations import (
@@ -19,18 +18,18 @@ from sowlv2.data.config import PipelineBaseData, PipelineConfig
 def benchmark_inference(pipeline, image_path, prompts, output_dir, runs=3):
     """Benchmark inference time over multiple runs."""
     times = []
-    
+
     for i in range(runs):
         start = time.time()
         pipeline.process_image(image_path, prompts, f"{output_dir}/run_{i}")
         elapsed = time.time() - start
         times.append(elapsed)
         print(f"Run {i+1}: {elapsed:.2f}s")
-    
+
     avg_time = sum(times) / len(times)
     print(f"\nAverage time: {avg_time:.2f}s")
     print(f"FPS (single image): {1/avg_time:.2f}")
-    
+
     return avg_time
 
 
@@ -83,9 +82,9 @@ def main():
         action="store_true",
         help="Compare with standard pipeline"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Configure parallel processing
     parallel_config = ParallelConfig(
         max_workers=args.workers,
@@ -93,7 +92,7 @@ def main():
         use_gpu_batching=(args.device == "cuda"),
         thread_pool_size=16
     )
-    
+
     # Configure pipeline
     pipeline_config = PipelineBaseData(
         owl_model="google/owlv2-base-patch16-ensemble",
@@ -107,20 +106,20 @@ def main():
             merged=True
         )
     )
-    
-    print(f"🚀 Initializing Optimized SOWLv2 Pipeline")
+
+    print("🚀 Initializing Optimized SOWLv2 Pipeline")
     print(f"Device: {args.device}")
     print(f"Batch size: {args.batch_size}")
     print(f"Workers: {args.workers}")
     print(f"Prompts: {args.prompt}")
     print("-" * 50)
-    
+
     # Initialize optimized pipeline
     optimized_pipeline = OptimizedSOWLv2Pipeline(
-        pipeline_config, 
+        pipeline_config,
         parallel_config
     )
-    
+
     if args.benchmark:
         print("\n📊 Running Benchmark Mode")
         avg_time = benchmark_inference(
@@ -130,11 +129,12 @@ def main():
             args.output,
             runs=3
         )
-        
+
         if args.compare:
             print("\n📊 Comparing with Standard Pipeline")
-            from sowlv2.pipeline import SOWLv2Pipeline
-            
+            # Import here to avoid circular imports and only when needed
+            from sowlv2.pipeline import SOWLv2Pipeline  # pylint: disable=import-outside-toplevel
+
             standard_pipeline = SOWLv2Pipeline(pipeline_config)
             standard_time = benchmark_inference(
                 standard_pipeline,
@@ -143,7 +143,7 @@ def main():
                 args.output + "_standard",
                 runs=3
             )
-            
+
             speedup = standard_time / avg_time
             print(f"\n🎯 Speedup: {speedup:.2f}x faster!")
             print(f"Standard: {standard_time:.2f}s")
@@ -158,19 +158,19 @@ def main():
             args.output
         )
         elapsed = time.time() - start
-        
-        print(f"\n✅ Processing complete!")
+
+        print("\n✅ Processing complete!")
         print(f"Time: {elapsed:.2f}s")
         print(f"Output saved to: {args.output}")
-    
+
     # Show GPU memory usage if using CUDA
     if args.device == "cuda":
         memory_stats = GPUOptimizer.profile_gpu_memory()
-        print(f"\n💾 GPU Memory Usage:")
+        print("\n💾 GPU Memory Usage:")
         print(f"  Allocated: {memory_stats['allocated']:.2f} GB")
         print(f"  Reserved: {memory_stats['reserved']:.2f} GB")
         print(f"  Free: {memory_stats['free']:.2f} GB")
 
 
 if __name__ == "__main__":
-    main() 
+    main()

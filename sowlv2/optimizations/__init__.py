@@ -21,6 +21,11 @@ from .optimized_pipeline import (
     CachedModelWrapper
 )
 
+from .vjepa2_optimization import (
+    VJepa2VideoOptimizer,
+    create_vjepa2_optimizer
+)
+
 __all__ = [
     # Parallel processing
     'ParallelConfig',
@@ -29,14 +34,18 @@ __all__ = [
     'ParallelIOProcessor',
     'ParallelFrameProcessor',
     'BatchDetectionResult',
-    
+
     # GPU optimizations
     'GPUOptimizer',
     'StreamedProcessing',
     'TensorRTOptimizer',
-    
+
     # Pipeline
     'OptimizedSOWLv2Pipeline',
     'ModelOptimizations',
-    'CachedModelWrapper'
-] 
+    'CachedModelWrapper',
+
+    # V-JEPA 2 optimization
+    'VJepa2VideoOptimizer',
+    'create_vjepa2_optimizer'
+]

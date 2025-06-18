@@ -42,7 +42,13 @@
       "Bash(python -m pytest tests/unit/utils/test_path_config.py::TestIntegrationPatterns::test_video_pattern_consistency tests/unit/test_cli.py::TestCLIArgumentParsing::test_config_file_argument -v)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(python3:*)",
+      "Bash(python -m pytest tests/integration/test_optimizations.py::TestParallelProcessing::test_parallel_detection_multiple_prompts -v)",
+      "Bash(python -m pytest tests/integration/test_optimizations.py::TestOptimizedPipeline::test_optimized_image_processing -v)",
+      "Bash(python -m pytest tests/integration/test_optimizations.py::TestOptimizedPipeline::test_optimized_image_processing -v -s)",
+      "Bash(python:*)",
+      "WebFetch(domain:huggingface.co)"
     ],
     "deny": []
   }
