@@ -169,8 +169,8 @@ class TestOutputStructure:
             prompt = kwargs.get('prompt', args[1] if len(args) > 1 else None)
             if isinstance(prompt, list):
                 prompt = prompt[0]
-            
-            if prompt == "cat" or prompt == ["cat"]:
+
+            if prompt in ("cat", ["cat"]):
                 return [
                     {
                         "box": [100, 100, 300, 200],
@@ -179,7 +179,7 @@ class TestOutputStructure:
                         "core_prompt": "cat"
                     }
                 ]
-            elif prompt == "dog" or prompt == ["dog"]:
+            if prompt in ("dog", ["dog"]):
                 return [
                     {
                         "box": [350, 250, 550, 350],
@@ -188,9 +188,8 @@ class TestOutputStructure:
                         "core_prompt": "dog"
                     }
                 ]
-            else:
-                return []
-        
+            
+
         mock_owl_model.detect.side_effect = mock_detect
 
         config = create_test_pipeline_config(

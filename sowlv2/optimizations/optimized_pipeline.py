@@ -40,7 +40,6 @@ except ImportError:
     # Define dummy functions if video pipeline not available
     def create_temp_directories_for_video(*_):
         """Dummy function for testing."""
-        return None
 
     def run_video_processing_steps(*_):
         """Dummy function for testing."""
@@ -48,7 +47,6 @@ except ImportError:
 
     def move_video_outputs_to_final_dir(*_):
         """Dummy function for testing."""
-        pass
 
     class VideoProcessingConfig:
         """Dummy class for testing."""

@@ -13,9 +13,10 @@ from sowlv2.optimizations.parallel_processor import (
     ParallelSegmentationProcessor, ParallelIOProcessor,
     BatchDetectionResult
 )
+
 from sowlv2.optimizations.gpu_optimizations import GPUOptimizer
 from sowlv2.optimizations.optimized_pipeline import OptimizedSOWLv2Pipeline
-from sowlv2.data.config import PipelineBaseData
+from sowlv2.data.config import (PipelineBaseData, PipelineConfig)
 
 
 class TestParallelProcessing:
@@ -92,7 +93,7 @@ class TestParallelProcessing:
 
         # Verify results
         assert len(results) == len(detections)
-        for (detection, mask) in results:
+        for (_, mask) in results:
             assert mask is not None
             assert isinstance(mask, np.ndarray)
             assert mask.shape == (100, 100)  # Check expected shape
@@ -193,9 +194,7 @@ class TestOptimizedPipeline:
 
     @pytest.fixture
     def optimized_pipeline(self, mocker):
-        """Create an optimized pipeline with mocked models."""
-        from sowlv2.data.config import PipelineConfig
-        
+        """Create an optimized pipeline with mocked models."""        
         # Mock the model initialization - patch both import paths
         mocker.patch('sowlv2.models.OWLV2Wrapper')
         mocker.patch('sowlv2.models.SAM2Wrapper')
