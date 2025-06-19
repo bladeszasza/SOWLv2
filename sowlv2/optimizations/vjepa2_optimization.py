@@ -2,6 +2,7 @@
 V-JEPA 2 optimization for video batch processing.
 Integrates Meta's V-JEPA 2 model for efficient video understanding and preprocessing.
 """
+import logging
 from typing import List, Optional, Tuple
 
 import torch

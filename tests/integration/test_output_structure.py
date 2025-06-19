@@ -1,7 +1,6 @@
 """Test output directory structure with various flag combinations."""
 import itertools
 import re
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
@@ -15,7 +14,7 @@ from tests.conftest import validate_output_structure, create_test_pipeline_confi
 
 
 @pytest.fixture
-def parallel_config():
+def shared_parallel_config():
     """Fixture providing a shared ParallelConfig instance."""
     return ParallelConfig()
 
@@ -57,7 +56,7 @@ class TestOutputStructure:
         list(itertools.product([True, False], repeat=3)))
     def test_image_output_structure(self, *, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged, parallel_config):
+                                   binary, overlay, merged, shared_parallel_config):
         """Test all combinations of --no-binary, --no-overlay, --no-merged flags for images."""
         # Create test config dataclass to reduce parameter count
         fixtures = OutputTestFixtures(
@@ -98,7 +97,7 @@ class TestOutputStructure:
         ]
 
         # Run pipeline
-        pipeline = OptimizedSOWLv2Pipeline(pipeline_config, parallel_config)
+        pipeline = OptimizedSOWLv2Pipeline(pipeline_config, shared_parallel_config)
         pipeline.process_image(config.fixtures.sample_image_path, "cat", output_dir)
 
         # Validate output structure
@@ -111,7 +110,7 @@ class TestOutputStructure:
         list(itertools.product([True, False], repeat=3)))
     def test_video_output_structure(self, *, tmp_path, sample_video_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged, parallel_config):
+                                   binary, overlay, merged, shared_parallel_config):
         """Test video output structure with all flag combinations."""
         # Create test config dataclass to reduce parameter count
         fixtures = OutputTestFixtures(
@@ -155,7 +154,7 @@ class TestOutputStructure:
             mock_subprocess.return_value = None
 
             # Run pipeline
-            pipeline = OptimizedSOWLv2Pipeline(pipeline_config, parallel_config)
+            pipeline = OptimizedSOWLv2Pipeline(pipeline_config, shared_parallel_config)
             pipeline.process_video(config.fixtures.sample_video_path, "cat", output_dir)
 
         # Validate output structure
@@ -164,7 +163,7 @@ class TestOutputStructure:
         )
 
     def test_multiple_objects_output_structure(self, *, tmp_path, sample_image_path,
-                                             mock_owl_model, mock_sam_model, parallel_config):
+                                             mock_owl_model, mock_sam_model, shared_parallel_config):
         """Test output structure with multiple detected objects."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -203,7 +202,7 @@ class TestOutputStructure:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
+        pipeline = OptimizedSOWLv2Pipeline(config, shared_parallel_config)
         pipeline.process_image(sample_image_path, ["cat", "dog"], output_dir)
 
         output_path = Path(output_dir)
@@ -522,7 +521,7 @@ class TestFlagCombinationMatrix:
         validate_output_structure(output_dir, config.flags, "image")
 
     def test_all_flags_disabled_edge_case(self, *, tmp_path, sample_image_path,
-                                        mock_owl_model, mock_sam_model, parallel_config):
+                                        mock_owl_model, mock_sam_model, shared_parallel_config):
         """Test behavior when all flags are disabled."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -541,7 +540,7 @@ class TestFlagCombinationMatrix:
             pipeline_config=PipelineConfig(binary=False, overlay=False, merged=False)
         )
 
-        pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
+        pipeline = OptimizedSOWLv2Pipeline(config, shared_parallel_config)
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         # Should have minimal or no output
