@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sowlv2.pipeline import SOWLv2Pipeline
+from sowlv2.optimizations import OptimizedSOWLv2Pipeline, ParallelConfig
 from sowlv2.data.config import PipelineConfig
 from tests.conftest import validate_output_structure, create_test_pipeline_config
 
@@ -91,7 +91,7 @@ class TestOutputStructure:
         ]
 
         # Run pipeline
-        pipeline = SOWLv2Pipeline(pipeline_config)
+        pipeline = OptimizedSOWLv2Pipeline(pipeline_config, ParallelConfig())
         pipeline.process_image(config.fixtures.sample_image_path, "cat", output_dir)
 
         # Validate output structure
@@ -99,7 +99,7 @@ class TestOutputStructure:
             output_dir, flags.binary, flags.overlay, flags.merged
         )
 
-    @pytest.mark.skip(reason="Video processing will be reworked in separate PR")
+    @pytest.mark.skip(reason="Video tests require complex mocking - will be fixed in separate PR")
     @pytest.mark.parametrize("binary,overlay,merged",
         list(itertools.product([True, False], repeat=3)))
     def test_video_output_structure(self, *, tmp_path, sample_video_path,
@@ -148,7 +148,7 @@ class TestOutputStructure:
             mock_subprocess.return_value = None
 
             # Run pipeline
-            pipeline = SOWLv2Pipeline(pipeline_config)
+            pipeline = OptimizedSOWLv2Pipeline(pipeline_config, ParallelConfig())
             pipeline.process_video(config.fixtures.sample_video_path, "cat", output_dir)
 
         # Validate output structure
@@ -184,7 +184,7 @@ class TestOutputStructure:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         pipeline.process_image(sample_image_path, ["cat", "dog"], output_dir)
 
         output_path = Path(output_dir)
@@ -219,7 +219,7 @@ class TestOutputStructure:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         pipeline.process_image(sample_image_path, "nonexistent", output_dir)
 
         # Should not create empty directories or they should be cleaned up
@@ -380,7 +380,7 @@ class TestFileNamingConventions:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         binary_files = list(Path(output_dir).rglob("*_mask.png"))
@@ -412,7 +412,7 @@ class TestFileNamingConventions:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         merged_files = list((Path(output_dir) / "binary" / "merged").glob("*_merged_mask.png"))
@@ -443,7 +443,7 @@ class TestFileNamingConventions:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         pipeline.process_image(sample_image_path, "red car", output_dir)
 
         binary_files = list(Path(output_dir).rglob("*_mask.png"))
@@ -496,7 +496,7 @@ class TestFlagCombinationMatrix:
             pipeline_config=PipelineConfig(**config.flags)
         )
 
-        pipeline = SOWLv2Pipeline(pipeline_config)
+        pipeline = OptimizedSOWLv2Pipeline(pipeline_config, ParallelConfig())
         pipeline.process_image(config.fixtures.sample_image_path, "cat", output_dir)
 
         # Validate using our utility function
@@ -522,7 +522,7 @@ class TestFlagCombinationMatrix:
             pipeline_config=PipelineConfig(binary=False, overlay=False, merged=False)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         # Should have minimal or no output
