@@ -56,7 +56,8 @@ class TestOutputStructure:
         list(itertools.product([True, False], repeat=3)))
     def test_image_output_structure(self, *, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged, shared_parallel_config):
+                                   binary, overlay, merged,
+                                   shared_parallel_config):
         """Test all combinations of --no-binary, --no-overlay, --no-merged flags for images."""
         # Create test config dataclass to reduce parameter count
         fixtures = OutputTestFixtures(
@@ -110,7 +111,8 @@ class TestOutputStructure:
         list(itertools.product([True, False], repeat=3)))
     def test_video_output_structure(self, *, tmp_path, sample_video_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged, shared_parallel_config):
+                                   binary, overlay, merged,
+                                   shared_parallel_config):
         """Test video output structure with all flag combinations."""
         # Create test config dataclass to reduce parameter count
         fixtures = OutputTestFixtures(
@@ -163,7 +165,8 @@ class TestOutputStructure:
         )
 
     def test_multiple_objects_output_structure(self, *, tmp_path, sample_image_path,
-                                             mock_owl_model, mock_sam_model, shared_parallel_config):
+                                             mock_owl_model, mock_sam_model,
+                                             shared_parallel_config):
         """Test output structure with multiple detected objects."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -223,7 +226,8 @@ class TestOutputStructure:
         assert len(overlay_merged) == 1
 
     def test_empty_directories_cleanup(self, *, tmp_path, sample_image_path,
-                                      mock_owl_model, mock_sam_model):
+                                      mock_owl_model, mock_sam_model,
+                                      shared_parallel_config):
         """Test that empty directories are cleaned up."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -237,7 +241,7 @@ class TestOutputStructure:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
+        pipeline = OptimizedSOWLv2Pipeline(config, shared_parallel_config)
         pipeline.process_image(sample_image_path, "nonexistent", output_dir)
 
         # Should not create empty directories or they should be cleaned up
