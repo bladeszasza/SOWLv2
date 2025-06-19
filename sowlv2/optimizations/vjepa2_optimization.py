@@ -2,8 +2,9 @@
 V-JEPA 2 optimization for video batch processing.
 Integrates Meta's V-JEPA 2 model for efficient video understanding and preprocessing.
 """
-import torch
 from typing import List, Optional, Tuple
+
+import torch
 import numpy as np
 from PIL import Image
 
@@ -73,7 +74,7 @@ class VJepa2VideoOptimizer:
         try:
             self._load_models()
             return self._model is not None
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             return False
 
     def extract_video_features(self,
@@ -128,7 +129,7 @@ class VJepa2VideoOptimizer:
         # Simple temporal importance based on feature variance
         # More sophisticated methods could be implemented here
         frame_importance = []
-        for i in range(len(frames)):
+        for i, _ in enumerate(frames):
             if i < features.shape[1]:  # Ensure we don't exceed feature dimensions
                 frame_feat = features[0, i]  # Get features for frame i
                 importance = float(torch.var(frame_feat).cpu())
@@ -151,11 +152,11 @@ class VJepa2VideoOptimizer:
     ) -> Optional[List[float]]:
         """
         Enhanced importance scoring that considers both feature variance and motion.
-        
+
         Args:
             frames: List of PIL Images
             motion_weight: Weight for motion component (0-1)
-            
+
         Returns:
             List of importance scores (0-1) for each frame
         """
@@ -163,33 +164,33 @@ class VJepa2VideoOptimizer:
         feature_importance = self.get_temporal_importance_scores(frames)
         if feature_importance is None:
             return None
-        
+
         # Calculate motion-based importance
         motion_importance = []
-        for i in range(len(frames)):
+        for i, frame in enumerate(frames):
             if i == 0:
                 motion_importance.append(0.0)
             else:
                 # Simple frame difference as motion metric
-                curr_frame = np.array(frames[i].convert('L'))
+                curr_frame = np.array(frame.convert('L'))
                 prev_frame = np.array(frames[i-1].convert('L'))
                 diff = np.abs(curr_frame.astype(float) - prev_frame.astype(float))
                 motion_score = np.mean(diff) / 255.0
                 motion_importance.append(motion_score)
-        
+
         # Normalize motion scores
         max_motion = max(motion_importance) if motion_importance else 1.0
         if max_motion > 0:
             motion_importance = [s / max_motion for s in motion_importance]
-        
+
         # Combine scores
         combined_scores = []
-        for i in range(len(frames)):
+        for i, frame in enumerate(frames):
             feature_score = feature_importance[i]
             motion_score = motion_importance[i] if i < len(motion_importance) else 0.0
             combined = (1 - motion_weight) * feature_score + motion_weight * motion_score
             combined_scores.append(combined)
-        
+
         return combined_scores
 
     def optimize_frame_selection(self,
@@ -230,14 +231,13 @@ class VJepa2VideoOptimizer:
     def batch_process_video_clips(
             self,
             all_frames: List[Image.Image],
-            batch_size: int = 4
+            # batch_size parameter removed as it was unused
     ) -> List[Tuple[List[Image.Image], torch.Tensor]]:
         """
         Process video in batches using V-JEPA 2 for optimal clip segmentation.
 
         Args:
             all_frames: All video frames
-            batch_size: Number of clips to process in parallel
 
         Returns:
             List of (frames, features) tuples for each clip
@@ -285,9 +285,8 @@ def create_vjepa2_optimizer(config: PipelineBaseData,
         optimizer = VJepa2VideoOptimizer(config)
         if optimizer.is_available:
             return optimizer
-        else:
-            print("V-JEPA 2 optimization not available, falling back to standard processing")
-            return None
-    except Exception as e:
+        print("V-JEPA 2 optimization not available, falling back to standard processing")
+        return None
+    except Exception as e:  # pylint: disable=broad-except
         print(f"Failed to initialize V-JEPA 2 optimizer: {e}")
         return None

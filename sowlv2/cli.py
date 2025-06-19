@@ -196,13 +196,14 @@ def main():
             print("V-JEPA 2 optimization ready!")
             # Store optimizer reference for potential use in video processing
             pipeline.vjepa2_optimizer = vjepa2_optimizer
-            
+
             # Set temporal detection parameters
             if args.use_temporal_detection:
                 pipeline.use_temporal_detection = True
                 pipeline.temporal_detection_frames = args.temporal_detection_frames
                 pipeline.temporal_merge_threshold = args.temporal_merge_threshold
-                print(f"Temporal detection enabled with {args.temporal_detection_frames} key frames")
+                print(f"Temporal detection enabled with {args.temporal_detection_frames} "
+                      f"key frames")
         else:
             print("V-JEPA 2 optimization not available, continuing without it.")
 

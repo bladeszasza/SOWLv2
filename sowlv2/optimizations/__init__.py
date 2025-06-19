@@ -55,7 +55,7 @@ __all__ = [
     'StreamedProcessing',
     'TensorRTOptimizer',
 
-    # Pipeline
+    # Optimized pipeline
     'OptimizedSOWLv2Pipeline',
     'ModelOptimizations',
     'CachedModelWrapper',
@@ -63,18 +63,16 @@ __all__ = [
     # V-JEPA 2 optimization
     'VJepa2VideoOptimizer',
     'create_vjepa2_optimizer',
-    
+
     # Temporal detection
     'TemporalDetection',
     'TrackedObject',
     'compute_iou',
     'merge_temporal_detections',
     'select_key_frames_for_detection',
-    
-    # Model cache
+
+    # Model management
     'IntelligentModelCache',
-    
-    # Batch optimizer
     'BatchConfig',
-    'IntelligentBatchOptimizer'
+    'IntelligentBatchOptimizer',
 ]
