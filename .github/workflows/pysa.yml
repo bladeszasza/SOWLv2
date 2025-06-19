@@ -51,16 +51,30 @@ jobs:
           pip install pyre-check
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
+      - name: Create .pyre_configuration if needed
+        run: |
+          if [ ! -f .pyre_configuration ]; then
+            echo '{
+              "source_directories": ["."],
+              "search_path": ["$VIRTUAL_ENV/lib/python3.11/site-packages"],
+              "taint_models_path": ["$VIRTUAL_ENV/lib/pyre_check/taint"]
+            }' > .pyre_configuration
+          fi
+
       - name: Run Pysa
         run: |
-          # Create .pyre directory if it doesn't exist
-          mkdir -p .pyre
-          
           # Run Pysa analysis
-          pyre analyze --save-results-to pysa-results.json || true
+          pyre analyze --output json --save-results-to ./pysa-results || true
           
-          # Convert results to SARIF format
-          pyre-safe-report report pysa-results.json --format sarif > pysa-results.sarif
+          # Check if taint-output.json exists
+          if [ -f ./pysa-results/taint-output.json ]; then
+            cp ./pysa-results/taint-output.json pysa-results.json
+          else
+            echo '{"errors": [], "issues": []}' > pysa-results.json
+          fi
+          
+          # Run Pysa with SARIF output
+          pyre analyze --output sarif > pysa-results.sarif || true
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3

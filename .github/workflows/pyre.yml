@@ -49,9 +49,22 @@ jobs:
           pip install pyre-check
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
+      - name: Create .pyre_configuration if needed
+        run: |
+          if [ ! -f .pyre_configuration ]; then
+            echo '{
+              "source_directories": ["."],
+              "search_path": ["$VIRTUAL_ENV/lib/python3.11/site-packages"]
+            }' > .pyre_configuration
+          fi
+
       - name: Run Pyre Check
         run: |
-          pyre --output=sarif > pyre-results.sarif || true
+          # Run Pyre check with JSON output
+          pyre check --output json > pyre-results.json || true
+          
+          # Run Pyre check with SARIF output
+          pyre check --output sarif > pyre-results.sarif || true
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
