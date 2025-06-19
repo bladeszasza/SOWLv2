@@ -91,6 +91,18 @@ def parse_args():
         "--vjepa2-frames-per-clip", type=int, default=16,
         help="Number of frames per clip for V-JEPA 2 processing"
     )
+    parser.add_argument(
+        "--temporal-detection-frames", type=int, default=5,
+        help="Number of temporally important frames to run detection on (default: 5)"
+    )
+    parser.add_argument(
+        "--temporal-merge-threshold", type=float, default=0.7,
+        help="IoU threshold for merging same objects across frames (default: 0.7)"
+    )
+    parser.add_argument(
+        "--use-temporal-detection", action="store_true",
+        help="Enable temporal detection across multiple frames (requires V-JEPA 2)"
+    )
     args = parser.parse_args()
     # If config file is provided, override defaults
     if args.config:
@@ -184,6 +196,13 @@ def main():
             print("V-JEPA 2 optimization ready!")
             # Store optimizer reference for potential use in video processing
             pipeline.vjepa2_optimizer = vjepa2_optimizer
+            
+            # Set temporal detection parameters
+            if args.use_temporal_detection:
+                pipeline.use_temporal_detection = True
+                pipeline.temporal_detection_frames = args.temporal_detection_frames
+                pipeline.temporal_merge_threshold = args.temporal_merge_threshold
+                print(f"Temporal detection enabled with {args.temporal_detection_frames} key frames")
         else:
             print("V-JEPA 2 optimization not available, continuing without it.")
 

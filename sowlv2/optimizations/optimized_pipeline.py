@@ -19,6 +19,8 @@ from .parallel_processor import (
     ParallelSegmentationProcessor, ParallelIOProcessor,
     BatchDetectionResult
 )
+from .model_cache import IntelligentModelCache
+from .batch_optimizer import IntelligentBatchOptimizer
 
 
 class OptimizedSOWLv2Pipeline(SOWLv2Pipeline):
@@ -48,6 +50,16 @@ class OptimizedSOWLv2Pipeline(SOWLv2Pipeline):
 
         # Enable model optimizations
         self._optimize_models()
+        
+        # Initialize intelligent optimizers
+        self.model_cache = IntelligentModelCache(config.device)
+        self.batch_optimizer = IntelligentBatchOptimizer(config.device)
+        
+        # Temporal detection settings (will be set from CLI)
+        self.vjepa2_optimizer = None
+        self.use_temporal_detection = False
+        self.temporal_detection_frames = 5
+        self.temporal_merge_threshold = 0.7
 
     def _optimize_models(self):
         """Apply model-specific optimizations."""
@@ -182,43 +194,168 @@ class OptimizedSOWLv2Pipeline(SOWLv2Pipeline):
 
     def _process_video_with_vjepa2(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
-        Video processing with V-JEPA 2 optimization for intelligent frame selection.
+        Video processing with V-JEPA 2 optimization and temporal detection.
         """
         import tempfile
+        import subprocess
         from sowlv2.utils import video_utils
+        from sowlv2.optimizations.temporal_detection import (
+            merge_temporal_detections, select_key_frames_for_detection, TrackedObject
+        )
+        from sowlv2.video_pipeline import (
+            VideoTrackingConfig, create_temp_directories_for_video,
+            run_video_processing_steps, move_video_outputs_to_final_dir,
+            VideoProcessingConfig
+        )
         
-        # Extract all frames to temporary directory
+        # Check if temporal detection is enabled
+        use_temporal = hasattr(self, 'use_temporal_detection') and self.use_temporal_detection
+        num_detection_frames = getattr(self, 'temporal_detection_frames', 5)
+        merge_threshold = getattr(self, 'temporal_merge_threshold', 0.7)
+        
         with tempfile.TemporaryDirectory() as temp_frames_dir:
             # Extract frames
-            frame_paths = video_utils.extract_frames(video_path, temp_frames_dir, self.config.fps)
+            print("Extracting frames from video...")
+            subprocess.run(
+                ["ffmpeg", "-i", video_path, "-r", str(self.config.fps),
+                 os.path.join(temp_frames_dir, "%06d.jpg"), "-hide_banner", "-loglevel", "error"],
+                check=True,
+                timeout=300
+            )
             
-            # Load frames for V-JEPA 2 analysis
-            frames = []
-            for frame_path in frame_paths:
-                frames.append(Image.open(frame_path).convert("RGB"))
+            # Load frames
+            frame_paths = sorted([
+                os.path.join(temp_frames_dir, f) 
+                for f in os.listdir(temp_frames_dir) 
+                if f.endswith('.jpg')
+            ])
+            frames = [Image.open(fp).convert("RGB") for fp in frame_paths]
             
-            # Use V-JEPA 2 to select optimal frames for processing
-            target_frames = min(len(frames), max(8, len(frames) // 4))  # Process 25% of frames minimum
-            selected_indices = self.vjepa2_optimizer.optimize_frame_selection(frames, target_frames)
+            if not frames:
+                print("No frames extracted from video")
+                return
             
-            print(f"V-JEPA 2 selected {len(selected_indices)} key frames from {len(frames)} total frames")
+            # Get temporal importance scores
+            print("Analyzing temporal importance with V-JEPA 2...")
+            importance_scores = self.vjepa2_optimizer.get_motion_aware_importance_scores(frames)
             
-            # Process selected frames in parallel
-            selected_frames = [frames[i] for i in selected_indices]
-            selected_paths = [frame_paths[i] for i in selected_indices]
+            if importance_scores is None:
+                print("Failed to get importance scores, using uniform sampling")
+                key_frame_indices = list(range(0, len(frames), max(1, len(frames) // num_detection_frames)))
+            else:
+                # Select key frames for detection
+                key_frame_indices = select_key_frames_for_detection(
+                    importance_scores, 
+                    num_detection_frames,
+                    min_spacing=max(10, len(frames) // (num_detection_frames * 2))
+                )
             
-            # Batch process selected frames
-            batch_results = []
-            for frame, frame_path in zip(selected_frames, selected_paths):
-                prompts = [prompt] if isinstance(prompt, str) else prompt
-                frame_results = self.detection_processor.detect_multiple_prompts_parallel(
+            print(f"Selected {len(key_frame_indices)} key frames for detection: {key_frame_indices}")
+            
+            # Run detection on key frames
+            detections_by_frame = {}
+            prompts = [prompt] if isinstance(prompt, str) else prompt
+            
+            for frame_idx in key_frame_indices:
+                frame = frames[frame_idx]
+                print(f"Running detection on frame {frame_idx + 1}/{len(frames)}")
+                
+                # Use batch detection for multiple prompts
+                batch_results = self.detection_processor.detect_multiple_prompts_parallel(
                     frame, prompts, self.config.threshold
                 )
-                batch_results.append((frame, frame_path, frame_results))
+                
+                # Collect detections for this frame
+                frame_detections = []
+                for batch_result in batch_results:
+                    frame_detections.extend(batch_result.detections)
+                
+                if frame_detections:
+                    detections_by_frame[frame_idx] = frame_detections
             
-            # Fall back to parent for SAM2 video tracking integration
-            # This ensures temporal consistency while leveraging optimizations
-            return super().process_video(video_path, prompt, output_dir)
+            if not detections_by_frame:
+                print("No objects detected in any key frames")
+                return
+            
+            # Merge detections across frames
+            print("Merging temporal detections...")
+            tracked_objects = merge_temporal_detections(detections_by_frame, merge_threshold)
+            print(f"Identified {len(tracked_objects)} unique objects across frames")
+            
+            # Initialize SAM2 video tracking with best detections
+            sam_state = self.sam.init_state(temp_frames_dir)
+            
+            # Assign colors and initialize tracking
+            prompt_color_map = {}
+            next_color_idx = 0
+            detection_details_for_video = []
+            
+            for obj_idx, tracked_obj in enumerate(tracked_objects):
+                # Get color for this object
+                from sowlv2.utils.pipeline_utils import get_prompt_color
+                color, next_color_idx = get_prompt_color(
+                    tracked_obj.core_prompt,
+                    prompt_color_map,
+                    self.palette,
+                    next_color_idx
+                )
+                tracked_obj.color = color
+                
+                # Use best detection to initialize SAM
+                best_det = tracked_obj.detections[tracked_obj.best_detection_idx]
+                
+                # Add to SAM state
+                self.sam.add_new_box(
+                    state=sam_state,
+                    frame_idx=best_det.frame_idx,
+                    box=best_det.box,
+                    obj_idx=obj_idx + 1
+                )
+                
+                # Store detection details
+                detection_details_for_video.append({
+                    'sam_id': obj_idx + 1,
+                    'core_prompt': tracked_obj.core_prompt,
+                    'color': color,
+                    'tracked_object': tracked_obj  # Store for reference
+                })
+            
+            # Create video context
+            from sowlv2.data.config import VideoProcessContext
+            video_ctx = VideoProcessContext(
+                tmp_frames_dir=temp_frames_dir,
+                initial_sam_state=sam_state,
+                first_img_path=frame_paths[0],
+                first_pil_img=frames[0],
+                detection_details_for_video=detection_details_for_video,
+                updated_sam_state=sam_state
+            )
+            
+            # Process video with temporal tracking
+            with tempfile.TemporaryDirectory() as temp_output_dir:
+                video_temp_dirs = create_temp_directories_for_video(temp_output_dir)
+                
+                # Run video processing
+                prompt_color_map, next_color_idx = run_video_processing_steps(
+                    video_ctx,
+                    self.sam,
+                    video_temp_dirs,
+                    VideoProcessingConfig(
+                        pipeline_config=self.config.pipeline_config,
+                        prompt_color_map=prompt_color_map,
+                        next_color_idx=next_color_idx,
+                        fps=self.config.fps
+                    )
+                )
+                
+                # Move outputs to final directory
+                move_video_outputs_to_final_dir(
+                    video_temp_dirs,
+                    output_dir,
+                    self.config.pipeline_config
+                )
+            
+            print(f"✅ Temporal video processing completed for {video_path}")
 
     def _process_video_optimized_standard(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """

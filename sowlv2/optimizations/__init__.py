@@ -26,6 +26,21 @@ from .vjepa2_optimization import (
     create_vjepa2_optimizer
 )
 
+from .temporal_detection import (
+    TemporalDetection,
+    TrackedObject,
+    compute_iou,
+    merge_temporal_detections,
+    select_key_frames_for_detection
+)
+
+from .model_cache import IntelligentModelCache
+
+from .batch_optimizer import (
+    BatchConfig,
+    IntelligentBatchOptimizer
+)
+
 __all__ = [
     # Parallel processing
     'ParallelConfig',
@@ -47,5 +62,19 @@ __all__ = [
 
     # V-JEPA 2 optimization
     'VJepa2VideoOptimizer',
-    'create_vjepa2_optimizer'
+    'create_vjepa2_optimizer',
+    
+    # Temporal detection
+    'TemporalDetection',
+    'TrackedObject',
+    'compute_iou',
+    'merge_temporal_detections',
+    'select_key_frames_for_detection',
+    
+    # Model cache
+    'IntelligentModelCache',
+    
+    # Batch optimizer
+    'BatchConfig',
+    'IntelligentBatchOptimizer'
 ]

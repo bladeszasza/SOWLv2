@@ -144,6 +144,54 @@ class VJepa2VideoOptimizer:
 
         return frame_importance
 
+    def get_motion_aware_importance_scores(
+        self,
+        frames: List[Image.Image],
+        motion_weight: float = 0.5
+    ) -> Optional[List[float]]:
+        """
+        Enhanced importance scoring that considers both feature variance and motion.
+        
+        Args:
+            frames: List of PIL Images
+            motion_weight: Weight for motion component (0-1)
+            
+        Returns:
+            List of importance scores (0-1) for each frame
+        """
+        # Get feature-based importance
+        feature_importance = self.get_temporal_importance_scores(frames)
+        if feature_importance is None:
+            return None
+        
+        # Calculate motion-based importance
+        motion_importance = []
+        for i in range(len(frames)):
+            if i == 0:
+                motion_importance.append(0.0)
+            else:
+                # Simple frame difference as motion metric
+                curr_frame = np.array(frames[i].convert('L'))
+                prev_frame = np.array(frames[i-1].convert('L'))
+                diff = np.abs(curr_frame.astype(float) - prev_frame.astype(float))
+                motion_score = np.mean(diff) / 255.0
+                motion_importance.append(motion_score)
+        
+        # Normalize motion scores
+        max_motion = max(motion_importance) if motion_importance else 1.0
+        if max_motion > 0:
+            motion_importance = [s / max_motion for s in motion_importance]
+        
+        # Combine scores
+        combined_scores = []
+        for i in range(len(frames)):
+            feature_score = feature_importance[i]
+            motion_score = motion_importance[i] if i < len(motion_importance) else 0.0
+            combined = (1 - motion_weight) * feature_score + motion_weight * motion_score
+            combined_scores.append(combined)
+        
+        return combined_scores
+
     def optimize_frame_selection(self,
                                 frames: List[Image.Image],
                                 target_frames: int) -> List[int]:
