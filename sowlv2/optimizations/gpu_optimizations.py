@@ -86,7 +86,7 @@ class GPUOptimizer:
                         fullgraph=True
                     )
                     print("Successfully compiled model with torch.compile")
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     print(f"Failed to compile model: {e}")
 
             # Enable memory efficient attention if available
@@ -104,7 +104,7 @@ class GPUOptimizer:
             elif hasattr(module, 'enable_xformers'):
                 try:
                     module.enable_xformers()
-                except Exception:
+                except Exception:  # pylint: disable=broad-exception-caught
                     pass
 
     def batch_inference(
@@ -275,6 +275,6 @@ class TensorRTOptimizer:
         except ImportError:
             print("torch_tensorrt not installed. Skipping TensorRT optimization.")
             return None
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             print(f"TensorRT optimization failed: {e}")
             return None

@@ -80,4 +80,4 @@ class IntelligentModelCache:
                     del self.model_usage_count[model_name]
 
             gc.collect()
-            torch.cuda.empty_cache() 
+            torch.cuda.empty_cache()

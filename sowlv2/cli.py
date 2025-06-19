@@ -180,16 +180,16 @@ def main():
     # Configure parallel processing
     parallel_config = ParallelConfig(
         max_workers=args.max_workers,
-        batch_size=args.batch_size,
-        use_gpu_batching=(not args.disable_gpu_batching and device == CUDA)
+        detection_batch_size=args.batch_size,
+        segmentation_batch_size=2,
+        io_batch_size=8
     )
     pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
-    
     # Configure V-JEPA 2 if enabled
     if args.enable_vjepa2:
         print("Enabling V-JEPA 2 video optimization...")
         vjepa2_optimizer = create_vjepa2_optimizer(
-            config, 
+            config,
             enable_vjepa2=True
         )
         if vjepa2_optimizer:

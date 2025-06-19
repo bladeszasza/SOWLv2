@@ -118,7 +118,7 @@ def select_key_frames_for_detection(
     indexed_scores.sort(key=lambda x: x[1], reverse=True)
 
     selected_indices = []
-    for idx, score in indexed_scores:
+    for idx, _ in indexed_scores:
         # Check minimum spacing constraint
         too_close = any(abs(idx - selected) < min_spacing for selected in selected_indices)
         if not too_close:
@@ -134,4 +134,4 @@ def select_key_frames_for_detection(
                 if len(selected_indices) >= num_frames:
                     break
 
-    return sorted(selected_indices) 
+    return sorted(selected_indices)

@@ -111,4 +111,4 @@ class IntelligentBatchOptimizer:
                     print(f"Skipping item {i} due to memory constraints")
                     i += 1
 
-        return results 
+        return results

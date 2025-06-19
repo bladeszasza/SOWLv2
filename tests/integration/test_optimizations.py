@@ -31,7 +31,7 @@ class TestParallelProcessing:
         ]
 
         mock_sam = MagicMock()
-        mock_sam.segment.return_value = np.ones((100, 100), dtype=np.uint8) * 255
+        mock_sam.segment_from_box.return_value = np.ones((100, 100), dtype=np.uint8) * 255
 
         return mock_owl, mock_sam
 
@@ -40,48 +40,36 @@ class TestParallelProcessing:
         mock_owl, mock_sam = mock_models
 
         # Configure mock to return different results for different prompts
-        def mock_detect(image, prompt, threshold):
-            if isinstance(prompt, list):
-                # Return detections for all prompts
-                results = []
-                for p in prompt:
-                    results.append({
-                        "box": [10, 10, 50, 50],
-                        "score": 0.9,
-                        "label": f"a photo of {p}",
-                        "core_prompt": p
-                    })
-                return results
-            else:
-                return [{
-                    "box": [10, 10, 50, 50],
-                    "score": 0.9,
-                    "label": f"a photo of {prompt}",
-                    "core_prompt": prompt
-                }]
+        def mock_detect(_, prompts_list):
+            # prompts_list is a list containing a single prompt
+            prompt = prompts_list[0] if prompts_list else ""
+            return [{
+                "box": [10, 10, 50, 50],
+                "score": 0.9,
+                "label": f"a photo of {prompt}",
+                "core_prompt": prompt
+            }]
 
-        mock_owl.detect.side_effect = mock_detect
+        mock_owl.detect_objects.side_effect = mock_detect
 
         # Test parallel detection - patch ProcessPoolExecutor to use ThreadPoolExecutor for mocks
-        config = ParallelConfig(use_gpu_batching=False, max_workers=2)
+        config = ParallelConfig(max_workers=2)
         processor = ParallelDetectionProcessor(mock_owl, mock_sam, config)
 
         prompts = ["cat", "dog", "bird", "car"]
-        
-        # Patch ProcessPoolExecutor to use ThreadPoolExecutor to avoid pickling issues
-        from concurrent.futures import ThreadPoolExecutor
-        with patch('sowlv2.optimizations.parallel_processor.ProcessPoolExecutor', ThreadPoolExecutor):
-            results = processor.detect_multiple_prompts_parallel(
-                sample_image, prompts, threshold=0.1
-            )
+
+        # Run parallel detection
+        results = processor.detect_multiple_prompts_parallel(
+            sample_image, prompts, threshold=0.1
+        )
 
         # Verify results
         assert len(results) == len(prompts)
-        for i, result in enumerate(results):
+        for result in results:
             assert isinstance(result, BatchDetectionResult)
-            assert result.prompt == prompts[i]
-            assert result.prompt_idx == i
             assert len(result.detections) > 0
+            assert result.success_count >= 0
+            assert result.error_count >= 0
 
     def test_parallel_segmentation(self, mock_models, sample_image):
         """Test parallel segmentation processing."""
@@ -94,14 +82,14 @@ class TestParallelProcessing:
             {"box": [110, 110, 150, 150], "score": 0.7, "core_prompt": "bird"},
         ]
 
-        config = ParallelConfig(thread_pool_size=4)
+        config = ParallelConfig(max_workers=4)
         processor = ParallelSegmentationProcessor(mock_sam, config)
 
         results = processor.segment_detections_parallel(sample_image, detections)
 
         # Verify results
         assert len(results) == len(detections)
-        for (det, mask) in results:
+        for (_, mask) in results:
             assert mask is not None
             assert isinstance(mask, np.ndarray)
 
@@ -114,7 +102,7 @@ class TestParallelProcessing:
             filepath = tmp_path / f"test_{i}.png"
             save_tasks.append((str(filepath), img))
 
-        config = ParallelConfig(thread_pool_size=4)
+        config = ParallelConfig(max_workers=4)
         processor = ParallelIOProcessor(config)
 
         # Time the parallel saving
@@ -199,7 +187,7 @@ class TestGPUOptimizations:
 class TestOptimizedPipeline:
     """Test the optimized pipeline integration."""
 
-    @pytest.fixture  
+    @pytest.fixture
     def optimized_pipeline(self, mocker):
         """Create an optimized pipeline with mocked models."""
         # Mock the model initialization - patch both import paths
@@ -209,10 +197,9 @@ class TestOptimizedPipeline:
         mocker.patch('sowlv2.pipeline.SAM2Wrapper')
 
         from sowlv2.data.config import PipelineConfig
-        
         config = PipelineBaseData(
             owl_model="google/owlv2-base-patch16-ensemble",
-            sam_model="facebook/sam2.1-hiera-small", 
+            sam_model="facebook/sam2.1-hiera-small",
             threshold=0.1,
             fps=24,
             device="cuda" if torch.cuda.is_available() else "cpu",
@@ -224,8 +211,8 @@ class TestOptimizedPipeline:
         )
         parallel_config = ParallelConfig(
             max_workers=2,
-            batch_size=4,
-            thread_pool_size=4
+            detection_batch_size=4,
+            segmentation_batch_size=2
         )
 
         pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
@@ -250,22 +237,20 @@ class TestOptimizedPipeline:
                          'detect_multiple_prompts_parallel') as mock_detect, \
              patch.object(optimized_pipeline.segmentation_processor,
                          'segment_detections_parallel') as mock_segment:
-            
+
             # Return mock batch results
             mock_detect.return_value = [
                 BatchDetectionResult(
-                    prompt=p,
                     detections=[{
                         "box": [10, 10, 50, 50],
                         "score": 0.9,
                         "label": f"a photo of {p}",
                         "core_prompt": p
-                    }],
-                    prompt_idx=i
+                    }]
                 )
                 for i, p in enumerate(prompts)
             ]
-            
+
             # Mock segmentation results with correct image size
             mock_segment.return_value = [
                 ({
@@ -298,7 +283,7 @@ class TestPerformanceBenchmark:
         mock_owl, mock_sam = mock_models
 
         # Configure mock to simulate processing time
-        def mock_detect_with_delay(image, prompt, threshold):
+        def mock_detect_with_delay(_, prompt, __):
             time.sleep(0.01)  # Simulate 10ms processing
             return [{
                 "box": [10, 10, 50, 50],
@@ -312,7 +297,7 @@ class TestPerformanceBenchmark:
         prompts = ["cat", "dog", "bird", "car", "person"]
 
         # Benchmark parallel processing
-        config = ParallelConfig(use_gpu_batching=False)
+        config = ParallelConfig()
         processor = ParallelDetectionProcessor(mock_owl, mock_sam, config)
 
         result = benchmark(

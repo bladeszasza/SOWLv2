@@ -15,7 +15,6 @@ from sowlv2.pipeline import SOWLv2Pipeline
 from sowlv2.data.config import PipelineBaseData, MergedOverlayItem, VideoProcessContext
 from sowlv2.models import OWLV2Wrapper, SAM2Wrapper
 from sowlv2.utils.filesystem_utils import remove_empty_folders
-from sowlv2.utils import video_utils
 from sowlv2.utils.frame_utils import VALID_EXTS
 from sowlv2.utils.pipeline_utils import get_prompt_color
 
@@ -39,15 +38,15 @@ try:
     )
 except ImportError:
     # Define dummy functions if video pipeline not available
-    def create_temp_directories_for_video(*args):
+    def create_temp_directories_for_video(*_):
         """Dummy function for testing."""
         return None
 
-    def run_video_processing_steps(*args):
+    def run_video_processing_steps(*_):
         """Dummy function for testing."""
         return {}, 0
 
-    def move_video_outputs_to_final_dir(*args):
+    def move_video_outputs_to_final_dir(*_):
         """Dummy function for testing."""
         pass
 
@@ -220,7 +219,8 @@ class OptimizedSOWLv2Pipeline(SOWLv2Pipeline):
 
     def process_video(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
         """
-        Optimized video processing with frame batching, parallel processing, and V-JEPA 2 optimization.
+        Optimized video processing with frame batching, parallel processing,
+        and V-JEPA 2 optimization.
         """
         # Use V-JEPA 2 optimization if available
         if hasattr(self, 'vjepa2_optimizer') and self.vjepa2_optimizer:
@@ -230,12 +230,13 @@ class OptimizedSOWLv2Pipeline(SOWLv2Pipeline):
         print("Using standard optimized video processing...")
         return self._process_video_optimized_standard(video_path, prompt, output_dir)
 
-    def _process_video_with_vjepa2(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
+    def _process_video_with_vjepa2(self, video_path: str, prompt: Union[str, List[str]],
+                                   output_dir: str):
         """
         Video processing with V-JEPA 2 optimization and temporal detection.
         """
         # Check if temporal detection is enabled
-        use_temporal = hasattr(self, 'use_temporal_detection') and self.use_temporal_detection
+        _ = hasattr(self, 'use_temporal_detection') and self.use_temporal_detection
         num_detection_frames = getattr(self, 'temporal_detection_frames', 5)
         merge_threshold = getattr(self, 'temporal_merge_threshold', 0.7)
 
@@ -277,7 +278,8 @@ class OptimizedSOWLv2Pipeline(SOWLv2Pipeline):
                     min_spacing=max(10, len(frames) // (num_detection_frames * 2))
                 )
 
-            print(f"Selected {len(key_frame_indices)} key frames for detection: {key_frame_indices}")
+            print(f"Selected {len(key_frame_indices)} key frames for detection: "
+                  f"{key_frame_indices}")
 
             # Run detection on key frames
             detections_by_frame = {}
@@ -382,7 +384,9 @@ class OptimizedSOWLv2Pipeline(SOWLv2Pipeline):
 
             print(f"✅ Temporal video processing completed for {video_path}")
 
-    def _process_video_optimized_standard(self, video_path: str, prompt: Union[str, List[str]], output_dir: str):
+    def _process_video_optimized_standard(self, video_path: str,
+                                           prompt: Union[str, List[str]],
+                                           output_dir: str):
         """
         Standard optimized video processing with parallel frame processing.
         """
@@ -581,4 +585,5 @@ class ModelOptimizations:
 class CachedModelWrapper:
     """Wrapper for caching model outputs."""
     # Implementation can be added here as needed
-    pass
+    def __init__(self):
+        pass

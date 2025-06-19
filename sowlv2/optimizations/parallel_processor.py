@@ -3,7 +3,7 @@ Parallel processing for optimized SOWLv2 pipeline.
 """
 import os
 import threading
-from typing import List, Optional, Tuple, Union, Dict, Any
+from typing import List, Optional, Tuple, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
@@ -136,7 +136,8 @@ class ParallelSegmentationProcessor:
 
     def segment_detections_parallel(self,
                                   image: Image.Image,
-                                  detections: List[Dict[str, Any]]) -> List[Tuple[Dict[str, Any], Any]]:
+                                  detections: List[Dict[str, Any]]) -> List[
+                                      Tuple[Dict[str, Any], Any]]:
         """
         Segment multiple detections in parallel.
         """

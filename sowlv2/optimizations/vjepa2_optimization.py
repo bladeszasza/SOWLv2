@@ -63,7 +63,7 @@ class VJepa2VideoOptimizer:
                     "transformers library required for V-JEPA 2 optimization. "
                     "Install with: pip install transformers"
                 ) from e
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 print(f"Warning: Could not load V-JEPA 2 model: {e}")
                 self._model = None
                 self._processor = None

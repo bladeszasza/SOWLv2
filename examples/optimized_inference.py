@@ -88,9 +88,9 @@ def main():
     # Configure parallel processing
     parallel_config = ParallelConfig(
         max_workers=args.workers,
-        batch_size=args.batch_size,
-        use_gpu_batching=(args.device == "cuda"),
-        thread_pool_size=16
+        detection_batch_size=args.batch_size,
+        segmentation_batch_size=2,
+        io_batch_size=8
     )
 
     # Configure pipeline
