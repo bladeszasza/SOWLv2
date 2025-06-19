@@ -164,21 +164,34 @@ class TestOutputStructure:
 
         output_dir = str(tmp_path / "output")
 
-        # Configure mock to return multiple detections
-        mock_owl_model.detect.return_value = [
-            {
-                "box": [100, 100, 300, 200],
-                "score": 0.95,
-                "label": "a photo of cat",
-                "core_prompt": "cat"
-            },
-            {
-                "box": [350, 250, 550, 350],
-                "score": 0.87,
-                "label": "a photo of dog",
-                "core_prompt": "dog"
-            }
-        ]
+        # Configure mock to return different detections based on the prompt
+        def mock_detect(*args, **kwargs):
+            prompt = kwargs.get('prompt', args[1] if len(args) > 1 else None)
+            if isinstance(prompt, list):
+                prompt = prompt[0]
+            
+            if prompt == "cat" or prompt == ["cat"]:
+                return [
+                    {
+                        "box": [100, 100, 300, 200],
+                        "score": 0.95,
+                        "label": "a photo of cat",
+                        "core_prompt": "cat"
+                    }
+                ]
+            elif prompt == "dog" or prompt == ["dog"]:
+                return [
+                    {
+                        "box": [350, 250, 550, 350],
+                        "score": 0.87,
+                        "label": "a photo of dog",
+                        "core_prompt": "dog"
+                    }
+                ]
+            else:
+                return []
+        
+        mock_owl_model.detect.side_effect = mock_detect
 
         config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)

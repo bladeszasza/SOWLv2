@@ -128,7 +128,7 @@ def select_key_frames_for_detection(
 
     # If we couldn't get enough frames with spacing, relax constraint
     if len(selected_indices) < num_frames:
-        for idx, score in indexed_scores:
+        for idx, _ in indexed_scores:
             if idx not in selected_indices:
                 selected_indices.append(idx)
                 if len(selected_indices) >= num_frames:

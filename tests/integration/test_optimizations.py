@@ -22,7 +22,7 @@ class TestParallelProcessing:
     """Test parallel processing optimizations."""
 
     @pytest.fixture
-    def mock_models(self, mocker):
+    def mock_models(self):
         """Create mock OWL and SAM models."""
         mock_owl = MagicMock()
         mock_owl.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -75,6 +75,9 @@ class TestParallelProcessing:
         """Test parallel segmentation processing."""
         _, mock_sam = mock_models
 
+        # Configure mock to return numpy array
+        mock_sam.segment.return_value = np.ones((100, 100), dtype=np.uint8) * 255
+
         # Create test detections
         detections = [
             {"box": [10, 10, 50, 50], "score": 0.9, "core_prompt": "cat"},
@@ -89,9 +92,10 @@ class TestParallelProcessing:
 
         # Verify results
         assert len(results) == len(detections)
-        for (_, mask) in results:
+        for (detection, mask) in results:
             assert mask is not None
             assert isinstance(mask, np.ndarray)
+            assert mask.shape == (100, 100)  # Check expected shape
 
     def test_parallel_io_saving(self, tmp_path):
         """Test parallel I/O operations."""
@@ -190,13 +194,14 @@ class TestOptimizedPipeline:
     @pytest.fixture
     def optimized_pipeline(self, mocker):
         """Create an optimized pipeline with mocked models."""
+        from sowlv2.data.config import PipelineConfig
+        
         # Mock the model initialization - patch both import paths
         mocker.patch('sowlv2.models.OWLV2Wrapper')
         mocker.patch('sowlv2.models.SAM2Wrapper')
         mocker.patch('sowlv2.pipeline.OWLV2Wrapper')
         mocker.patch('sowlv2.pipeline.SAM2Wrapper')
 
-        from sowlv2.data.config import PipelineConfig
         config = PipelineBaseData(
             owl_model="google/owlv2-base-patch16-ensemble",
             sam_model="facebook/sam2.1-hiera-small",

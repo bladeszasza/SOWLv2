@@ -114,7 +114,7 @@ class ParallelDetectionProcessor:
         Core detection logic for a single prompt.
         """
         # Use OWL model for detection
-        detections = self.owl.detect_objects(image, [prompt])
+        detections = self.owl.detect(image=image, prompt=[prompt], threshold=threshold)
 
         # Filter by threshold and format
         valid_detections = []
@@ -198,7 +198,7 @@ class ParallelSegmentationProcessor:
         Core segmentation logic for a single detection.
         """
         # Use SAM model for segmentation
-        return self.sam.segment_from_box(image, detection['box'])
+        return self.sam.segment(image, detection['box'])
 
 
 class ParallelIOProcessor:
