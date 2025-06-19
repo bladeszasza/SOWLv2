@@ -49,7 +49,7 @@ class VJepa2VideoOptimizer:
                     AutoVideoProcessor
                 )
 
-                print(f"Loading V-JEPA 2 model: {self.model_name}")
+                logging.info(f"Loading V-JEPA 2 model: {self.model_name}")
                 self._model = AutoModelForVideoClassification.from_pretrained(
                     self.model_name
                 ).to(self.device)
