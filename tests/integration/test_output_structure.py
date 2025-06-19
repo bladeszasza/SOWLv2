@@ -382,7 +382,8 @@ class TestFileNamingConventions:
     """Test file naming conventions are followed correctly."""
 
     def test_individual_mask_naming_pattern(self, *, tmp_path, sample_image_path,
-                                          mock_owl_model, mock_sam_model):
+                                          mock_owl_model, mock_sam_model,
+                                          shared_parallel_config):
         """Test individual mask files follow {frame_num}_obj{obj_id}_{prompt}_mask.png pattern."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -402,7 +403,7 @@ class TestFileNamingConventions:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
-        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
+        pipeline = OptimizedSOWLv2Pipeline(config, shared_parallel_config)
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         binary_files = list(Path(output_dir).rglob("*_mask.png"))
@@ -414,7 +415,8 @@ class TestFileNamingConventions:
             f"File {filename} doesn't match expected pattern"
 
     def test_merged_mask_naming_pattern(self, *, tmp_path, sample_image_path,
-                                      mock_owl_model, mock_sam_model):
+                                      mock_owl_model, mock_sam_model,
+                                      shared_parallel_config):
         """Test merged mask files follow {frame_num}_merged_mask.png pattern."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -434,7 +436,7 @@ class TestFileNamingConventions:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=True)
         )
 
-        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
+        pipeline = OptimizedSOWLv2Pipeline(config, shared_parallel_config)
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         merged_files = list((Path(output_dir) / "binary" / "merged").glob("*_merged_mask.png"))
@@ -445,7 +447,8 @@ class TestFileNamingConventions:
             f"Merged file {filename} doesn't match expected pattern"
 
     def test_special_characters_in_prompt(self, *, tmp_path, sample_image_path,
-                                        mock_owl_model, mock_sam_model):
+                                        mock_owl_model, mock_sam_model,
+                                        shared_parallel_config):
         """Test handling of spaces and special characters in prompts."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -465,7 +468,7 @@ class TestFileNamingConventions:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
-        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
+        pipeline = OptimizedSOWLv2Pipeline(config, shared_parallel_config)
         pipeline.process_image(sample_image_path, "red car", output_dir)
 
         binary_files = list(Path(output_dir).rglob("*_mask.png"))
@@ -490,7 +493,8 @@ class TestFlagCombinationMatrix:
         {"binary": True, "overlay": False, "merged": False},   # --no-overlay --no-merged
     ])
     def test_valid_flag_combinations(self, *, tmp_path, sample_image_path,
-                                   mock_owl_model, mock_sam_model, flags):
+                                   mock_owl_model, mock_sam_model, flags,
+                                   shared_parallel_config):
         """Test all valid flag combinations produce expected output."""
         # Create test config dataclass to reduce parameter count
         fixtures = OutputTestFixtures(
@@ -518,7 +522,7 @@ class TestFlagCombinationMatrix:
             pipeline_config=PipelineConfig(**config.flags)
         )
 
-        pipeline = OptimizedSOWLv2Pipeline(pipeline_config, ParallelConfig())
+        pipeline = OptimizedSOWLv2Pipeline(pipeline_config, shared_parallel_config)
         pipeline.process_image(config.fixtures.sample_image_path, "cat", output_dir)
 
         # Validate using our utility function
