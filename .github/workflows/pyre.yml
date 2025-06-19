@@ -37,10 +37,33 @@ jobs:
         with:
           submodules: true
 
-      - name: Run Pyre
-        uses: facebook/pyre-action@60697a7858f7cc8470d8cc494a3cf2ad6b06560d
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          # To customize these inputs:
-          # See https://github.com/facebook/pyre-action#inputs
-          repo-directory: './'
-          requirements-path: 'requirements.txt'
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyre-check
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run Pyre Check
+        run: |
+          pyre --output=sarif > pyre-results.sarif || true
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: pyre-results.sarif
+          category: pyre
+
+      - name: Upload analysis artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyre-results
+          path: |
+            .pyre/
+            pyre-results.sarif
+          retention-days: 5
