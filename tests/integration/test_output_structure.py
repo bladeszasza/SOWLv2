@@ -188,7 +188,7 @@ class TestOutputStructure:
                         "core_prompt": "dog"
                     }
                 ]
-            
+            return []
 
         mock_owl_model.detect.side_effect = mock_detect
 
