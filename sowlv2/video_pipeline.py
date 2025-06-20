@@ -208,7 +208,8 @@ def run_video_processing_steps(
             fps=config.fps,
             binary=True,
             overlay=True,
-            merged=True
+            merged=True,
+            prompt_details=video_ctx.detection_details_for_video
         )
 
     return config.prompt_color_map, config.next_color_idx
