@@ -49,7 +49,9 @@
       "Bash(python -m pytest tests/integration/test_optimizations.py::TestOptimizedPipeline::test_optimized_image_processing -v -s)",
       "Bash(python:*)",
       "WebFetch(domain:huggingface.co)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }
