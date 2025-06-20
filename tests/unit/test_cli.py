@@ -93,7 +93,7 @@ class TestConfigFileHandling:
         """Test loading configuration from YAML file."""
         with patch('sys.argv', ['sowlv2-detect', '--config', test_config_yaml]):
             # Mock the main execution to avoid running the full pipeline
-            with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+            with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                 with patch('os.path.isfile', return_value=True):
                     with patch('os.makedirs'):
                         with patch('builtins.print'):  # Suppress prints
@@ -101,8 +101,8 @@ class TestConfigFileHandling:
 
                 # Verify pipeline was created with config values
                 assert mock_pipeline.called
-                call_kwargs = mock_pipeline.call_args.kwargs  # Keyword arguments
-                config = call_kwargs['config']
+                call_args = mock_pipeline.call_args.args  # Positional arguments
+                config = call_args[0]  # First argument is config
                 assert isinstance(config, PipelineBaseData)
                 assert config.threshold == 0.15  # From test config
                 assert config.fps == 30  # From test config
@@ -121,7 +121,7 @@ class TestConfigFileHandling:
             yaml.dump(config_data, f)
 
         with patch('sys.argv', ['sowlv2-detect', '--config', str(config_path)]):
-            with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+            with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                 with patch('os.path.isfile', return_value=True):
                     with patch('os.makedirs'):
                         with patch('builtins.print'):
@@ -134,14 +134,14 @@ class TestConfigFileHandling:
         """Test that CLI arguments override config file values."""
         with patch('sys.argv', ['sowlv2-detect', '--config', test_config_yaml,
                                '--threshold', '0.5', '--fps', '15']):
-            with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+            with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                 with patch('os.path.isfile', return_value=True):
                     with patch('os.makedirs'):
                         with patch('builtins.print'):
                             main()
 
                 # CLI args should override config file
-                config = mock_pipeline.call_args.kwargs['config']
+                config = mock_pipeline.call_args.args[0]  # First argument is config
                 assert config.threshold == 0.5  # Overridden by CLI
                 assert config.fps == 15  # Overridden by CLI
 
@@ -159,7 +159,7 @@ class TestConfigFileHandling:
 
         with patch('sys.argv', ['sowlv2-detect', '--config', str(config_path),
                                '--prompt', 'bird']):
-            with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+            with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                 with patch('os.path.isfile', return_value=True):
                     with patch('os.makedirs'):
                         with patch('builtins.print'):
@@ -176,14 +176,14 @@ class TestPipelineConfigGeneration:
         """Test default pipeline configuration."""
         with patch('sys.argv', ['sowlv2-detect', '--prompt', 'cat',
                                '--input', 'test.jpg', '--output', 'output/']):
-            with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+            with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                 with patch('os.path.isfile', return_value=True):
                     with patch('os.makedirs'):
                         with patch('builtins.print'):
                             main()
 
                 # Check default config values
-                config = mock_pipeline.call_args.kwargs['config']
+                config = mock_pipeline.call_args.args[0]  # First argument is config
                 assert config.pipeline_config.binary is True
                 assert config.pipeline_config.overlay is True
                 assert config.pipeline_config.merged is True
@@ -193,7 +193,7 @@ class TestPipelineConfigGeneration:
         with patch('sys.argv', ['sowlv2-detect', '--prompt', 'cat',
                                '--input', 'test.jpg', '--output', 'output/',
                                '--no-binary', '--no-overlay', '--no-merged']):
-            with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+            with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                 with patch('os.path.isfile', return_value=True):
                     with patch('os.path.isdir', return_value=False):
                         with patch('sowlv2.cli.VALID_EXTS', ['.jpg']):
@@ -205,7 +205,7 @@ class TestPipelineConfigGeneration:
                                         pass
 
                 # Check that flags are properly set
-                config = mock_pipeline.call_args.kwargs['config']
+                config = mock_pipeline.call_args.args[0]  # First argument is config
                 assert config.pipeline_config.binary is False
                 assert config.pipeline_config.overlay is False
                 assert config.pipeline_config.merged is False
@@ -215,7 +215,7 @@ class TestPipelineConfigGeneration:
         with patch('sys.argv', ['sowlv2-detect', '--prompt', 'cat',
                                '--input', 'test.jpg', '--output', 'output/',
                                '--no-binary']):
-            with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+            with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                 with patch('os.path.isfile', return_value=True):
                     with patch('os.path.isdir', return_value=False):
                         with patch('sowlv2.cli.VALID_EXTS', ['.jpg']):
@@ -227,7 +227,7 @@ class TestPipelineConfigGeneration:
                                         pass
 
                 # Check that only specified flag is disabled
-                config = mock_pipeline.call_args.kwargs['config']
+                config = mock_pipeline.call_args.args[0]  # First argument is config
                 assert config.pipeline_config.binary is False
                 assert config.pipeline_config.overlay is True
                 assert config.pipeline_config.merged is True
@@ -243,7 +243,7 @@ class TestInputValidation:
             with patch('os.path.isfile', return_value=True):
                 with patch('os.path.isdir', return_value=False):
                     with patch('sowlv2.cli.VALID_EXTS', ['.jpg']):
-                        with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+                        with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                             with patch('os.makedirs'):
                                 with patch('builtins.print'):
                                     try:
@@ -261,7 +261,7 @@ class TestInputValidation:
                                '--input', 'frames/', '--output', 'output/']):
             with patch('os.path.isfile', return_value=False):
                 with patch('os.path.isdir', return_value=True):
-                    with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+                    with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                         with patch('os.makedirs'):
                             with patch('builtins.print'):
                                 try:
@@ -281,7 +281,7 @@ class TestInputValidation:
                 with patch('os.path.isdir', return_value=False):
                     with patch('sowlv2.cli.VALID_EXTS', ['.jpg']):  # Not .mp4, so it will try video
                         with patch('sowlv2.cli.VALID_VIDEO_EXTS', ['.mp4']):
-                            with patch('sowlv2.cli.SOWLv2Pipeline') as mock_pipeline:
+                            with patch('sowlv2.cli.OptimizedSOWLv2Pipeline') as mock_pipeline:
                                 with patch('os.makedirs'):
                                     with patch('builtins.print'):
                                         try:
@@ -299,7 +299,7 @@ class TestInputValidation:
                                '--input', 'nonexistent.jpg', '--output', 'output/']):
             with patch('os.path.isfile', return_value=False):
                 with patch('os.path.isdir', return_value=False):
-                    with patch('sowlv2.cli.SOWLv2Pipeline'):
+                    with patch('sowlv2.cli.OptimizedSOWLv2Pipeline'):
                         with patch('os.makedirs'):
                             with patch('builtins.print'):  # Suppress error message
                                 with pytest.raises(SystemExit):

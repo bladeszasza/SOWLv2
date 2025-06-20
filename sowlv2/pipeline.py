@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 from typing import Union, List, Dict, Tuple
+
 from PIL import Image
 
 from sowlv2.models import OWLV2Wrapper, SAM2Wrapper

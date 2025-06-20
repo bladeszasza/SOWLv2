@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from sowlv2.pipeline import SOWLv2Pipeline
+from sowlv2.optimizations import OptimizedSOWLv2Pipeline, ParallelConfig
 from sowlv2.data.config import PipelineConfig
 from tests.conftest import create_test_pipeline_config
 
@@ -31,7 +31,7 @@ class TestNoDetectionsScenario:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
         # Should not raise exception
         pipeline.process_image(sample_image_path, "nonexistent_object", output_dir)
@@ -61,7 +61,7 @@ class TestNoDetectionsScenario:
         with patch('subprocess.run') as mock_subprocess:
             mock_subprocess.return_value = None
 
-            pipeline = SOWLv2Pipeline(config)
+            pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
             pipeline.process_video(sample_video_path, "nonexistent_object", output_dir)
 
         # Should handle gracefully without creating significant output
@@ -98,7 +98,7 @@ class TestNoDetectionsScenario:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         pipeline.process_frames(sample_frames_directory, "cat", output_dir)
 
         # Should only create outputs for frames with detections
@@ -128,7 +128,7 @@ class TestInvalidMasksHandling:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
         # Should not raise exception
         pipeline.process_image(sample_image_path, "cat", output_dir)
@@ -155,7 +155,7 @@ class TestInvalidMasksHandling:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         # Should create files even with empty mask (valid use case)
@@ -179,7 +179,7 @@ class TestInvalidMasksHandling:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
         # Should handle gracefully (might resize or skip)
         try:
@@ -209,7 +209,7 @@ class TestDeviceHandling:
         with patch('torch.cuda.is_available', return_value=False):
             # Should either fallback to CPU or handle gracefully
             try:
-                pipeline = SOWLv2Pipeline(config)
+                pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
                 # If initialization succeeds, device should be CPU
                 assert pipeline.config.device in ["cpu", "cuda"]
             except (RuntimeError, ValueError) as e:
@@ -229,13 +229,13 @@ class TestDeviceHandling:
 
         # Should either handle gracefully or raise meaningful error
         try:
-            _ = SOWLv2Pipeline(config)
+            _ = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         except (RuntimeError, ValueError) as e:
             # Should provide meaningful error message
             assert "device" in str(e).lower() or "invalid" in str(e).lower()
 
 
-@pytest.mark.skip(reason="Video processing will be reworked in separate PR")
+@pytest.mark.skip(reason="Video tests require complex mocking - will be fixed in separate PR")
 class TestVideoProcessingEdgeCases:
     """Test edge cases specific to video processing."""
 
@@ -258,7 +258,7 @@ class TestVideoProcessingEdgeCases:
                 # Mock prepare returning None (failure)
                 mock_prepare.return_value = (None, {}, 0)
 
-                pipeline = SOWLv2Pipeline(config)
+                pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
                 # Should handle gracefully when video preparation fails
                 pipeline.process_video(video_path, "cat", output_dir)
@@ -282,7 +282,7 @@ class TestVideoProcessingEdgeCases:
             # Mock ffmpeg failure
             mock_subprocess.side_effect = CalledProcessError(1, 'ffmpeg')
 
-            pipeline = SOWLv2Pipeline(config)
+            pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
             # Should handle ffmpeg failure gracefully
             pipeline.process_video(video_path, "cat", output_dir)
@@ -306,7 +306,7 @@ class TestVideoProcessingEdgeCases:
             # Mock timeout
             mock_subprocess.side_effect = TimeoutExpired('ffmpeg', 300)
 
-            pipeline = SOWLv2Pipeline(config)
+            pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
             # Should handle timeout gracefully
             pipeline.process_video(video_path, "cat", output_dir)
@@ -339,7 +339,7 @@ class TestMemoryAndPerformance:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
         # Should handle large images without memory issues
         pipeline.process_image(str(large_image_path), "cat", output_dir)
@@ -373,7 +373,7 @@ class TestMemoryAndPerformance:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
         pipeline.process_image(sample_image_path, [f"obj{i}" for i in range(20)], output_dir)
 
         # Should handle many objects gracefully
@@ -407,7 +407,7 @@ class TestFileSystemEdgeCases:
                 {"box": [100, 100, 200, 200], "score": 0.9, "label": "cat", "core_prompt": "cat"}
             ]
 
-            pipeline = SOWLv2Pipeline(config)
+            pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
             # Should handle permission error gracefully
             try:
@@ -441,7 +441,7 @@ class TestFileSystemEdgeCases:
 
         # Mock PIL Image.save to raise OSError (disk full)
         with patch.object(Image.Image, 'save', side_effect=OSError("No space left on device")):
-            pipeline = SOWLv2Pipeline(config)
+            pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
             # Should handle disk full error gracefully
             try:
@@ -474,7 +474,7 @@ class TestConfigurationEdgeCases:
                 pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
             )
 
-            pipeline = SOWLv2Pipeline(config)
+            pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
             pipeline.process_image(sample_image_path, "cat", output_dir)
 
             # Should not crash with extreme threshold
@@ -496,7 +496,7 @@ class TestConfigurationEdgeCases:
         with patch('subprocess.run') as mock_subprocess:
             mock_subprocess.return_value = None
 
-            pipeline = SOWLv2Pipeline(config)
+            pipeline = OptimizedSOWLv2Pipeline(config, ParallelConfig())
 
             # Should handle extreme FPS values gracefully
             pipeline.process_video(sample_video_path, "cat", output_dir)

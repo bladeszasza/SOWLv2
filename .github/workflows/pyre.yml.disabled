@@ -1,0 +1,32 @@
+name: Pyre & Pysa Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pyre:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Pyre Action
+        uses: cclauss/pyre-action@main
+        with:
+          repo-directory: './'
+          requirements-path: 'requirements.txt'
+
+  pysa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Pysa Action
+        uses: cclauss/pyre-action@main
+        with:
+          repo-directory: './'
+          requirements-path: 'requirements.txt'
+          infer-types: true
+          include-default-sapp-filters: true

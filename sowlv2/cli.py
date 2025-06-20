@@ -3,14 +3,14 @@ Command Line Interface for SOWLv2.
 
 This script provides a CLI to detect and segment objects in images,
 folders of frames, or video files using a text prompt.
-It leverages the SOWLv2Pipeline for processing.
+It leverages the optimized SOWLv2Pipeline by default for faster processing.
 """
 import argparse
 import os
 import sys
 import yaml
 from sowlv2.data.config import PipelineBaseData, PipelineConfig
-from sowlv2.pipeline import SOWLv2Pipeline
+from sowlv2.optimizations import OptimizedSOWLv2Pipeline, ParallelConfig, create_vjepa2_optimizer
 from sowlv2.utils.frame_utils import VALID_EXTS, VALID_VIDEO_EXTS
 from sowlv2.utils.pipeline_utils import CPU, CUDA
 
@@ -69,6 +69,39 @@ def parse_args():
     parser.add_argument(
         "--config", type=str, default=None,
         help="Path to YAML config file (optional)"
+    )
+    # Optimization options
+    parser.add_argument(
+        "--max-workers", type=int, default=None,
+        help="Maximum number of parallel workers (default: auto-detect)"
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=4,
+        help="Batch size for GPU processing (default: 4)"
+    )
+    parser.add_argument(
+        "--disable-gpu-batching", action="store_true",
+        help="Disable GPU batching optimization"
+    )
+    parser.add_argument(
+        "--enable-vjepa2", action="store_true",
+        help="Enable V-JEPA 2 video optimization (experimental)"
+    )
+    parser.add_argument(
+        "--vjepa2-frames-per-clip", type=int, default=16,
+        help="Number of frames per clip for V-JEPA 2 processing"
+    )
+    parser.add_argument(
+        "--temporal-detection-frames", type=int, default=5,
+        help="Number of temporally important frames to run detection on (default: 5)"
+    )
+    parser.add_argument(
+        "--temporal-merge-threshold", type=float, default=0.7,
+        help="IoU threshold for merging same objects across frames (default: 0.7)"
+    )
+    parser.add_argument(
+        "--use-temporal-detection", action="store_true",
+        help="Enable temporal detection across multiple frames (requires V-JEPA 2)"
     )
     args = parser.parse_args()
     # If config file is provided, override defaults
@@ -141,7 +174,38 @@ def main():
         device=device,
         pipeline_config=pipeline_config
     )
-    pipeline = SOWLv2Pipeline(config=config)
+
+    # Use optimized pipeline exclusively
+    print("Using optimized SOWLv2 pipeline...")
+    # Configure parallel processing
+    parallel_config = ParallelConfig(
+        max_workers=args.max_workers,
+        detection_batch_size=args.batch_size,
+        segmentation_batch_size=2,
+        io_batch_size=8
+    )
+    pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
+    # Configure V-JEPA 2 if enabled
+    if args.enable_vjepa2:
+        print("Enabling V-JEPA 2 video optimization...")
+        vjepa2_optimizer = create_vjepa2_optimizer(
+            config,
+            enable_vjepa2=True
+        )
+        if vjepa2_optimizer:
+            print("V-JEPA 2 optimization ready!")
+            # Store optimizer reference for potential use in video processing
+            pipeline.vjepa2_optimizer = vjepa2_optimizer
+
+            # Set temporal detection parameters
+            if args.use_temporal_detection:
+                pipeline.use_temporal_detection = True
+                pipeline.temporal_detection_frames = args.temporal_detection_frames
+                pipeline.temporal_merge_threshold = args.temporal_merge_threshold
+                print(f"Temporal detection enabled with {args.temporal_detection_frames} "
+                      f"key frames")
+        else:
+            print("V-JEPA 2 optimization not available, continuing without it.")
 
     # Create output directory
     os.makedirs(output_path, exist_ok=True)

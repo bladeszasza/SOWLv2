@@ -8,9 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sowlv2.pipeline import SOWLv2Pipeline
+from sowlv2.optimizations import OptimizedSOWLv2Pipeline, ParallelConfig
 from sowlv2.data.config import PipelineConfig
 from tests.conftest import validate_output_structure, create_test_pipeline_config
+
+@pytest.fixture(name="parallel_config")
+def parallel_config_fixture():
+    """Fixture providing a shared ParallelConfig instance."""
+    return ParallelConfig()
 
 
 @dataclass
@@ -50,7 +55,8 @@ class TestOutputStructure:
         list(itertools.product([True, False], repeat=3)))
     def test_image_output_structure(self, *, tmp_path, sample_image_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged):
+                                   binary, overlay, merged,
+                                   parallel_config):
         """Test all combinations of --no-binary, --no-overlay, --no-merged flags for images."""
         # Create test config dataclass to reduce parameter count
         fixtures = OutputTestFixtures(
@@ -91,7 +97,7 @@ class TestOutputStructure:
         ]
 
         # Run pipeline
-        pipeline = SOWLv2Pipeline(pipeline_config)
+        pipeline = OptimizedSOWLv2Pipeline(pipeline_config, parallel_config)
         pipeline.process_image(config.fixtures.sample_image_path, "cat", output_dir)
 
         # Validate output structure
@@ -99,12 +105,13 @@ class TestOutputStructure:
             output_dir, flags.binary, flags.overlay, flags.merged
         )
 
-    @pytest.mark.skip(reason="Video processing will be reworked in separate PR")
+    @pytest.mark.skip(reason="Video tests require complex mocking - will be fixed in separate PR")
     @pytest.mark.parametrize("binary,overlay,merged",
         list(itertools.product([True, False], repeat=3)))
     def test_video_output_structure(self, *, tmp_path, sample_video_path,
                                    mock_owl_model, mock_sam_model,
-                                   binary, overlay, merged):
+                                   binary, overlay, merged,
+                                   parallel_config):
         """Test video output structure with all flag combinations."""
         # Create test config dataclass to reduce parameter count
         fixtures = OutputTestFixtures(
@@ -148,7 +155,7 @@ class TestOutputStructure:
             mock_subprocess.return_value = None
 
             # Run pipeline
-            pipeline = SOWLv2Pipeline(pipeline_config)
+            pipeline = OptimizedSOWLv2Pipeline(pipeline_config, parallel_config)
             pipeline.process_video(config.fixtures.sample_video_path, "cat", output_dir)
 
         # Validate output structure
@@ -157,34 +164,47 @@ class TestOutputStructure:
         )
 
     def test_multiple_objects_output_structure(self, *, tmp_path, sample_image_path,
-                                             mock_owl_model, mock_sam_model):
+                                             mock_owl_model, mock_sam_model,
+                                             parallel_config):
         """Test output structure with multiple detected objects."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
 
         output_dir = str(tmp_path / "output")
 
-        # Configure mock to return multiple detections
-        mock_owl_model.detect.return_value = [
-            {
-                "box": [100, 100, 300, 200],
-                "score": 0.95,
-                "label": "a photo of cat",
-                "core_prompt": "cat"
-            },
-            {
-                "box": [350, 250, 550, 350],
-                "score": 0.87,
-                "label": "a photo of dog",
-                "core_prompt": "dog"
-            }
-        ]
+        # Configure mock to return different detections based on the prompt
+        def mock_detect(*args, **kwargs):
+            prompt = kwargs.get('prompt', args[1] if len(args) > 1 else None)
+            if isinstance(prompt, list):
+                prompt = prompt[0]
+
+            if prompt in ("cat", ["cat"]):
+                return [
+                    {
+                        "box": [100, 100, 300, 200],
+                        "score": 0.95,
+                        "label": "a photo of cat",
+                        "core_prompt": "cat"
+                    }
+                ]
+            if prompt in ("dog", ["dog"]):
+                return [
+                    {
+                        "box": [350, 250, 550, 350],
+                        "score": 0.87,
+                        "label": "a photo of dog",
+                        "core_prompt": "dog"
+                    }
+                ]
+            return []
+
+        mock_owl_model.detect.side_effect = mock_detect
 
         config = create_test_pipeline_config(
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
         pipeline.process_image(sample_image_path, ["cat", "dog"], output_dir)
 
         output_path = Path(output_dir)
@@ -205,7 +225,8 @@ class TestOutputStructure:
         assert len(overlay_merged) == 1
 
     def test_empty_directories_cleanup(self, *, tmp_path, sample_image_path,
-                                      mock_owl_model, mock_sam_model):
+                                      mock_owl_model, mock_sam_model,
+                                      parallel_config):
         """Test that empty directories are cleaned up."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -219,7 +240,7 @@ class TestOutputStructure:
             pipeline_config=PipelineConfig(binary=True, overlay=True, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
         pipeline.process_image(sample_image_path, "nonexistent", output_dir)
 
         # Should not create empty directories or they should be cleaned up
@@ -360,7 +381,8 @@ class TestFileNamingConventions:
     """Test file naming conventions are followed correctly."""
 
     def test_individual_mask_naming_pattern(self, *, tmp_path, sample_image_path,
-                                          mock_owl_model, mock_sam_model):
+                                          mock_owl_model, mock_sam_model,
+                                          parallel_config):
         """Test individual mask files follow {frame_num}_obj{obj_id}_{prompt}_mask.png pattern."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -380,7 +402,7 @@ class TestFileNamingConventions:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         binary_files = list(Path(output_dir).rglob("*_mask.png"))
@@ -392,7 +414,8 @@ class TestFileNamingConventions:
             f"File {filename} doesn't match expected pattern"
 
     def test_merged_mask_naming_pattern(self, *, tmp_path, sample_image_path,
-                                      mock_owl_model, mock_sam_model):
+                                      mock_owl_model, mock_sam_model,
+                                      parallel_config):
         """Test merged mask files follow {frame_num}_merged_mask.png pattern."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -412,7 +435,7 @@ class TestFileNamingConventions:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=True)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         merged_files = list((Path(output_dir) / "binary" / "merged").glob("*_merged_mask.png"))
@@ -423,7 +446,8 @@ class TestFileNamingConventions:
             f"Merged file {filename} doesn't match expected pattern"
 
     def test_special_characters_in_prompt(self, *, tmp_path, sample_image_path,
-                                        mock_owl_model, mock_sam_model):
+                                        mock_owl_model, mock_sam_model,
+                                        parallel_config):
         """Test handling of spaces and special characters in prompts."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -443,7 +467,7 @@ class TestFileNamingConventions:
             pipeline_config=PipelineConfig(binary=True, overlay=False, merged=False)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
         pipeline.process_image(sample_image_path, "red car", output_dir)
 
         binary_files = list(Path(output_dir).rglob("*_mask.png"))
@@ -468,7 +492,8 @@ class TestFlagCombinationMatrix:
         {"binary": True, "overlay": False, "merged": False},   # --no-overlay --no-merged
     ])
     def test_valid_flag_combinations(self, *, tmp_path, sample_image_path,
-                                   mock_owl_model, mock_sam_model, flags):
+                                   mock_owl_model, mock_sam_model, flags,
+                                   parallel_config):
         """Test all valid flag combinations produce expected output."""
         # Create test config dataclass to reduce parameter count
         fixtures = OutputTestFixtures(
@@ -496,14 +521,14 @@ class TestFlagCombinationMatrix:
             pipeline_config=PipelineConfig(**config.flags)
         )
 
-        pipeline = SOWLv2Pipeline(pipeline_config)
+        pipeline = OptimizedSOWLv2Pipeline(pipeline_config, parallel_config)
         pipeline.process_image(config.fixtures.sample_image_path, "cat", output_dir)
 
         # Validate using our utility function
         validate_output_structure(output_dir, config.flags, "image")
 
     def test_all_flags_disabled_edge_case(self, *, tmp_path, sample_image_path,
-                                        mock_owl_model, mock_sam_model):
+                                        mock_owl_model, mock_sam_model, parallel_config):
         """Test behavior when all flags are disabled."""
         # mock_sam_model fixture is needed for test setup but not used directly
         _ = mock_sam_model
@@ -522,7 +547,7 @@ class TestFlagCombinationMatrix:
             pipeline_config=PipelineConfig(binary=False, overlay=False, merged=False)
         )
 
-        pipeline = SOWLv2Pipeline(config)
+        pipeline = OptimizedSOWLv2Pipeline(config, parallel_config)
         pipeline.process_image(sample_image_path, "cat", output_dir)
 
         # Should have minimal or no output
