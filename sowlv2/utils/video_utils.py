@@ -118,6 +118,7 @@ def _get_obj_files(temp_dir: str) -> Dict[str, Dict[str, List[str]]]:
 def generate_videos(
     temp_dir: str,
     fps: int,
+    *,
     binary: bool = True,
     overlay: bool = True,
     merged: bool = True,
@@ -135,7 +136,6 @@ def generate_videos(
 
     # Create video directories
     video_dirs = _create_video_directories(temp_dir)
-    
     # Create a mapping from object ID to prompt if prompt_details is provided
     obj_id_to_prompt = {}
     if prompt_details:
@@ -150,12 +150,14 @@ def generate_videos(
             # Only generate merged videos if merged flag is True
             if merged:
                 _generate_videos_for_object(
-                    obj_id, files, video_dirs, {'binary': binary, 'overlay': overlay}, fps)
+                    obj_id, files, video_dirs, {'binary': binary, 'overlay': overlay}, fps,
+                    prompt=None)
         else:
             # Always generate individual object videos (controlled by binary/overlay flags)
             prompt_for_obj = obj_id_to_prompt.get(obj_id)
             _generate_videos_for_object(
-                obj_id, files, video_dirs, {'binary': binary, 'overlay': overlay}, fps, prompt_for_obj)
+                obj_id, files, video_dirs, {'binary': binary, 'overlay': overlay}, fps,
+                prompt=prompt_for_obj)
 
 def _create_video_directories(temp_dir: str) -> Dict[str, str]:
     """Create and return video output directories."""
@@ -171,20 +173,21 @@ def _generate_videos_for_object(
     video_dirs: Dict[str, str],
     flags: Dict[str, bool],
     fps: int,
+    *,
     prompt: str = None
 ):
     """Generate videos for a specific object (individual or merged)."""
     binary = flags.get('binary', True)
     overlay = flags.get('overlay', True)
-    
+
     # Use passed prompt or extract from filename for individual objects
     extracted_prompt = prompt  # Use the passed prompt if available
-    
+
     if extracted_prompt is None and obj_id != "merged":
         # Fallback: try to extract prompt from mask files first, then overlay files
         sample_file = None
         pattern = None
-        
+
         if files.get("mask"):
             sample_file = files["mask"][0]
             pattern = FilePatternMatcher.get_individual_mask_pattern()
@@ -192,24 +195,23 @@ def _generate_videos_for_object(
             sample_file = files["overlay"][0]
             # Use similar pattern for overlay files
             pattern = r"(\d+)_obj(\d+)_(.*?)_overlay\.png"
-        
+
         if sample_file and pattern:
-            import re
             match = re.search(pattern, os.path.basename(sample_file))
             if match:
                 extracted_prompt = match.group(3)  # The prompt is the third group
-    
+
     # Generate binary mask video
     if binary and files.get("mask"):
         if obj_id == "merged":
             video_filename = FilePattern.VIDEO_MERGED_MASK
         else:
             if extracted_prompt:
-                video_filename = FilePattern.VIDEO_MASK.format(obj_id=obj_id, prompt=extracted_prompt)
+                video_filename = FilePattern.VIDEO_MASK.format(
+                    obj_id=obj_id, prompt=extracted_prompt)
             else:
                 # Fallback: use simplified naming without prompt
                 video_filename = f"{obj_id}_mask.mp4"
-
         mask_video_path = os.path.join(video_dirs["binary"], video_filename)
         images_to_video(files["mask"], mask_video_path, fps)
         print(f"Generated binary mask video: {mask_video_path}")
@@ -220,11 +222,11 @@ def _generate_videos_for_object(
             video_filename = FilePattern.VIDEO_MERGED_OVERLAY
         else:
             if extracted_prompt:
-                video_filename = FilePattern.VIDEO_OVERLAY.format(obj_id=obj_id, prompt=extracted_prompt)
+                video_filename = FilePattern.VIDEO_OVERLAY.format(
+                    obj_id=obj_id, prompt=extracted_prompt)
             else:
                 # Fallback: use simplified naming without prompt
                 video_filename = f"{obj_id}_overlay.mp4"
-
         overlay_video_path = os.path.join(video_dirs["overlay"], video_filename)
         images_to_video(files["overlay"], overlay_video_path, fps)
         print(f"Generated overlay video: {overlay_video_path}")

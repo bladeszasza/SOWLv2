@@ -53,7 +53,8 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:github.com)",
       "Bash(mv:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(awk:*)"
     ],
     "deny": []
   }
