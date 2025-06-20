@@ -51,7 +51,8 @@
       "WebFetch(domain:huggingface.co)",
       "Bash(rg:*)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }

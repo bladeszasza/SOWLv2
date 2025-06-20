@@ -12,9 +12,8 @@ from sowlv2.optimizations import OptimizedSOWLv2Pipeline, ParallelConfig
 from sowlv2.data.config import PipelineConfig
 from tests.conftest import validate_output_structure, create_test_pipeline_config
 
-
-@pytest.fixture
-def parallel_config():
+@pytest.fixture(name="parallel_config")
+def parallel_config_fixture():
     """Fixture providing a shared ParallelConfig instance."""
     return ParallelConfig()
 
