@@ -13,6 +13,7 @@ from sowlv2.data.config import PipelineBaseData, PipelineConfig
 from sowlv2.optimizations import OptimizedSOWLv2Pipeline, ParallelConfig, create_vjepa2_optimizer
 from sowlv2.utils.frame_utils import VALID_EXTS, VALID_VIDEO_EXTS
 from sowlv2.utils.pipeline_utils import CPU, CUDA
+from sowlv2.utils.error_recovery import UserNotificationSystem, ModelFallbackManager
 
 def parse_args():
     """Parse command line arguments."""
@@ -41,6 +42,14 @@ def parse_args():
     parser.add_argument(
         "--sam-model", type=str, default="facebook/sam2.1-hiera-small",
         help="SAM2 model (HuggingFace name)"
+    )
+    parser.add_argument(
+        "--edgetam", action="store_true",
+        help="Use EdgeTAM instead of SAM2 for faster segmentation"
+    )
+    parser.add_argument(
+        "--edgetam-model", type=str, default="facebook/edgetam-base",
+        help="EdgeTAM model name (default: facebook/edgetam-base)"
     )
     parser.add_argument(
         "--threshold", type=float, default=0.1, # Default from README
@@ -172,11 +181,46 @@ def main():
         threshold=args.threshold,
         fps=args.fps,
         device=device,
-        pipeline_config=pipeline_config
+        pipeline_config=pipeline_config,
+        use_edgetam=args.edgetam,
+        edgetam_model=args.edgetam_model
     )
 
     # Use optimized pipeline exclusively
     print("Using optimized SOWLv2 pipeline...")
+    
+    # Display segmentation model choice and validate
+    if args.edgetam:
+        print(f"Using EdgeTAM model: {args.edgetam_model} for faster segmentation")
+        
+        # Validate EdgeTAM configuration
+        from sowlv2.models.model_factory import SegmentationModelFactory
+        validation_result = SegmentationModelFactory.validate_model_compatibility(
+            "edgetam", args.edgetam_model, device
+        )
+        
+        if not validation_result["is_valid"]:
+            print("WARNING: EdgeTAM configuration validation failed:")
+            for warning in validation_result["warnings"]:
+                print(f"  - {warning}")
+            
+            if validation_result["recommendations"]:
+                print("Recommendations:")
+                for rec in validation_result["recommendations"]:
+                    print(f"  - {rec}")
+            
+            print("Will attempt to use EdgeTAM with automatic fallback to SAM2 if needed.")
+        
+        # Log model selection
+        ModelFallbackManager.log_model_selection_event(
+            "edgetam", args.edgetam_model, was_fallback=False
+        )
+    else:
+        print(f"Using SAM2 model: {args.sam_model} for segmentation")
+        ModelFallbackManager.log_model_selection_event(
+            "sam2", args.sam_model, was_fallback=False
+        )
+    
     # Configure parallel processing
     parallel_config = ParallelConfig(
         max_workers=args.max_workers,

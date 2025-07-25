@@ -5,3 +5,7 @@ sam_model: "facebook/sam2.1-hiera-small"
 threshold: 0.1
 fps: 24
 device: "cuda"
+
+# EdgeTAM configuration (optional)
+# edgetam: false                    # Set to true to use EdgeTAM instead of SAM2
+# edgetam-model: "facebook/edgetam-base"  # EdgeTAM model to use

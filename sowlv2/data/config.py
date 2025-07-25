@@ -30,6 +30,8 @@ class PipelineBaseData:
     fps: int
     device: str
     pipeline_config: PipelineConfig
+    use_edgetam: bool = False
+    edgetam_model: str = "facebook/edgetam-base"
 
 
 @dataclass
