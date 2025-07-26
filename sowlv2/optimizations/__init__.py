@@ -41,6 +41,29 @@ from .batch_optimizer import (
     IntelligentBatchOptimizer
 )
 
+from .performance_collector import (
+    PerformanceCollector,
+    PerformanceMetrics,
+    ComparisonReport,
+    TimingContext
+)
+
+from .benchmark_runner import (
+    BenchmarkRunner,
+    BenchmarkConfig,
+    BenchmarkResults,
+    MemoryProfile,
+    ThroughputResults
+)
+
+from .monitoring import (
+    MonitoringDashboard,
+    AlertConfig,
+    ProgressInfo,
+    ResourceUtilization,
+    PerformanceAlert
+)
+
 __all__ = [
     # Parallel processing
     'ParallelConfig',
@@ -75,4 +98,24 @@ __all__ = [
     'IntelligentModelCache',
     'BatchConfig',
     'IntelligentBatchOptimizer',
+
+    # Performance monitoring
+    'PerformanceCollector',
+    'PerformanceMetrics',
+    'ComparisonReport',
+    'TimingContext',
+
+    # Benchmarking
+    'BenchmarkRunner',
+    'BenchmarkConfig',
+    'BenchmarkResults',
+    'MemoryProfile',
+    'ThroughputResults',
+
+    # Real-time monitoring
+    'MonitoringDashboard',
+    'AlertConfig',
+    'ProgressInfo',
+    'ResourceUtilization',
+    'PerformanceAlert',
 ]
