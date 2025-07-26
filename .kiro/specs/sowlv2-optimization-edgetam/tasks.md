@@ -152,35 +152,35 @@
   - Implement performance history tracking and trend analysis
   - _Requirements: 6.5, 6.7_
 
-- [-] 5. Enhance CLI and configuration system
+- [x] 5. Enhance CLI and configuration system
   - Add comprehensive CLI options for all new features
   - Implement YAML configuration support for new options
   - Create help system and validation
   - Add benchmarking and optimization level controls
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-- [ ] 5.1 Add EdgeTAM CLI options
+- [x] 5.1 Add EdgeTAM CLI options
   - Extend CLI parser in `sowlv2/cli.py` with EdgeTAM-specific arguments
   - Add `--edgetam-model`, `--edgetam-optimization-level` options
   - Implement EdgeTAM configuration validation
   - Add EdgeTAM help documentation and examples
   - _Requirements: 5.1, 5.2_
 
-- [ ] 5.2 Add optimization CLI options
+- [x] 5.2 Add optimization CLI options
   - Add `--optimization-level`, `--memory-limit`, `--streaming-chunk-size` arguments
   - Implement `--enable-mixed-precision` and `--disable-gpu-batching` options
   - Add resource management configuration options
   - Create optimization preset configurations
   - _Requirements: 5.3, 5.4_
 
-- [ ] 5.3 Add benchmarking CLI options
+- [x] 5.3 Add benchmarking CLI options
   - Implement `--benchmark`, `--benchmark-output`, `--compare-models` arguments
   - Add performance monitoring and reporting options
   - Create benchmark configuration and test data options
   - Implement benchmark result export functionality
   - _Requirements: 5.5, 6.1, 6.2_
 
-- [ ] 5.4 Enhance YAML configuration support
+- [x] 5.4 Enhance YAML configuration support
   - Update configuration parsing to support all new options
   - Add configuration validation and error reporting
   - Create example configuration files for different use cases
@@ -289,10 +289,11 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.7_
 
 - [ ] 8.4 Implement performance monitoring tests
-  - Write tests for performance collector accuracy
-  - Add benchmark runner validation tests
+  - Write tests for performance collector accu ryac
+  - Add benchmark runner validation   
   - Create monitoring system tests
   - Implement report generation validation
+  - Fix all the pylint errors and warnings
   - _Requirements: 6.1, 6.2, 6.3, 6.5_
 
 - [ ] 9. Create documentation and examples

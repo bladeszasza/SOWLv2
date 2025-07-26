@@ -1,0 +1,37 @@
+# Quality-focused configuration for SOWLv2
+# Prioritizes output quality over processing speed
+
+prompt: "detailed object detection"
+input: "path/to/high_res_video.mp4"
+output: "quality_output"
+
+# Use SAM2 for highest quality
+edgetam: false
+sam_model: "facebook/sam2.1-hiera-large"
+
+# Quality optimization settings
+optimization-level: 0
+optimization-preset: "quality"
+enable-mixed-precision: false
+streaming-chunk-size: 200
+batch-size: 2
+
+# Enable all quality features
+merged: true
+binary: true
+overlay: true
+
+# Conservative V-JEPA2 settings
+enable-vjepa2: true
+vjepa2-frames-per-clip: 32
+use-temporal-detection: true
+temporal-detection-frames: 7
+temporal-merge-threshold: 0.8
+
+# Higher detection threshold for precision
+threshold: 0.2
+
+# Benchmarking for quality assessment
+benchmark: true
+benchmark-output: "quality_benchmark.html"
+performance-profile: true

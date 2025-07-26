@@ -1,0 +1,85 @@
+# Comprehensive SOWLv2 Configuration Example
+# This file demonstrates all available configuration options
+
+# Basic input/output configuration
+prompt: ["person", "car", "bicycle", "dog"]  # Can be single string or list
+input: "path/to/input/video.mp4"             # Input file or directory
+output: "comprehensive_output"                # Output directory
+
+# Model configuration
+owl_model: "google/owlv2-base-patch16-ensemble"  # OWL detection model
+sam_model: "facebook/sam2.1-hiera-small"        # SAM2 segmentation model
+threshold: 0.15                                  # Detection confidence threshold
+fps: 30                                         # Video sampling rate
+device: "cuda"                                  # Processing device
+
+# Pipeline output configuration
+merged: true      # Generate merged overlays
+binary: true      # Generate binary masks
+overlay: true     # Generate individual overlays
+
+# EdgeTAM configuration (alternative to SAM2)
+edgetam: false                        # Use EdgeTAM for faster segmentation
+edgetam-model: "facebook/edgetam-base" # EdgeTAM model variant
+edgetam-optimization-level: 1          # EdgeTAM optimization (0-3)
+
+# Global optimization settings
+optimization-level: 1                 # Global optimization level (0-3)
+optimization-preset: "balanced"       # Preset: speed, balanced, quality, memory
+
+# Memory management
+memory-limit: 8.0                     # GPU memory limit in GB
+streaming-chunk-size: 100             # Frames per streaming chunk
+enable-streaming-mode: false          # Force streaming for all videos
+
+# Performance optimizations
+enable-mixed-precision: true          # Use FP16 for faster inference
+disable-gpu-batching: false          # Disable GPU batching
+enable-model-caching: true           # Cache models for faster switching
+cache-size-limit: 6.0               # Model cache size limit in GB
+
+# V-JEPA2 video optimization (experimental)
+enable-vjepa2: true                   # Enable V-JEPA2 optimization
+vjepa2-frames-per-clip: 16           # Frames per V-JEPA2 clip
+use-temporal-detection: true          # Enable temporal object tracking
+temporal-detection-frames: 5          # Number of key frames for detection
+temporal-merge-threshold: 0.7         # IoU threshold for temporal merging
+
+# Parallel processing configuration
+max-workers: 4                       # Maximum parallel workers
+batch-size: 6                        # Batch size for GPU processing
+
+# Benchmarking and performance monitoring
+benchmark: true                       # Enable comprehensive benchmarking
+benchmark-output: "benchmark_results.html"  # Output file for results
+compare-models: false                 # Compare SAM2 vs EdgeTAM performance
+benchmark-iterations: 3               # Number of iterations for averaging
+collect-memory-stats: true           # Monitor memory usage
+collect-gpu-stats: true              # Monitor GPU utilization
+benchmark-test-data: null            # Custom test dataset path
+performance-profile: false           # Detailed line-by-line profiling
+export-metrics: "all"                # Export format: json, csv, html, all
+
+# Advanced configuration examples:
+
+# For real-time processing:
+# optimization-preset: "speed"
+# edgetam: true
+# edgetam-optimization-level: 3
+# enable-mixed-precision: true
+# streaming-chunk-size: 25
+
+# For maximum quality:
+# optimization-preset: "quality"
+# sam_model: "facebook/sam2.1-hiera-large"
+# optimization-level: 0
+# threshold: 0.2
+# temporal-merge-threshold: 0.8
+
+# For memory-constrained systems:
+# optimization-preset: "memory"
+# memory-limit: 4.0
+# enable-streaming-mode: true
+# streaming-chunk-size: 20
+# cache-size-limit: 2.0
+# batch-size: 1

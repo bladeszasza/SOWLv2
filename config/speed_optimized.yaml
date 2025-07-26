@@ -1,0 +1,34 @@
+# Speed-optimized configuration for SOWLv2
+# Prioritizes processing speed over quality
+
+prompt: ["car", "person", "bicycle"]
+input: "path/to/video.mp4"
+output: "speed_output"
+
+# Use EdgeTAM for faster segmentation
+edgetam: true
+edgetam-model: "facebook/edgetam-base"
+edgetam-optimization-level: 2
+
+# Speed optimization settings
+optimization-level: 2
+optimization-preset: "speed"
+enable-mixed-precision: true
+streaming-chunk-size: 50
+batch-size: 8
+
+# Disable quality-focused features
+merged: false
+binary: true
+overlay: false
+
+# V-JEPA2 for intelligent frame selection
+enable-vjepa2: true
+use-temporal-detection: true
+temporal-detection-frames: 3
+
+# Benchmarking to measure improvements
+benchmark: true
+benchmark-output: "speed_benchmark.json"
+collect-memory-stats: true
+collect-gpu-stats: true

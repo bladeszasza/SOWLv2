@@ -1,0 +1,40 @@
+# Memory-constrained configuration for SOWLv2
+# Optimized for systems with limited GPU/system memory
+
+prompt: "object"
+input: "path/to/large_video.mp4"
+output: "memory_output"
+
+# Use EdgeTAM for lower memory usage
+edgetam: true
+edgetam-model: "facebook/edgetam-small"
+edgetam-optimization-level: 1
+
+# Memory optimization settings
+optimization-level: 1
+optimization-preset: "memory"
+memory-limit: 4.0
+enable-mixed-precision: true
+enable-streaming-mode: true
+streaming-chunk-size: 25
+batch-size: 1
+
+# Reduce model caching
+enable-model-caching: true
+cache-size-limit: 2.0
+
+# Conservative parallel processing
+max-workers: 2
+
+# Minimal V-JEPA2 usage
+enable-vjepa2: false
+
+# Basic output to save memory
+merged: false
+binary: true
+overlay: false
+
+# Monitor memory usage
+benchmark: true
+collect-memory-stats: true
+benchmark-output: "memory_benchmark.json"

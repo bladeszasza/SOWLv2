@@ -2,7 +2,7 @@
 Dataclasses for configuring the SOWLv2 object detection and segmentation pipeline.
 """
 from dataclasses import dataclass
-from typing import Any, Tuple, List, Dict
+from typing import Any, Tuple, List, Dict, Optional
 import numpy as np
 from PIL import Image
 
@@ -20,6 +20,36 @@ class PipelineConfig:
     overlay: bool
 
 @dataclass
+class OptimizationConfig:
+    """
+    Configuration class for optimization settings.
+    """
+    optimization_level: int = 1
+    memory_limit: Optional[float] = None
+    streaming_chunk_size: int = 100
+    enable_mixed_precision: bool = False
+    disable_gpu_batching: bool = False
+    enable_model_caching: bool = True
+    cache_size_limit: float = 4.0
+    enable_streaming_mode: bool = False
+    optimization_preset: str = "balanced"
+
+@dataclass
+class BenchmarkConfig:
+    """
+    Configuration class for benchmarking and performance monitoring.
+    """
+    enable_benchmarking: bool = False
+    benchmark_output: Optional[str] = None
+    compare_models: bool = False
+    benchmark_iterations: int = 1
+    collect_memory_stats: bool = True
+    collect_gpu_stats: bool = True
+    benchmark_test_data: Optional[str] = None
+    performance_profile: bool = False
+    export_metrics: str = "json"
+
+@dataclass
 class PipelineBaseData:
     """
     Stores all core configuration parameters for initializing and running the SOWLv2 pipeline.
@@ -32,6 +62,9 @@ class PipelineBaseData:
     pipeline_config: PipelineConfig
     use_edgetam: bool = False
     edgetam_model: str = "facebook/edgetam-base"
+    edgetam_optimization_level: int = 1
+    optimization_config: Optional[OptimizationConfig] = None
+    benchmark_config: Optional[BenchmarkConfig] = None
 
 
 @dataclass
@@ -75,9 +108,7 @@ class DetectionResult:
         box (Any): The bounding box for the detected object.
         core_prompt (str): The core prompt/label for the object.
         object_color (Tuple[int, int, int]): The assigned color for the object.
-        mask_np (np.ndarray): The segmentation mask as a NumPy array.
-        mask_img_pil (Image.Image): The mask as a PIL image.
-        mask_file (str): Path to the saved mask file.
+        mask (MaskObject): The segmentation mask object containing mask data and metadata.
         individual_overlay_pil (Image.Image): The overlay as a PIL image.
         overlay_file (str): Path to the saved overlay file.
     """
