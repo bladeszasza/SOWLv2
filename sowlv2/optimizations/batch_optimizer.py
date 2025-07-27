@@ -61,7 +61,7 @@ class IntelligentBatchOptimizer:
         self.gpu_profile: Optional[GPUProfile] = None
         self.adaptive_history: List[BatchPerformanceMetrics] = []
         self.failure_recovery_enabled = True
-        
+
         # Initialize GPU profiling
         self._initialize_gpu_profile()
 
@@ -69,7 +69,7 @@ class IntelligentBatchOptimizer:
         """Initialize GPU profiling information."""
         if self.device == "cuda" and torch.cuda.is_available():
             props = torch.cuda.get_device_properties(0)
-            
+
             self.gpu_profile = GPUProfile(
                 total_memory=props.total_memory / 1e9,
                 available_memory=(props.total_memory - torch.cuda.memory_allocated()) / 1e9,
@@ -80,7 +80,7 @@ class IntelligentBatchOptimizer:
             )
         else:
             self.gpu_profile = None
-            
+
     def _estimate_memory_bandwidth(self, props) -> float:
         """Estimate memory bandwidth based on GPU properties."""
         # Rough estimates based on common GPU architectures
@@ -90,37 +90,37 @@ class IntelligentBatchOptimizer:
             return 600.0
         else:  # Older architectures
             return 400.0
-            
-    def profile_gpu_memory_for_batch_size(self, 
+
+    def profile_gpu_memory_for_batch_size(self,
                                         test_func: Callable,
                                         batch_sizes: List[int],
                                         *args, **kwargs) -> Dict[int, BatchPerformanceMetrics]:
         """
         Profile GPU memory usage for different batch sizes.
-        
+
         Args:
             test_func: Function to test with different batch sizes
             batch_sizes: List of batch sizes to test
             *args, **kwargs: Arguments for test function
-            
+
         Returns:
             Dictionary mapping batch size to performance metrics
         """
         if not self.gpu_profile:
             return {}
-            
+
         results = {}
-        
+
         for batch_size in batch_sizes:
             try:
                 # Clear cache before testing
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()
-                
+
                 # Measure initial memory
                 initial_memory = torch.cuda.memory_allocated()
                 start_time = time.time()
-                
+
                 # Run test function
                 success = True
                 try:
@@ -130,18 +130,18 @@ class IntelligentBatchOptimizer:
                 except Exception as e:
                     print(f"Error testing batch size {batch_size}: {e}")
                     success = False
-                    
+
                 # Measure final memory and time
                 torch.cuda.synchronize()
                 end_time = time.time()
                 peak_memory = torch.cuda.max_memory_allocated()
-                
+
                 # Calculate metrics
                 processing_time = end_time - start_time
                 memory_used = (peak_memory - initial_memory) / 1e9  # GB
                 throughput = batch_size / processing_time if processing_time > 0 else 0
                 memory_efficiency = memory_used / self.gpu_profile.total_memory
-                
+
                 results[batch_size] = BatchPerformanceMetrics(
                     batch_size=batch_size,
                     processing_time=processing_time,
@@ -150,54 +150,54 @@ class IntelligentBatchOptimizer:
                     memory_efficiency=memory_efficiency,
                     success_rate=1.0 if success else 0.0
                 )
-                
+
                 # Reset peak memory counter
                 torch.cuda.reset_peak_memory_stats()
-                
+
                 if not success:
                     break  # Stop testing larger batch sizes
-                    
+
             except Exception as e:
                 print(f"Failed to profile batch size {batch_size}: {e}")
                 continue
-                
+
         return results
-        
-    def find_optimal_batch_size(self, 
+
+    def find_optimal_batch_size(self,
                               test_func: Callable,
                               max_batch_size: int = 32,
                               target_memory_usage: float = 0.8,
                               *args, **kwargs) -> int:
         """
         Find optimal batch size through binary search and profiling.
-        
+
         Args:
             test_func: Function to test batch processing
             max_batch_size: Maximum batch size to test
             target_memory_usage: Target memory utilization (0-1)
             *args, **kwargs: Arguments for test function
-            
+
         Returns:
             Optimal batch size
         """
         if not self.gpu_profile:
             return 1
-            
+
         # Binary search for optimal batch size
         low, high = 1, max_batch_size
         optimal_batch_size = 1
-        
+
         while low <= high:
             mid = (low + high) // 2
-            
+
             # Test this batch size
             profile_results = self.profile_gpu_memory_for_batch_size(
                 test_func, [mid], *args, **kwargs
             )
-            
+
             if mid in profile_results and profile_results[mid].success_rate > 0:
                 metrics = profile_results[mid]
-                
+
                 if metrics.memory_efficiency <= target_memory_usage:
                     optimal_batch_size = mid
                     low = mid + 1  # Try larger batch size
@@ -205,9 +205,9 @@ class IntelligentBatchOptimizer:
                     high = mid - 1  # Try smaller batch size
             else:
                 high = mid - 1  # Batch size too large
-                
+
         return optimal_batch_size
-        
+
     def profile_and_optimize(self,
                            test_image_size: Tuple[int, int],
                            num_prompts: int,
@@ -226,14 +226,14 @@ class IntelligentBatchOptimizer:
 
         # Use provided memory limit or calculate from available memory with safety margin
         available_memory = memory_limit or (self.gpu_profile.available_memory * 0.9)
-        
+
         # Enhanced target memory usage with dynamic adjustment
         target_configs = {
             OptimizationLevel.CONSERVATIVE: {"target": 0.6, "safety": 0.8},
             OptimizationLevel.BALANCED: {"target": 0.75, "safety": 0.85},
             OptimizationLevel.AGGRESSIVE: {"target": 0.9, "safety": 0.95}
         }
-        
+
         config = target_configs[self.optimization_level]
         target_memory_usage = config["target"]
         memory_safety_factor = config["safety"]
@@ -248,9 +248,9 @@ class IntelligentBatchOptimizer:
             "edgetam": {"detection_factor": 0.7, "segmentation_factor": 0.6, "base_overhead": 2.0},
             "owl": {"detection_factor": 1.2, "segmentation_factor": 1.0, "base_overhead": 3.5}
         }
-        
+
         model_opt = model_optimizations.get(model_type, model_optimizations["sam2"])
-        
+
         # Enhanced memory estimation with GPU architecture considerations
         if self.gpu_profile.compute_capability[0] >= 8:  # Ampere and newer
             memory_efficiency_factor = 1.2
@@ -258,7 +258,7 @@ class IntelligentBatchOptimizer:
             memory_efficiency_factor = 1.1
         else:
             memory_efficiency_factor = 1.0
-        
+
         # Adaptive memory allocation based on image size
         if pixels_per_image > 2048 * 2048:  # Very large images
             memory_allocation = {"detection": 0.25, "segmentation": 0.5, "frame": 0.25}
@@ -266,10 +266,10 @@ class IntelligentBatchOptimizer:
             memory_allocation = {"detection": 0.3, "segmentation": 0.45, "frame": 0.25}
         else:  # Normal/small images
             memory_allocation = {"detection": 0.35, "segmentation": 0.4, "frame": 0.25}
-        
+
         # Calculate optimized batch sizes
         effective_memory = available_memory * target_memory_usage * memory_safety_factor * memory_efficiency_factor
-        
+
         # Detection batch size with model optimization
         detection_memory_per_batch = (model_opt["base_overhead"] + base_memory_per_image * num_prompts) * model_opt["detection_factor"]
         detection_batch_size = max(1, int(
@@ -291,20 +291,20 @@ class IntelligentBatchOptimizer:
         # Apply intelligent constraints based on GPU capabilities
         gpu_memory_gb = self.gpu_profile.total_memory
         compute_units = self.gpu_profile.compute_units
-        
+
         # Scale limits based on GPU power
         gpu_scale_factor = min(2.0, max(0.5, gpu_memory_gb / 8.0))  # Scale based on 8GB baseline
         compute_scale_factor = min(1.5, max(0.7, compute_units / 80))  # Scale based on typical GPU
-        
+
         combined_scale = (gpu_scale_factor + compute_scale_factor) / 2
-        
+
         # Enhanced optimization level constraints with GPU scaling
         base_limits = {
             OptimizationLevel.CONSERVATIVE: {"detection": 4, "segmentation": 2, "frame": 8},
             OptimizationLevel.BALANCED: {"detection": 8, "segmentation": 4, "frame": 16},
             OptimizationLevel.AGGRESSIVE: {"detection": 16, "segmentation": 8, "frame": 32}
         }
-        
+
         limits = base_limits[self.optimization_level]
         scaled_limits = {k: max(1, int(v * combined_scale)) for k, v in limits.items()}
 
@@ -312,7 +312,7 @@ class IntelligentBatchOptimizer:
         detection_batch_size = min(detection_batch_size, scaled_limits["detection"])
         segmentation_batch_size = min(segmentation_batch_size, scaled_limits["segmentation"])
         frame_batch_size = min(frame_batch_size, scaled_limits["frame"])
-        
+
         # Ensure minimum performance thresholds
         detection_batch_size = max(1, detection_batch_size)
         segmentation_batch_size = max(1, segmentation_batch_size)
@@ -396,7 +396,7 @@ class IntelligentBatchOptimizer:
                     if new_batch_size < current_batch_size:
                         current_batch_size = new_batch_size
                         print(f"Reduced batch size to {current_batch_size} after OOM (attempt {retry_count})")
-                    
+
                     # If single item still fails after retries, skip it
                     if current_batch_size == 1 and retry_count >= max_retries:
                         print(f"Skipping item {i} after {max_retries} failed attempts")
@@ -413,7 +413,7 @@ class IntelligentBatchOptimizer:
 
         return results
 
-    def _update_adaptive_parameters(self, batch_size: int, processing_time: float, 
+    def _update_adaptive_parameters(self, batch_size: int, processing_time: float,
                                   memory_used: float, success: bool):
         """Update adaptive parameters based on processing results."""
         metrics = BatchPerformanceMetrics(
@@ -424,25 +424,25 @@ class IntelligentBatchOptimizer:
             memory_efficiency=memory_used / self.gpu_profile.total_memory if self.gpu_profile else 0,
             success_rate=1.0 if success else 0.0
         )
-        
+
         self.adaptive_history.append(metrics)
-        
+
         # Keep only recent history
         if len(self.adaptive_history) > 100:
             self.adaptive_history.pop(0)
 
-    def _adjust_batch_size_dynamically(self, current_batch_size: int, 
+    def _adjust_batch_size_dynamically(self, current_batch_size: int,
                                      consecutive_successes: int) -> int:
         """Dynamically adjust batch size based on recent performance."""
         if not self.gpu_profile:
             return current_batch_size
-            
+
         # Check current memory usage
         if torch.cuda.is_available():
             memory_usage = torch.cuda.memory_allocated() / torch.cuda.get_device_properties(0).total_memory
         else:
             memory_usage = 0.5  # Conservative estimate for CPU
-            
+
         # Increase batch size if memory usage is low and we've had consecutive successes
         if consecutive_successes >= 3 and memory_usage < 0.6:
             max_increase = {
@@ -450,21 +450,21 @@ class IntelligentBatchOptimizer:
                 OptimizationLevel.BALANCED: 2,
                 OptimizationLevel.AGGRESSIVE: 4
             }[self.optimization_level]
-            
+
             return min(current_batch_size + 1, current_batch_size + max_increase)
-            
+
         # Decrease batch size if memory usage is high
         elif memory_usage > 0.8:
             return max(1, current_batch_size - 1)
-            
+
         return current_batch_size
 
-    def _handle_batch_failure(self, current_batch_size: int, 
+    def _handle_batch_failure(self, current_batch_size: int,
                             consecutive_failures: int, retry_count: int) -> int:
         """Handle batch processing failure with intelligent size reduction."""
         if not self.failure_recovery_enabled:
             return max(1, current_batch_size // 2)
-            
+
         # More aggressive reduction for repeated failures
         if consecutive_failures > 2:
             reduction_factor = 4
@@ -472,18 +472,18 @@ class IntelligentBatchOptimizer:
             reduction_factor = 3
         else:
             reduction_factor = 2
-            
+
         new_batch_size = max(1, current_batch_size // reduction_factor)
-        
+
         # Record failure for future optimization
         self._update_adaptive_parameters(current_batch_size, 0.0, 0.0, False)
-        
+
         return new_batch_size
 
     def enable_mixed_precision_support(self) -> bool:
         """
         Enable mixed precision support if available.
-        
+
         Returns:
             bool: True if mixed precision is enabled
         """
@@ -503,14 +503,14 @@ class IntelligentBatchOptimizer:
         """Get optimization recommendations based on profiling history."""
         if not self.adaptive_history:
             return {"status": "No profiling data available"}
-            
+
         # Analyze recent performance
         recent_metrics = self.adaptive_history[-10:]  # Last 10 batches
-        
+
         avg_throughput = sum(m.throughput for m in recent_metrics) / len(recent_metrics)
         avg_memory_efficiency = sum(m.memory_efficiency for m in recent_metrics) / len(recent_metrics)
         success_rate = sum(m.success_rate for m in recent_metrics) / len(recent_metrics)
-        
+
         recommendations = {
             "current_performance": {
                 "average_throughput": avg_throughput,
@@ -519,7 +519,7 @@ class IntelligentBatchOptimizer:
             },
             "recommendations": []
         }
-        
+
         # Generate recommendations
         if avg_memory_efficiency < 0.5:
             recommendations["recommendations"].append(
@@ -529,34 +529,34 @@ class IntelligentBatchOptimizer:
             recommendations["recommendations"].append(
                 "Consider reducing batch sizes - high memory pressure detected"
             )
-            
+
         if success_rate < 0.9:
             recommendations["recommendations"].append(
                 "Enable gradient checkpointing to reduce memory usage"
             )
-            
+
         if self.gpu_profile and self.gpu_profile.supports_mixed_precision:
             recommendations["recommendations"].append(
                 "Enable mixed precision training for better performance"
             )
-            
+
         return recommendations
 
     def reset_adaptive_history(self):
         """Reset adaptive learning history."""
         self.adaptive_history.clear()
         self.profiling_results.clear()
-        
+
     def set_optimization_level(self, level: OptimizationLevel):
         """Change optimization level."""
         self.optimization_level = level
         print(f"Optimization level set to: {level.name}")
-        
+
     def get_performance_summary(self) -> Dict[str, float]:
         """Get summary of performance metrics."""
         if not self.adaptive_history:
             return {}
-            
+
         metrics = self.adaptive_history
         return {
             "total_batches_processed": len(metrics),

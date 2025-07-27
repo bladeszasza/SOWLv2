@@ -18,7 +18,7 @@ class ModelFallbackManager:
     """
     Manages model fallback scenarios and user notifications.
     """
-    
+
     @staticmethod
     def handle_model_loading_error(
         model_type: str,
@@ -28,13 +28,13 @@ class ModelFallbackManager:
     ) -> Dict[str, Any]:
         """
         Handle model loading errors with appropriate fallback strategies.
-        
+
         Args:
             model_type: Type of model that failed
             model_name: Name of the model that failed
             error: The exception that occurred
             fallback_callback: Optional callback for fallback model creation
-            
+
         Returns:
             Dictionary containing error handling results
         """
@@ -45,7 +45,7 @@ class ModelFallbackManager:
             "error_message": str(error),
             "user_message": ""
         }
-        
+
         try:
             if model_type == "edgetam":
                 # EdgeTAM specific fallback handling
@@ -55,10 +55,10 @@ class ModelFallbackManager:
                     "Attempting to fallback to SAM2 for segmentation.\n"
                     "Note: Processing may be slower but will continue."
                 )
-                
+
                 result["user_message"] = user_message
                 logger.warning(user_message)
-                
+
                 # Attempt fallback if callback provided
                 if fallback_callback:
                     try:
@@ -66,16 +66,16 @@ class ModelFallbackManager:
                         result["success"] = True
                         result["fallback_used"] = True
                         result["fallback_model"] = fallback_model
-                        
+
                         success_message = "Successfully fell back to SAM2 model."
                         result["user_message"] += f"\n{success_message}"
                         logger.info(success_message)
-                        
+
                     except Exception as fallback_error:
                         fallback_error_msg = f"Fallback to SAM2 also failed: {str(fallback_error)}"
                         result["user_message"] += f"\n{fallback_error_msg}"
                         logger.error(fallback_error_msg)
-                        
+
             elif model_type == "sam2":
                 # SAM2 specific error handling (no fallback available)
                 user_message = (
@@ -83,17 +83,17 @@ class ModelFallbackManager:
                     f"Error: {str(error)}\n"
                     "No fallback model available. Please check your configuration."
                 )
-                
+
                 result["user_message"] = user_message
                 logger.error(user_message)
-                
+
         except Exception as handling_error:
             error_msg = f"Error in fallback handling: {str(handling_error)}"
             result["user_message"] = error_msg
             logger.error(error_msg)
-        
+
         return result
-    
+
     @staticmethod
     def log_model_selection_event(
         selected_model_type: str,
@@ -104,7 +104,7 @@ class ModelFallbackManager:
     ):
         """
         Log model selection events for debugging and monitoring.
-        
+
         Args:
             selected_model_type: Type of the selected model
             selected_model_name: Name of the selected model
@@ -130,7 +130,7 @@ class UserNotificationSystem:
     """
     System for providing user-friendly notifications about errors and fallbacks.
     """
-    
+
     @staticmethod
     def notify_fallback_scenario(
         original_model: str,
@@ -140,7 +140,7 @@ class UserNotificationSystem:
     ):
         """
         Notify user about fallback scenario.
-        
+
         Args:
             original_model: The model that failed
             fallback_model: The fallback model being used
@@ -157,10 +157,10 @@ class UserNotificationSystem:
             f"Impact: {impact}\n"
             f"{'='*60}\n"
         )
-        
+
         print(notification)
         logger.warning(f"Fallback notification: {original_model} -> {fallback_model}")
-    
+
     @staticmethod
     def notify_error_with_solution(
         error_type: str,
@@ -169,7 +169,7 @@ class UserNotificationSystem:
     ):
         """
         Notify user about error with suggested solutions.
-        
+
         Args:
             error_type: Type of error that occurred
             error_message: Detailed error message
@@ -182,12 +182,12 @@ class UserNotificationSystem:
             f"Details: {error_message}\n"
             f"\nSuggested Solutions:\n"
         )
-        
+
         for i, solution in enumerate(suggested_solutions, 1):
             notification += f"{i}. {solution}\n"
-        
+
         notification += f"{'='*60}\n"
-        
+
         print(notification)
         logger.error(f"Error notification: {error_type} - {error_message}")
 
@@ -195,7 +195,7 @@ class UserNotificationSystem:
 def with_fallback_handling(fallback_model_type: str = "sam2"):
     """
     Decorator for functions that create models with automatic fallback handling.
-    
+
     Args:
         fallback_model_type: Type of model to fallback to
     """
@@ -206,7 +206,7 @@ def with_fallback_handling(fallback_model_type: str = "sam2"):
                 return func(*args, **kwargs)
             except Exception as e:
                 logger.warning(f"Function {func.__name__} failed: {str(e)}")
-                
+
                 # Attempt fallback logic here if needed
                 if "edgetam" in str(func.__name__).lower():
                     UserNotificationSystem.notify_fallback_scenario(
@@ -215,7 +215,7 @@ def with_fallback_handling(fallback_model_type: str = "sam2"):
                         reason=str(e),
                         impact="Processing will be slower but more accurate"
                     )
-                
+
                 raise e
         return wrapper
     return decorator
@@ -226,12 +226,12 @@ class ErrorRecoveryManager:
     Comprehensive error recovery manager for SOWLv2 pipeline.
     Handles model loading errors, memory overflow, and processing failures.
     """
-    
+
     def __init__(self, logger_name: str = __name__):
         self.logger = logging.getLogger(logger_name)
         self.retry_counts = {}
         self.fallback_history = []
-    
+
     def handle_model_loading_error(
         self,
         model_name: str,
@@ -240,17 +240,17 @@ class ErrorRecoveryManager:
     ) -> Dict[str, Any]:
         """
         Handle model loading errors with fallback scenarios.
-        
+
         Args:
             model_name: Name of the model that failed to load
             error: The exception that occurred during loading
             fallback_callback: Optional callback to create fallback model
-            
+
         Returns:
             Dictionary containing recovery results and fallback model
         """
         self.logger.error(f"Model loading failed for {model_name}: {str(error)}")
-        
+
         result = {
             "success": False,
             "fallback_used": False,
@@ -259,7 +259,7 @@ class ErrorRecoveryManager:
             "user_message": "",
             "recovery_action": "none"
         }
-        
+
         try:
             # Determine fallback strategy based on model type
             if "edgetam" in model_name.lower():
@@ -270,7 +270,7 @@ class ErrorRecoveryManager:
                     f"🔄 Falling back to SAM2 for segmentation.\n"
                     f"📝 Note: Processing may be slower but will continue with higher accuracy."
                 )
-                
+
                 if fallback_callback:
                     try:
                         fallback_model = fallback_callback()
@@ -289,7 +289,7 @@ class ErrorRecoveryManager:
                     except Exception as fallback_error:
                         user_message += f"\n❌ Fallback to SAM2 also failed: {str(fallback_error)}"
                         self.logger.error(f"Fallback failed: {str(fallback_error)}")
-                        
+
             elif "sam2" in model_name.lower():
                 result["recovery_action"] = "no_fallback_available"
                 user_message = (
@@ -301,7 +301,7 @@ class ErrorRecoveryManager:
                     f"   - Verify sufficient disk space\n"
                     f"   - Try a different SAM2 model variant"
                 )
-                
+
             elif "vjepa" in model_name.lower():
                 result["recovery_action"] = "disable_vjepa_optimization"
                 user_message = (
@@ -311,7 +311,7 @@ class ErrorRecoveryManager:
                     f"📝 Note: Frame selection will be less intelligent but processing will continue."
                 )
                 result["success"] = True  # Can continue without V-JEPA2
-                
+
             else:
                 result["recovery_action"] = "unknown_model_type"
                 user_message = (
@@ -319,17 +319,17 @@ class ErrorRecoveryManager:
                     f"Error: {str(error)}\n"
                     f"🔍 Please check model name and configuration."
                 )
-            
+
             result["user_message"] = user_message
             self.logger.info(f"Recovery action for {model_name}: {result['recovery_action']}")
-            
+
         except Exception as recovery_error:
             error_msg = f"Error during recovery handling: {str(recovery_error)}"
             result["user_message"] = error_msg
             self.logger.error(error_msg)
-        
+
         return result
-    
+
     def handle_memory_overflow(
         self,
         current_batch_size: int,
@@ -338,12 +338,12 @@ class ErrorRecoveryManager:
     ) -> Dict[str, Any]:
         """
         Handle memory overflow by adjusting batch sizes and clearing cache.
-        
+
         Args:
             current_batch_size: Current batch size being used
             memory_usage_gb: Current memory usage in GB
             available_memory_gb: Available memory in GB
-            
+
         Returns:
             Dictionary containing adjusted configuration
         """
@@ -351,7 +351,7 @@ class ErrorRecoveryManager:
             f"Memory overflow detected: {memory_usage_gb:.2f}GB used, "
             f"{available_memory_gb:.2f}GB available"
         )
-        
+
         result = {
             "success": False,
             "new_batch_size": current_batch_size,
@@ -359,32 +359,32 @@ class ErrorRecoveryManager:
             "memory_freed_gb": 0.0,
             "user_message": ""
         }
-        
+
         try:
             initial_memory = self._get_memory_usage()
-            
+
             # Step 1: Reduce batch size
             if current_batch_size > 1:
                 new_batch_size = max(1, current_batch_size // 2)
                 result["new_batch_size"] = new_batch_size
                 result["actions_taken"].append(f"Reduced batch size: {current_batch_size} → {new_batch_size}")
                 self.logger.info(f"Reduced batch size from {current_batch_size} to {new_batch_size}")
-            
+
             # Step 2: Clear GPU cache if available
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 result["actions_taken"].append("Cleared GPU cache")
                 self.logger.info("Cleared GPU cache")
-            
+
             # Step 3: Force garbage collection
             gc.collect()
             result["actions_taken"].append("Forced garbage collection")
-            
+
             # Step 4: Check memory improvement
             final_memory = self._get_memory_usage()
             memory_freed = initial_memory - final_memory
             result["memory_freed_gb"] = memory_freed
-            
+
             if memory_freed > 0:
                 result["success"] = True
                 result["user_message"] = (
@@ -399,16 +399,16 @@ class ErrorRecoveryManager:
                     f"   • Actions taken: {', '.join(result['actions_taken'])}\n"
                     f"   • Consider reducing input size or using CPU processing"
                 )
-            
+
             self.logger.info(f"Memory recovery freed {memory_freed:.2f}GB")
-            
+
         except Exception as recovery_error:
             error_msg = f"Error during memory overflow handling: {str(recovery_error)}"
             result["user_message"] = error_msg
             self.logger.error(error_msg)
-        
+
         return result
-    
+
     def handle_processing_failure(
         self,
         operation_name: str,
@@ -417,17 +417,17 @@ class ErrorRecoveryManager:
     ) -> Dict[str, Any]:
         """
         Handle processing failures with appropriate recovery strategies.
-        
+
         Args:
             operation_name: Name of the operation that failed
             error: The exception that occurred
             context: Optional context information
-            
+
         Returns:
             Dictionary containing recovery recommendations
         """
         self.logger.error(f"Processing failure in {operation_name}: {str(error)}")
-        
+
         result = {
             "should_retry": False,
             "retry_delay": 0,
@@ -436,11 +436,11 @@ class ErrorRecoveryManager:
             "user_message": "",
             "context": context or {}
         }
-        
+
         try:
             error_type = type(error).__name__
             error_message = str(error).lower()
-            
+
             # Analyze error type and provide specific recovery strategies
             if "cuda" in error_message or "gpu" in error_message:
                 result.update({
@@ -453,7 +453,7 @@ class ErrorRecoveryManager:
                         "Check GPU memory availability"
                     ]
                 })
-                
+
             elif "memory" in error_message or "out of memory" in error_message:
                 result.update({
                     "should_retry": True,
@@ -465,7 +465,7 @@ class ErrorRecoveryManager:
                         "Use mixed precision training"
                     ]
                 })
-                
+
             elif "connection" in error_message or "network" in error_message:
                 result.update({
                     "should_retry": True,
@@ -478,7 +478,7 @@ class ErrorRecoveryManager:
                         "Switch to offline mode"
                     ]
                 })
-                
+
             elif "file" in error_message or "path" in error_message:
                 result.update({
                     "should_retry": False,
@@ -489,7 +489,7 @@ class ErrorRecoveryManager:
                         "Validate file format"
                     ]
                 })
-                
+
             else:
                 result.update({
                     "should_retry": True,
@@ -501,7 +501,7 @@ class ErrorRecoveryManager:
                         "Review error logs"
                     ]
                 })
-            
+
             # Create user-friendly message
             result["user_message"] = (
                 f"❌ Processing failure in {operation_name}:\n"
@@ -509,19 +509,19 @@ class ErrorRecoveryManager:
                 f"   Retry recommended: {'Yes' if result['should_retry'] else 'No'}\n"
                 f"   Suggestions:\n"
             )
-            
+
             for i, suggestion in enumerate(result["recovery_suggestions"], 1):
                 result["user_message"] += f"   {i}. {suggestion}\n"
-            
+
             self.logger.info(f"Recovery strategy for {operation_name}: retry={result['should_retry']}")
-            
+
         except Exception as recovery_error:
             error_msg = f"Error during processing failure handling: {str(recovery_error)}"
             result["user_message"] = error_msg
             self.logger.error(error_msg)
-        
+
         return result
-    
+
     def implement_retry_logic(
         self,
         operation: Callable,
@@ -532,27 +532,27 @@ class ErrorRecoveryManager:
     ) -> Any:
         """
         Implement retry logic with exponential backoff.
-        
+
         Args:
             operation: The operation to retry
             max_retries: Maximum number of retry attempts
             base_delay: Base delay between retries in seconds
             backoff_factor: Exponential backoff factor
             operation_name: Name of the operation for logging
-            
+
         Returns:
             Result of the successful operation
-            
+
         Raises:
             Exception: If all retry attempts fail
         """
         retry_key = f"{operation_name}_{id(operation)}"
-        
+
         if retry_key not in self.retry_counts:
             self.retry_counts[retry_key] = 0
-        
+
         last_exception = None
-        
+
         for attempt in range(max_retries + 1):
             try:
                 if attempt > 0:
@@ -560,29 +560,29 @@ class ErrorRecoveryManager:
                     delay = base_delay * (backoff_factor ** (attempt - 1))
                     jitter = random.uniform(0.1, 0.3) * delay
                     total_delay = delay + jitter
-                    
+
                     self.logger.info(
                         f"Retrying {operation_name} (attempt {attempt}/{max_retries}) "
                         f"after {total_delay:.2f}s delay"
                     )
                     time.sleep(total_delay)
-                
+
                 # Attempt the operation
                 result = operation()
-                
+
                 # Success - reset retry count and return
                 if retry_key in self.retry_counts:
                     del self.retry_counts[retry_key]
-                
+
                 if attempt > 0:
                     self.logger.info(f"Operation {operation_name} succeeded after {attempt} retries")
-                
+
                 return result
-                
+
             except Exception as e:
                 last_exception = e
                 self.retry_counts[retry_key] = attempt + 1
-                
+
                 if attempt < max_retries:
                     self.logger.warning(
                         f"Operation {operation_name} failed (attempt {attempt + 1}/{max_retries + 1}): {str(e)}"
@@ -591,13 +591,13 @@ class ErrorRecoveryManager:
                     self.logger.error(
                         f"Operation {operation_name} failed after {max_retries + 1} attempts: {str(e)}"
                     )
-        
+
         # All retries exhausted
         if retry_key in self.retry_counts:
             del self.retry_counts[retry_key]
-        
+
         raise last_exception
-    
+
     def _get_memory_usage(self) -> float:
         """Get current memory usage in GB."""
         try:
@@ -606,7 +606,7 @@ class ErrorRecoveryManager:
             return memory_info.rss / (1024 ** 3)  # Convert to GB
         except Exception:
             return 0.0
-    
+
     def get_recovery_statistics(self) -> Dict[str, Any]:
         """Get statistics about recovery operations."""
         return {
@@ -615,7 +615,7 @@ class ErrorRecoveryManager:
             "fallback_history": self.fallback_history,
             "total_fallbacks": len(self.fallback_history)
         }
-    
+
     def reset_recovery_state(self):
         """Reset recovery state and statistics."""
         self.retry_counts.clear()
@@ -628,13 +628,13 @@ class GracefulDegradationManager:
     Manages graceful degradation scenarios for the SOWLv2 pipeline.
     Provides fallback mechanisms and progressive quality reduction.
     """
-    
+
     def __init__(self, logger_name: str = __name__):
         self.logger = logging.getLogger(logger_name)
         self.degradation_history = []
         self.current_degradation_level = 0
         self.notification_system = UserNotificationSystem()
-    
+
     def handle_gpu_resource_exhaustion(
         self,
         current_device: str,
@@ -642,16 +642,16 @@ class GracefulDegradationManager:
     ) -> Dict[str, Any]:
         """
         Handle GPU resource exhaustion by falling back to CPU processing.
-        
+
         Args:
             current_device: Current device being used
             operation_name: Name of the operation that failed
-            
+
         Returns:
             Dictionary containing fallback configuration
         """
         self.logger.warning(f"GPU resources exhausted for {operation_name}")
-        
+
         result = {
             "success": False,
             "fallback_device": "cpu",
@@ -659,14 +659,14 @@ class GracefulDegradationManager:
             "user_message": "",
             "degradation_actions": []
         }
-        
+
         try:
             if current_device != "cpu":
                 result.update({
                     "success": True,
                     "degradation_actions": ["device_fallback_to_cpu"]
                 })
-                
+
                 # Record degradation event
                 degradation_event = {
                     "type": "device_fallback",
@@ -678,7 +678,7 @@ class GracefulDegradationManager:
                 }
                 self.degradation_history.append(degradation_event)
                 self.current_degradation_level = max(self.current_degradation_level, 1)
-                
+
                 result["user_message"] = (
                     f"🔄 GPU resources exhausted for {operation_name}\n"
                     f"   • Falling back to CPU processing\n"
@@ -686,14 +686,14 @@ class GracefulDegradationManager:
                     f"   • Processing will continue with same quality\n"
                     f"   • Consider reducing batch size or input resolution"
                 )
-                
+
                 self.notification_system.notify_fallback_scenario(
                     original_model=f"GPU-{operation_name}",
                     fallback_model=f"CPU-{operation_name}",
                     reason="GPU memory exhausted",
                     impact="Processing will be significantly slower"
                 )
-                
+
                 self.logger.info(f"Successfully configured CPU fallback for {operation_name}")
             else:
                 result["user_message"] = (
@@ -701,14 +701,14 @@ class GracefulDegradationManager:
                     f"   • No further device fallback available\n"
                     f"   • Consider reducing input size or batch size"
                 )
-                
+
         except Exception as e:
             error_msg = f"Error during GPU fallback handling: {str(e)}"
             result["user_message"] = error_msg
             self.logger.error(error_msg)
-        
+
         return result
-    
+
     def implement_progressive_quality_reduction(
         self,
         current_config: Dict[str, Any],
@@ -716,16 +716,16 @@ class GracefulDegradationManager:
     ) -> Dict[str, Any]:
         """
         Implement progressive quality reduction for memory-constrained scenarios.
-        
+
         Args:
             current_config: Current processing configuration
             memory_constraint_gb: Memory constraint in GB
-            
+
         Returns:
             Dictionary containing reduced quality configuration
         """
         self.logger.info(f"Implementing progressive quality reduction for {memory_constraint_gb}GB constraint")
-        
+
         result = {
             "success": False,
             "new_config": current_config.copy(),
@@ -733,11 +733,11 @@ class GracefulDegradationManager:
             "estimated_memory_savings": 0.0,
             "user_message": ""
         }
-        
+
         try:
             config = result["new_config"]
             memory_savings = 0.0
-            
+
             # Level 1: Reduce batch size
             if config.get("batch_size", 1) > 1:
                 original_batch = config["batch_size"]
@@ -747,7 +747,7 @@ class GracefulDegradationManager:
                     f"Reduced batch size: {original_batch} → {config['batch_size']}"
                 )
                 self.current_degradation_level = max(self.current_degradation_level, 1)
-            
+
             # Level 2: Reduce input resolution
             if memory_constraint_gb < 4.0 and config.get("input_resolution"):
                 original_res = config["input_resolution"]
@@ -759,14 +759,14 @@ class GracefulDegradationManager:
                         f"Reduced input resolution: {original_res} → {new_res}"
                     )
                     self.current_degradation_level = max(self.current_degradation_level, 2)
-            
+
             # Level 3: Enable mixed precision
             if memory_constraint_gb < 6.0 and not config.get("mixed_precision", False):
                 config["mixed_precision"] = True
                 memory_savings += 2.0  # Estimate
                 result["quality_reductions"].append("Enabled mixed precision (FP16)")
                 self.current_degradation_level = max(self.current_degradation_level, 2)
-            
+
             # Level 4: Reduce model precision/features
             if memory_constraint_gb < 3.0:
                 if config.get("use_high_quality_features", True):
@@ -774,12 +774,12 @@ class GracefulDegradationManager:
                     memory_savings += 1.0
                     result["quality_reductions"].append("Disabled high-quality features")
                     self.current_degradation_level = max(self.current_degradation_level, 3)
-                
+
                 if config.get("enable_temporal_optimization", True):
                     config["enable_temporal_optimization"] = False
                     memory_savings += 0.5
                     result["quality_reductions"].append("Disabled temporal optimization")
-            
+
             # Level 5: Enable streaming mode
             if memory_constraint_gb < 2.0 and not config.get("streaming_mode", False):
                 config["streaming_mode"] = True
@@ -787,12 +787,12 @@ class GracefulDegradationManager:
                 memory_savings += 3.0  # Significant savings
                 result["quality_reductions"].append("Enabled streaming mode with small chunks")
                 self.current_degradation_level = max(self.current_degradation_level, 4)
-            
+
             result.update({
                 "success": len(result["quality_reductions"]) > 0,
                 "estimated_memory_savings": memory_savings
             })
-            
+
             if result["success"]:
                 # Record degradation event
                 degradation_event = {
@@ -804,22 +804,22 @@ class GracefulDegradationManager:
                     "level": self.current_degradation_level
                 }
                 self.degradation_history.append(degradation_event)
-                
+
                 result["user_message"] = (
                     f"🔧 Progressive quality reduction applied:\n"
                     f"   • Memory constraint: {memory_constraint_gb}GB\n"
                     f"   • Estimated memory savings: {memory_savings:.1f}GB\n"
                     f"   • Quality reductions applied:\n"
                 )
-                
+
                 for i, reduction in enumerate(result["quality_reductions"], 1):
                     result["user_message"] += f"     {i}. {reduction}\n"
-                
+
                 result["user_message"] += (
                     f"   • Degradation level: {self.current_degradation_level}/4\n"
                     f"   • Processing will continue with reduced quality/speed"
                 )
-                
+
                 self.logger.info(f"Applied {len(result['quality_reductions'])} quality reductions")
             else:
                 result["user_message"] = (
@@ -827,14 +827,14 @@ class GracefulDegradationManager:
                     f"   • Current configuration already at minimum settings\n"
                     f"   • Consider using smaller input files or upgrading hardware"
                 )
-                
+
         except Exception as e:
             error_msg = f"Error during quality reduction: {str(e)}"
             result["user_message"] = error_msg
             self.logger.error(error_msg)
-        
+
         return result
-    
+
     def create_degradation_notification(
         self,
         degradation_type: str,
@@ -843,7 +843,7 @@ class GracefulDegradationManager:
     ):
         """
         Create user notification for degradation events.
-        
+
         Args:
             degradation_type: Type of degradation that occurred
             details: Details about the degradation
@@ -859,21 +859,21 @@ class GracefulDegradationManager:
                 f"Impact: {impact_description}\n"
                 f"\nDetails:\n"
             )
-            
+
             for key, value in details.items():
                 notification += f"  • {key.replace('_', ' ').title()}: {value}\n"
-            
+
             notification += (
                 f"\nNote: Processing will continue with adjusted settings.\n"
                 f"{'='*60}\n"
             )
-            
+
             print(notification)
             self.logger.warning(f"Degradation notification: {degradation_type}")
-            
+
         except Exception as e:
             self.logger.error(f"Error creating degradation notification: {str(e)}")
-    
+
     def get_degradation_status(self) -> Dict[str, Any]:
         """Get current degradation status and history."""
         return {
@@ -883,13 +883,13 @@ class GracefulDegradationManager:
             "total_degradations": len(self.degradation_history),
             "is_degraded": self.current_degradation_level > 0
         }
-    
+
     def reset_degradation_state(self):
         """Reset degradation state to normal operation."""
         self.current_degradation_level = 0
         self.degradation_history.clear()
         self.logger.info("Degradation state reset to normal operation")
-    
+
     def can_handle_further_degradation(self) -> bool:
         """Check if further degradation is possible."""
         return self.current_degradation_level < 4
@@ -900,12 +900,12 @@ class UserFriendlyErrorHandler:
     User-friendly error handling system with comprehensive error messages and solutions.
     Provides error code classification and interactive troubleshooting guidance.
     """
-    
+
     # Error code classification system
     ERROR_CODES = {
         "E001": "Model Loading Failure",
         "E002": "Memory Overflow",
-        "E003": "GPU Resource Exhaustion", 
+        "E003": "GPU Resource Exhaustion",
         "E004": "Network Connection Error",
         "E005": "File System Error",
         "E006": "Configuration Error",
@@ -914,12 +914,12 @@ class UserFriendlyErrorHandler:
         "E009": "Hardware Compatibility Issue",
         "E010": "Unknown Error"
     }
-    
+
     def __init__(self, logger_name: str = __name__):
         self.logger = logging.getLogger(logger_name)
         self.error_solutions_db = self._build_solutions_database()
         self.troubleshooting_guide = self._build_troubleshooting_guide()
-    
+
     def handle_user_friendly_error(
         self,
         error: Exception,
@@ -928,12 +928,12 @@ class UserFriendlyErrorHandler:
     ) -> Dict[str, Any]:
         """
         Handle errors with user-friendly messages and solutions.
-        
+
         Args:
             error: The exception that occurred
             operation_name: Name of the operation that failed
             context: Optional context information
-            
+
         Returns:
             Dictionary containing user-friendly error information
         """
@@ -941,18 +941,18 @@ class UserFriendlyErrorHandler:
             # Classify the error
             error_code = self._classify_error(error)
             error_category = self.ERROR_CODES.get(error_code, "Unknown Error")
-            
+
             # Get solutions for this error type
             solutions = self._get_error_solutions(error_code, error, context)
-            
+
             # Create user-friendly message
             user_message = self._create_user_friendly_message(
                 error_code, error_category, error, operation_name, solutions
             )
-            
+
             # Get troubleshooting steps
             troubleshooting_steps = self._get_troubleshooting_steps(error_code, error)
-            
+
             result = {
                 "error_code": error_code,
                 "error_category": error_category,
@@ -962,12 +962,12 @@ class UserFriendlyErrorHandler:
                 "support_info": self._get_support_information(error_code),
                 "quick_fixes": self._get_quick_fixes(error_code, error)
             }
-            
+
             # Log the user-friendly error
             self.logger.error(f"User-friendly error [{error_code}]: {error_category} in {operation_name}")
-            
+
             return result
-            
+
         except Exception as handling_error:
             # Fallback error handling
             fallback_result = {
@@ -979,57 +979,57 @@ class UserFriendlyErrorHandler:
                 "support_info": self._get_support_information("E010"),
                 "quick_fixes": []
             }
-            
+
             self.logger.error(f"Error in user-friendly error handling: {str(handling_error)}")
             return fallback_result
-    
+
     def _classify_error(self, error: Exception) -> str:
         """Classify error into predefined categories."""
         error_message = str(error).lower()
         error_type = type(error).__name__.lower()
-        
+
         # Model loading errors
         if any(keyword in error_message for keyword in ['model', 'checkpoint', 'weights', 'load']):
             if any(keyword in error_message for keyword in ['download', 'network', 'connection']):
                 return "E004"  # Network error during model loading
             return "E001"  # Model loading failure
-        
+
         # Memory errors
         if any(keyword in error_message for keyword in ['memory', 'out of memory', 'oom', 'allocation']):
             return "E002"  # Memory overflow
-        
+
         # GPU errors
         if any(keyword in error_message for keyword in ['cuda', 'gpu', 'device', 'nvidia']):
             if 'memory' in error_message:
                 return "E002"  # GPU memory overflow
             return "E003"  # GPU resource exhaustion
-        
+
         # Network errors
         if any(keyword in error_message for keyword in ['connection', 'network', 'timeout', 'ssl', 'http']):
             return "E004"  # Network connection error
-        
+
         # File system errors
         if any(keyword in error_message for keyword in ['file', 'path', 'directory', 'permission', 'disk']):
             return "E005"  # File system error
-        
+
         # Configuration errors
         if any(keyword in error_message for keyword in ['config', 'parameter', 'argument', 'invalid']):
             return "E006"  # Configuration error
-        
+
         # Import/dependency errors
         if 'import' in error_type or 'module' in error_message:
             return "E008"  # Dependency missing
-        
+
         # Hardware compatibility
         if any(keyword in error_message for keyword in ['unsupported', 'compatibility', 'version']):
             return "E009"  # Hardware compatibility issue
-        
+
         # Processing pipeline errors
         if any(keyword in error_message for keyword in ['pipeline', 'processing', 'segmentation', 'detection']):
             return "E007"  # Processing pipeline failure
-        
+
         return "E010"  # Unknown error
-    
+
     def _get_error_solutions(
         self,
         error_code: str,
@@ -1038,11 +1038,11 @@ class UserFriendlyErrorHandler:
     ) -> List[str]:
         """Get specific solutions for the error code."""
         base_solutions = self.error_solutions_db.get(error_code, [])
-        
+
         # Add context-specific solutions
         contextual_solutions = []
         error_message = str(error).lower()
-        
+
         if error_code == "E001":  # Model loading failure
             if "edgetam" in error_message:
                 contextual_solutions.append("Try using SAM2 instead with --no-edgetam flag")
@@ -1050,19 +1050,19 @@ class UserFriendlyErrorHandler:
                 contextual_solutions.append("Try using EdgeTAM instead with --edgetam flag")
             if "download" in error_message:
                 contextual_solutions.append("Check internet connection and retry model download")
-        
+
         elif error_code == "E002":  # Memory overflow
             if context and context.get("batch_size", 1) > 1:
                 contextual_solutions.append(f"Reduce batch size from {context['batch_size']} to 1")
             if "gpu" in error_message:
                 contextual_solutions.append("Switch to CPU processing with --device cpu")
-        
+
         elif error_code == "E003":  # GPU resource exhaustion
             contextual_solutions.append("Use nvidia-smi to check GPU memory usage")
             contextual_solutions.append("Close other GPU-intensive applications")
-        
+
         return base_solutions + contextual_solutions
-    
+
     def _create_user_friendly_message(
         self,
         error_code: str,
@@ -1072,7 +1072,7 @@ class UserFriendlyErrorHandler:
         solutions: List[str]
     ) -> str:
         """Create a comprehensive user-friendly error message."""
-        
+
         # Error header with emoji and formatting
         header = f"""
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -1085,7 +1085,7 @@ class UserFriendlyErrorHandler:
 🕐 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 """
-        
+
         # Error description
         description = f"""
 📝 DESCRIPTION:
@@ -1095,14 +1095,14 @@ class UserFriendlyErrorHandler:
 {type(error).__name__}: {str(error)}
 
 """
-        
+
         # Solutions section
         solutions_text = """
 💡 RECOMMENDED SOLUTIONS:
 """
         for i, solution in enumerate(solutions[:5], 1):  # Limit to top 5 solutions
             solutions_text += f"   {i}. {solution}\n"
-        
+
         # Quick actions
         quick_actions = f"""
 ⚡ QUICK ACTIONS:
@@ -1112,7 +1112,7 @@ class UserFriendlyErrorHandler:
    • Contact support if problem persists
 
 """
-        
+
         # Footer
         footer = """
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -1120,9 +1120,9 @@ class UserFriendlyErrorHandler:
 ║  📚 Full troubleshooting guide: Use --help or check documentation           ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """.format(error_code=error_code)
-        
+
         return header + description + solutions_text + quick_actions + footer
-    
+
     def _get_error_description(self, error_code: str) -> str:
         """Get user-friendly description for error code."""
         descriptions = {
@@ -1138,7 +1138,7 @@ class UserFriendlyErrorHandler:
             "E010": "An unexpected error occurred that doesn't fit into standard categories."
         }
         return descriptions.get(error_code, "An error occurred during processing.")
-    
+
     def _get_troubleshooting_steps(self, error_code: str, error: Exception) -> List[str]:
         """Get step-by-step troubleshooting guide."""
         return self.troubleshooting_guide.get(error_code, [
@@ -1148,7 +1148,7 @@ class UserFriendlyErrorHandler:
             "Try with default settings",
             "Contact support with error details"
         ])
-    
+
     def _get_support_information(self, error_code: str) -> Dict[str, str]:
         """Get support information for the error."""
         return {
@@ -1158,7 +1158,7 @@ class UserFriendlyErrorHandler:
             "support_email": "support@sowlv2.com",
             "community_forum": "https://github.com/your-repo/sowlv2/discussions"
         }
-    
+
     def _get_quick_fixes(self, error_code: str, error: Exception) -> List[str]:
         """Get quick one-line fixes for common issues."""
         quick_fixes = {
@@ -1174,7 +1174,7 @@ class UserFriendlyErrorHandler:
             "E010": ["Enable debug logging", "Contact support"]
         }
         return quick_fixes.get(error_code, ["Contact support"])
-    
+
     def _build_solutions_database(self) -> Dict[str, List[str]]:
         """Build comprehensive solutions database."""
         return {
@@ -1259,7 +1259,7 @@ class UserFriendlyErrorHandler:
                 "Check for known issues in documentation"
             ]
         }
-    
+
     def _build_troubleshooting_guide(self) -> Dict[str, List[str]]:
         """Build step-by-step troubleshooting guide."""
         return {
@@ -1344,7 +1344,7 @@ class UserFriendlyErrorHandler:
                 "6. Contact support with full error details"
             ]
         }
-    
+
     def create_interactive_error_resolution(self, error_code: str) -> str:
         """Create interactive error resolution guide."""
         try:
@@ -1358,18 +1358,18 @@ Error Code: {error_code} - {self.ERROR_CODES.get(error_code, 'Unknown')}
 Let's solve this step by step:
 
 """
-            
+
             steps = self._get_troubleshooting_steps(error_code, None)
             for i, step in enumerate(steps, 1):
                 guide += f"Step {i}: {step}\n"
                 guide += f"   ✓ Completed? (If yes, continue to next step)\n"
                 guide += f"   ❌ Still having issues? (Try the solutions below)\n\n"
-            
+
             solutions = self.error_solutions_db.get(error_code, [])
             guide += "💡 Additional Solutions:\n"
             for i, solution in enumerate(solutions, 1):
                 guide += f"   {i}. {solution}\n"
-            
+
             guide += f"""
 📞 Still need help?
    • Error Code: {error_code}
@@ -1377,9 +1377,9 @@ Let's solve this step by step:
    • Documentation: {self._get_support_information(error_code)['documentation_url']}
 
 """
-            
+
             return guide
-            
+
         except Exception as e:
             return f"Error creating interactive guide: {str(e)}"
 
@@ -1388,10 +1388,10 @@ class ErrorRecoveryLogger:
     """
     Enhanced logging for error recovery scenarios.
     """
-    
+
     def __init__(self, logger_name: str = __name__):
         self.logger = logging.getLogger(logger_name)
-    
+
     def log_fallback_attempt(
         self,
         original_model: str,
@@ -1403,7 +1403,7 @@ class ErrorRecoveryLogger:
             f"Fallback attempt: {original_model} -> {fallback_model}. "
             f"Original error: {str(error)}"
         )
-    
+
     def log_fallback_success(
         self,
         original_model: str,
@@ -1415,7 +1415,7 @@ class ErrorRecoveryLogger:
             f"Fallback successful: {original_model} -> {fallback_model} "
             f"(loaded in {load_time:.2f}s)"
         )
-    
+
     def log_fallback_failure(
         self,
         original_model: str,
@@ -1427,7 +1427,7 @@ class ErrorRecoveryLogger:
             f"Fallback failed: {original_model} -> {fallback_model}. "
             f"Fallback error: {str(fallback_error)}"
         )
-    
+
     def log_model_performance_context(
         self,
         model_name: str,
@@ -1436,7 +1436,7 @@ class ErrorRecoveryLogger:
     ):
         """Log model performance context for debugging."""
         context_info = f"Model: {model_name}, Metrics: {performance_metrics}"
-        
+
         if error:
             self.logger.error(f"Performance context (ERROR): {context_info}. Error: {str(error)}")
         else:

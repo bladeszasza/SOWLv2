@@ -12,7 +12,12 @@ try:
 except ImportError:
     EdgeTAMWrapper = None
 
-try:
-    from .model_factory import SegmentationModelFactory
-except ImportError:
-    SegmentationModelFactory = None
+# Model factory should always be available since it handles fallbacks
+from .model_factory import SegmentationModelFactory
+
+__all__ = [
+    'OWLV2Wrapper',
+    'SAM2Wrapper',
+    'EdgeTAMWrapper',
+    'SegmentationModelFactory'
+]

@@ -78,7 +78,8 @@ class TestIntelligentBatchOptimizer:
                 mock_props.return_value = Mock(
                     total_memory=8e9, major=7, minor=5, multi_processor_count=80
                 )
-                with patch('torch.cuda.memory_allocated', side_effect=[1e9, 7e9]):
+                # Mock memory_allocated to return consistent values for each call
+                with patch('torch.cuda.memory_allocated', return_value=1e9):
                     
                     optimizer = IntelligentBatchOptimizer(device="cuda")
                     

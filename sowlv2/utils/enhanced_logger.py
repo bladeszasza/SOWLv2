@@ -19,17 +19,17 @@ class EnhancedErrorLogger:
     Enhanced error logger with performance context and resource state tracking.
     Provides comprehensive debugging information for SOWLv2 pipeline errors.
     """
-    
+
     def __init__(self, logger_name: str = __name__, log_file: Optional[str] = None):
         self.logger = logging.getLogger(logger_name)
         self.log_file = log_file
         self.error_history = []
         self.performance_context_history = []
         self.resource_snapshots = []
-        
+
         # Configure structured logging format
         self._setup_structured_logging()
-    
+
     def _setup_structured_logging(self):
         """Setup structured logging with JSON format for better parsing."""
         try:
@@ -37,24 +37,24 @@ class EnhancedErrorLogger:
             formatter = logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
             )
-            
+
             # Add file handler if log file specified
             if self.log_file:
                 file_handler = logging.FileHandler(self.log_file)
                 file_handler.setFormatter(formatter)
                 self.logger.addHandler(file_handler)
-            
+
             # Ensure logger has appropriate level
             if not self.logger.handlers:
                 console_handler = logging.StreamHandler()
                 console_handler.setFormatter(formatter)
                 self.logger.addHandler(console_handler)
-            
+
             self.logger.setLevel(logging.INFO)
-            
+
         except Exception as e:
             print(f"Warning: Failed to setup structured logging: {str(e)}")
-    
+
     def log_performance_context(
         self,
         error: Exception,
@@ -64,7 +64,7 @@ class EnhancedErrorLogger:
     ):
         """
         Log detailed performance context when errors occur.
-        
+
         Args:
             error: The exception that occurred
             context: Performance and operational context
@@ -83,13 +83,13 @@ class EnhancedErrorLogger:
                 "system_state": self._capture_system_state(),
                 "traceback": traceback.format_exc() if severity == "ERROR" else None
             }
-            
+
             # Add to history
             self.performance_context_history.append(performance_context)
-            
+
             # Create structured log message
             log_message = self._format_performance_context_message(performance_context)
-            
+
             # Log with appropriate level
             if severity == "ERROR":
                 self.logger.error(log_message)
@@ -97,14 +97,14 @@ class EnhancedErrorLogger:
                 self.logger.warning(log_message)
             else:
                 self.logger.info(log_message)
-            
+
             # Log as JSON for machine parsing
             json_context = json.dumps(performance_context, indent=2, default=str)
             self.logger.debug(f"Performance Context JSON:\n{json_context}")
-            
+
         except Exception as logging_error:
             self.logger.error(f"Failed to log performance context: {str(logging_error)}")
-    
+
     def log_resource_state(
         self,
         error: Exception,
@@ -113,7 +113,7 @@ class EnhancedErrorLogger:
     ):
         """
         Log detailed resource state when errors occur.
-        
+
         Args:
             error: The exception that occurred
             operation_name: Name of the operation that failed
@@ -131,25 +131,25 @@ class EnhancedErrorLogger:
                 "disk_info": self._get_disk_info(),
                 "process_info": self._get_process_info()
             }
-            
+
             # Add GPU information if available and requested
             if include_gpu_info and torch.cuda.is_available():
                 resource_state["gpu_info"] = self._get_gpu_info()
-            
+
             # Add to snapshots
             self.resource_snapshots.append(resource_state)
-            
+
             # Create formatted log message
             log_message = self._format_resource_state_message(resource_state)
             self.logger.error(log_message)
-            
+
             # Log detailed JSON for debugging
             json_state = json.dumps(resource_state, indent=2, default=str)
             self.logger.debug(f"Resource State JSON:\n{json_state}")
-            
+
         except Exception as logging_error:
             self.logger.error(f"Failed to log resource state: {str(logging_error)}")
-    
+
     def generate_debugging_report(
         self,
         error_history: Optional[List[Exception]] = None,
@@ -157,11 +157,11 @@ class EnhancedErrorLogger:
     ) -> str:
         """
         Generate comprehensive debugging report for error analysis.
-        
+
         Args:
             error_history: List of recent errors (uses internal history if None)
             include_recommendations: Whether to include troubleshooting recommendations
-            
+
         Returns:
             Formatted debugging report string
         """
@@ -170,7 +170,7 @@ class EnhancedErrorLogger:
             errors_to_analyze = error_history or [
                 ctx["error_message"] for ctx in self.performance_context_history[-10:]
             ]
-            
+
             # Build comprehensive report
             report = [
                 "=" * 80,
@@ -184,18 +184,18 @@ class EnhancedErrorLogger:
                 "SYSTEM OVERVIEW",
                 "-" * 40
             ]
-            
+
             # Add current system state
             current_state = self._capture_system_state()
             for key, value in current_state.items():
                 report.append(f"{key.replace('_', ' ').title()}: {value}")
-            
+
             report.extend([
                 "",
                 "ERROR ANALYSIS",
                 "-" * 40
             ])
-            
+
             # Analyze error patterns
             error_analysis = self._analyze_error_patterns(errors_to_analyze)
             for category, details in error_analysis.items():
@@ -205,7 +205,7 @@ class EnhancedErrorLogger:
                         report.append(f"  • {key}: {value}")
                 else:
                     report.append(f"  • {details}")
-            
+
             # Add recent performance context
             if self.performance_context_history:
                 report.extend([
@@ -213,7 +213,7 @@ class EnhancedErrorLogger:
                     "RECENT PERFORMANCE CONTEXT",
                     "-" * 40
                 ])
-                
+
                 for ctx in self.performance_context_history[-5:]:
                     report.extend([
                         f"\nOperation: {ctx['operation']}",
@@ -221,12 +221,12 @@ class EnhancedErrorLogger:
                         f"Error: {ctx['error_type']} - {ctx['error_message']}",
                         f"Severity: {ctx['severity']}"
                     ])
-                    
+
                     if ctx.get('context'):
                         report.append("Context:")
                         for key, value in ctx['context'].items():
                             report.append(f"  • {key}: {value}")
-            
+
             # Add resource state analysis
             if self.resource_snapshots:
                 report.extend([
@@ -234,7 +234,7 @@ class EnhancedErrorLogger:
                     "RESOURCE STATE ANALYSIS",
                     "-" * 40
                 ])
-                
+
                 latest_snapshot = self.resource_snapshots[-1]
                 report.extend([
                     f"Latest Snapshot: {latest_snapshot['timestamp']}",
@@ -242,7 +242,7 @@ class EnhancedErrorLogger:
                     f"Memory Usage: {latest_snapshot['memory_info'].get('usage_percent', 'N/A')}%",
                     f"Available Memory: {latest_snapshot['memory_info'].get('available_gb', 'N/A')}GB"
                 ])
-                
+
                 if 'gpu_info' in latest_snapshot:
                     gpu_info = latest_snapshot['gpu_info']
                     report.extend([
@@ -250,22 +250,22 @@ class EnhancedErrorLogger:
                         f"GPU Memory Total: {gpu_info.get('memory_total_gb', 'N/A')}GB",
                         f"GPU Utilization: {gpu_info.get('utilization_percent', 'N/A')}%"
                     ])
-            
+
             # Add troubleshooting recommendations
             if include_recommendations:
                 recommendations = self._generate_troubleshooting_recommendations(
                     errors_to_analyze, error_analysis
                 )
-                
+
                 report.extend([
                     "",
                     "TROUBLESHOOTING RECOMMENDATIONS",
                     "-" * 40
                 ])
-                
+
                 for i, recommendation in enumerate(recommendations, 1):
                     report.append(f"{i}. {recommendation}")
-            
+
             # Add footer
             report.extend([
                 "",
@@ -274,14 +274,14 @@ class EnhancedErrorLogger:
                 f"For support, include this report with your issue description",
                 "=" * 80
             ])
-            
+
             return "\n".join(report)
-            
+
         except Exception as e:
             error_msg = f"Failed to generate debugging report: {str(e)}"
             self.logger.error(error_msg)
             return error_msg
-    
+
     def log_with_severity(
         self,
         message: str,
@@ -291,7 +291,7 @@ class EnhancedErrorLogger:
     ):
         """
         Log message with specified severity level and optional context.
-        
+
         Args:
             message: Log message
             severity: Severity level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -307,12 +307,12 @@ class EnhancedErrorLogger:
                 "message": message,
                 "context": context or {}
             }
-            
+
             # Format message with context
             formatted_message = f"[{operation}] {message}"
             if context:
                 formatted_message += f" | Context: {json.dumps(context, default=str)}"
-            
+
             # Log with appropriate level
             severity_upper = severity.upper()
             if severity_upper == "DEBUG":
@@ -327,10 +327,10 @@ class EnhancedErrorLogger:
                 self.logger.critical(formatted_message)
             else:
                 self.logger.info(formatted_message)
-            
+
         except Exception as e:
             self.logger.error(f"Failed to log with severity: {str(e)}")
-    
+
     def _capture_system_state(self) -> Dict[str, Any]:
         """Capture current system state for context."""
         try:
@@ -345,7 +345,7 @@ class EnhancedErrorLogger:
             }
         except Exception:
             return {"error": "Failed to capture system state"}
-    
+
     def _get_cpu_info(self) -> Dict[str, Any]:
         """Get CPU information."""
         try:
@@ -357,7 +357,7 @@ class EnhancedErrorLogger:
             }
         except Exception as e:
             return {"error": str(e)}
-    
+
     def _get_memory_info(self) -> Dict[str, Any]:
         """Get memory information."""
         try:
@@ -371,7 +371,7 @@ class EnhancedErrorLogger:
             }
         except Exception as e:
             return {"error": str(e)}
-    
+
     def _get_disk_info(self) -> Dict[str, Any]:
         """Get disk information."""
         try:
@@ -384,7 +384,7 @@ class EnhancedErrorLogger:
             }
         except Exception as e:
             return {"error": str(e)}
-    
+
     def _get_process_info(self) -> Dict[str, Any]:
         """Get current process information."""
         try:
@@ -400,20 +400,20 @@ class EnhancedErrorLogger:
             }
         except Exception as e:
             return {"error": str(e)}
-    
+
     def _get_gpu_info(self) -> Dict[str, Any]:
         """Get GPU information."""
         try:
             if not torch.cuda.is_available():
                 return {"error": "CUDA not available"}
-            
+
             gpu_info = {}
             for i in range(torch.cuda.device_count()):
                 device_props = torch.cuda.get_device_properties(i)
                 memory_allocated = torch.cuda.memory_allocated(i) / (1024**3)
                 memory_cached = torch.cuda.memory_reserved(i) / (1024**3)
                 memory_total = device_props.total_memory / (1024**3)
-                
+
                 gpu_info[f"device_{i}"] = {
                     "name": device_props.name,
                     "memory_total_gb": memory_total,
@@ -423,11 +423,11 @@ class EnhancedErrorLogger:
                     "utilization_percent": (memory_allocated / memory_total) * 100,
                     "compute_capability": f"{device_props.major}.{device_props.minor}"
                 }
-            
+
             return gpu_info
         except Exception as e:
             return {"error": str(e)}
-    
+
     def _format_performance_context_message(self, context: Dict[str, Any]) -> str:
         """Format performance context for logging."""
         try:
@@ -440,30 +440,30 @@ class EnhancedErrorLogger:
             )
         except Exception:
             return f"Performance Context - Operation: {context.get('operation', 'unknown')}"
-    
+
     def _format_resource_state_message(self, state: Dict[str, Any]) -> str:
         """Format resource state for logging."""
         try:
             cpu_usage = state['cpu_info'].get('usage_percent', 'N/A')
             memory_usage = state['memory_info'].get('usage_percent', 'N/A')
             memory_available = state['memory_info'].get('available_gb', 'N/A')
-            
+
             message = (
                 f"Resource State - Operation: {state['operation']}, "
                 f"CPU: {cpu_usage}%, Memory: {memory_usage}% "
                 f"({memory_available:.1f}GB available)"
             )
-            
+
             if 'gpu_info' in state and state['gpu_info']:
                 gpu_info = list(state['gpu_info'].values())[0]  # First GPU
                 gpu_memory = gpu_info.get('memory_allocated_gb', 'N/A')
                 gpu_util = gpu_info.get('utilization_percent', 'N/A')
                 message += f", GPU: {gpu_util:.1f}% ({gpu_memory:.1f}GB used)"
-            
+
             return message
         except Exception:
             return f"Resource State - Operation: {state.get('operation', 'unknown')}"
-    
+
     def _analyze_error_patterns(self, errors: List[str]) -> Dict[str, Any]:
         """Analyze error patterns for common issues."""
         try:
@@ -476,39 +476,39 @@ class EnhancedErrorLogger:
                 "model_related": 0,
                 "common_patterns": []
             }
-            
+
             for error in errors:
                 error_lower = str(error).lower()
-                
+
                 if any(keyword in error_lower for keyword in ['memory', 'out of memory', 'oom']):
                     analysis["memory_related"] += 1
-                
+
                 if any(keyword in error_lower for keyword in ['cuda', 'gpu', 'device']):
                     analysis["gpu_related"] += 1
-                
+
                 if any(keyword in error_lower for keyword in ['connection', 'network', 'timeout']):
                     analysis["network_related"] += 1
-                
+
                 if any(keyword in error_lower for keyword in ['file', 'path', 'directory']):
                     analysis["file_related"] += 1
-                
+
                 if any(keyword in error_lower for keyword in ['model', 'checkpoint', 'weights']):
                     analysis["model_related"] += 1
-            
+
             # Identify common patterns
             if analysis["memory_related"] > len(errors) * 0.3:
                 analysis["common_patterns"].append("Frequent memory issues detected")
-            
+
             if analysis["gpu_related"] > len(errors) * 0.2:
                 analysis["common_patterns"].append("GPU-related problems detected")
-            
+
             if analysis["network_related"] > 0:
                 analysis["common_patterns"].append("Network connectivity issues detected")
-            
+
             return analysis
         except Exception:
             return {"error": "Failed to analyze error patterns"}
-    
+
     def _generate_troubleshooting_recommendations(
         self,
         errors: List[str],
@@ -516,7 +516,7 @@ class EnhancedErrorLogger:
     ) -> List[str]:
         """Generate troubleshooting recommendations based on error analysis."""
         recommendations = []
-        
+
         try:
             # Memory-related recommendations
             if analysis.get("memory_related", 0) > 0:
@@ -526,7 +526,7 @@ class EnhancedErrorLogger:
                     "Clear model cache and force garbage collection",
                     "Consider using mixed precision (FP16) to reduce memory usage"
                 ])
-            
+
             # GPU-related recommendations
             if analysis.get("gpu_related", 0) > 0:
                 recommendations.extend([
@@ -535,7 +535,7 @@ class EnhancedErrorLogger:
                     "Reduce input resolution or batch size",
                     "Update GPU drivers and CUDA installation"
                 ])
-            
+
             # Network-related recommendations
             if analysis.get("network_related", 0) > 0:
                 recommendations.extend([
@@ -544,7 +544,7 @@ class EnhancedErrorLogger:
                     "Configure proxy settings if behind firewall",
                     "Retry with exponential backoff for network operations"
                 ])
-            
+
             # Model-related recommendations
             if analysis.get("model_related", 0) > 0:
                 recommendations.extend([
@@ -553,7 +553,7 @@ class EnhancedErrorLogger:
                     "Try alternative model variants",
                     "Clear model cache and re-download"
                 ])
-            
+
             # General recommendations
             recommendations.extend([
                 "Check system resources (CPU, memory, disk space)",
@@ -561,26 +561,26 @@ class EnhancedErrorLogger:
                 "Enable debug logging for more detailed error information",
                 "Update SOWLv2 to the latest version"
             ])
-            
+
             return recommendations[:10]  # Limit to top 10 recommendations
-            
+
         except Exception:
             return ["Enable debug logging and check system resources"]
-    
+
     def clear_history(self):
         """Clear error history and snapshots."""
         self.error_history.clear()
         self.performance_context_history.clear()
         self.resource_snapshots.clear()
         self.logger.info("Error logging history cleared")
-    
+
     def export_logs(self, output_file: str) -> bool:
         """
         Export all logged data to a file.
-        
+
         Args:
             output_file: Path to output file
-            
+
         Returns:
             True if export successful, False otherwise
         """
@@ -592,13 +592,13 @@ class EnhancedErrorLogger:
                 "resource_snapshots": self.resource_snapshots,
                 "system_state": self._capture_system_state()
             }
-            
+
             with open(output_file, 'w') as f:
                 json.dump(export_data, f, indent=2, default=str)
-            
+
             self.logger.info(f"Logs exported to {output_file}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Failed to export logs: {str(e)}")
             return False

@@ -68,12 +68,12 @@ class PerformanceAlert:
 
 class MonitoringDashboard:
     """Real-time performance monitoring dashboard with alerting capabilities."""
-    
+
     def __init__(self, device: str = "cuda", update_interval: float = 1.0,
                  alert_config: Optional[AlertConfig] = None):
         """
         Initialize the monitoring dashboard.
-        
+
         Args:
             device: Primary device to monitor
             update_interval: Update frequency in seconds
@@ -82,31 +82,31 @@ class MonitoringDashboard:
         self.device = device
         self.update_interval = update_interval
         self.alert_config = alert_config or AlertConfig()
-        
+
         # Monitoring components
         self.performance_collector = PerformanceCollector(device=device)
         self.resource_manager = AdvancedResourceManager(device=device)
-        
+
         # Monitoring state
         self.is_monitoring = False
         self.monitoring_thread: Optional[threading.Thread] = None
-        
+
         # Data storage (keep last 1000 data points)
         self.resource_history: deque = deque(maxlen=1000)
         self.performance_history: deque = deque(maxlen=1000)
         self.active_alerts: List[PerformanceAlert] = []
         self.alert_history: deque = deque(maxlen=100)
-        
+
         # Progress tracking
         self.active_operations: Dict[str, ProgressInfo] = {}
-        
+
         # Callbacks for external integration
         self.alert_callbacks: List[Callable[[PerformanceAlert], None]] = []
         self.progress_callbacks: List[Callable[[str, ProgressInfo], None]] = []
-        
+
         # Baseline measurements
         self._baseline_measurements = self._get_baseline_measurements()
-        
+
     def _get_baseline_measurements(self) -> Dict[str, float]:
         """Get baseline system measurements for comparison."""
         baseline = {
@@ -117,81 +117,81 @@ class MonitoringDashboard:
             'network_io_sent': 0,
             'network_io_recv': 0
         }
-        
+
         if torch.cuda.is_available() and self.device == "cuda":
             baseline['gpu_memory_percent'] = (
-                torch.cuda.memory_allocated() / 
+                torch.cuda.memory_allocated() /
                 torch.cuda.get_device_properties(0).total_memory
             ) * 100
             baseline['gpu_utilization'] = 0  # Will be updated during monitoring
-            
+
         return baseline
-        
+
     def start_monitoring(self):
         """Start real-time monitoring in a background thread."""
         if self.is_monitoring:
             print("Monitoring is already active")
             return
-            
+
         self.is_monitoring = True
         self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
         self.monitoring_thread.start()
-        
+
         print(f"Real-time monitoring started (update interval: {self.update_interval}s)")
-        
+
     def stop_monitoring(self):
         """Stop real-time monitoring."""
         if not self.is_monitoring:
             return
-            
+
         self.is_monitoring = False
         if self.monitoring_thread:
             self.monitoring_thread.join(timeout=5)
-            
+
         print("Real-time monitoring stopped")
-        
+
     def _monitoring_loop(self):
         """Main monitoring loop running in background thread."""
         last_disk_io = psutil.disk_io_counters()
         last_network_io = psutil.net_io_counters()
         last_time = time.time()
-        
+
         while self.is_monitoring:
             try:
                 current_time = time.time()
                 time_delta = current_time - last_time
-                
+
                 # Collect resource utilization
                 utilization = self._collect_resource_utilization(
                     last_disk_io, last_network_io, time_delta
                 )
                 self.resource_history.append(utilization)
-                
+
                 # Check for alerts
                 self._check_alerts(utilization)
-                
+
                 # Update progress for active operations
                 self._update_operation_progress()
-                
+
                 # Store current measurements for next iteration
                 last_disk_io = psutil.disk_io_counters()
                 last_network_io = psutil.net_io_counters()
                 last_time = current_time
-                
+
                 # Sleep until next update
                 time.sleep(self.update_interval)
-                
+
             except Exception as e:
                 print(f"Error in monitoring loop: {e}")
                 time.sleep(self.update_interval)
-                
-    def _collect_resource_utilization(self, last_disk_io, last_network_io, 
+
+    def _collect_resource_utilization(self, last_disk_io, last_network_io,
                                     time_delta: float) -> ResourceUtilization:
         """Collect current resource utilization metrics."""
         # CPU and memory
         cpu_percent = psutil.cpu_percent(interval=None)
         memory = psutil.virtual_memory()
-        
+
         # Disk I/O
         current_disk_io = psutil.disk_io_counters()
         if last_disk_io and time_delta > 0:
@@ -199,7 +199,7 @@ class MonitoringDashboard:
             disk_write_rate = (current_disk_io.write_bytes - last_disk_io.write_bytes) / (1024*1024) / time_delta
         else:
             disk_read_rate = disk_write_rate = 0
-            
+
         # Network I/O
         current_network_io = psutil.net_io_counters()
         if last_network_io and time_delta > 0:
@@ -207,16 +207,16 @@ class MonitoringDashboard:
             network_recv_rate = (current_network_io.bytes_recv - last_network_io.bytes_recv) / (1024*1024) / time_delta
         else:
             network_sent_rate = network_recv_rate = 0
-            
+
         # GPU metrics
         gpu_memory_percent = 0
         gpu_utilization = 0
-        
+
         if torch.cuda.is_available() and self.device == "cuda":
             gpu_memory_allocated = torch.cuda.memory_allocated()
             gpu_memory_total = torch.cuda.get_device_properties(0).total_memory
             gpu_memory_percent = (gpu_memory_allocated / gpu_memory_total) * 100
-            
+
             # Try to get GPU utilization if nvidia-ml-py is available
             try:
                 import pynvml
@@ -226,7 +226,7 @@ class MonitoringDashboard:
                 gpu_utilization = utilization_rates.gpu
             except ImportError:
                 gpu_utilization = 0
-                
+
         return ResourceUtilization(
             cpu_percent=cpu_percent,
             memory_percent=memory.percent,
@@ -237,11 +237,11 @@ class MonitoringDashboard:
             network_io_sent=network_sent_rate,
             network_io_recv=network_recv_rate
         )
-        
+
     def _check_alerts(self, utilization: ResourceUtilization):
         """Check for performance alerts based on current utilization."""
         alerts_to_add = []
-        
+
         # Memory alert
         if utilization.memory_percent > self.alert_config.memory_threshold:
             alert = PerformanceAlert(
@@ -252,7 +252,7 @@ class MonitoringDashboard:
                 threshold=self.alert_config.memory_threshold
             )
             alerts_to_add.append(alert)
-            
+
         # GPU memory alert
         if utilization.gpu_memory_percent > self.alert_config.gpu_memory_threshold:
             alert = PerformanceAlert(
@@ -263,7 +263,7 @@ class MonitoringDashboard:
                 threshold=self.alert_config.gpu_memory_threshold
             )
             alerts_to_add.append(alert)
-            
+
         # CPU alert
         if utilization.cpu_percent > self.alert_config.cpu_threshold:
             alert = PerformanceAlert(
@@ -274,72 +274,72 @@ class MonitoringDashboard:
                 threshold=self.alert_config.cpu_threshold
             )
             alerts_to_add.append(alert)
-            
+
         # Add new alerts and trigger callbacks
         for alert in alerts_to_add:
             # Check if similar alert already exists
             existing_alert = next(
-                (a for a in self.active_alerts 
+                (a for a in self.active_alerts
                  if a.alert_type == alert.alert_type and not a.resolved),
                 None
             )
-            
+
             if not existing_alert:
                 self.active_alerts.append(alert)
                 self.alert_history.append(alert)
                 self._trigger_alert(alert)
-                
+
         # Resolve alerts that are no longer active
         for alert in self.active_alerts:
             if not alert.resolved:
                 should_resolve = False
-                
+
                 if alert.alert_type == "high_memory_usage" and utilization.memory_percent < self.alert_config.memory_threshold - 5:
                     should_resolve = True
                 elif alert.alert_type == "high_gpu_memory_usage" and utilization.gpu_memory_percent < self.alert_config.gpu_memory_threshold - 5:
                     should_resolve = True
                 elif alert.alert_type == "high_cpu_usage" and utilization.cpu_percent < self.alert_config.cpu_threshold - 5:
                     should_resolve = True
-                    
+
                 if should_resolve:
                     alert.resolved = True
                     if self.alert_config.enable_console_alerts:
                         print(f"✓ Alert resolved: {alert.message}")
-                        
+
     def _trigger_alert(self, alert: PerformanceAlert):
         """Trigger alert notifications."""
         if self.alert_config.enable_console_alerts:
             severity_icon = {
                 "low": "ℹ️",
-                "medium": "⚠️", 
+                "medium": "⚠️",
                 "high": "🚨",
                 "critical": "🔥"
             }.get(alert.severity, "⚠️")
-            
+
             print(f"{severity_icon} ALERT [{alert.severity.upper()}]: {alert.message}")
-            
+
         # Trigger registered callbacks
         for callback in self.alert_callbacks:
             try:
                 callback(alert)
             except Exception as e:
                 print(f"Error in alert callback: {e}")
-                
+
     def start_operation_tracking(self, operation_name: str, total_steps: int,
                                metadata: Optional[Dict[str, Any]] = None) -> str:
         """
         Start tracking progress for a long-running operation.
-        
+
         Args:
             operation_name: Name of the operation
             total_steps: Total number of steps
             metadata: Additional operation metadata
-            
+
         Returns:
             str: Operation ID for progress updates
         """
         operation_id = f"{operation_name}_{int(time.time())}"
-        
+
         progress_info = ProgressInfo(
             operation_name=operation_name,
             current_step=0,
@@ -347,17 +347,17 @@ class MonitoringDashboard:
             start_time=datetime.now(),
             metadata=metadata or {}
         )
-        
+
         self.active_operations[operation_id] = progress_info
-        
+
         print(f"📊 Started tracking: {operation_name} (0/{total_steps})")
         return operation_id
-        
+
     def update_operation_progress(self, operation_id: str, current_step: int,
                                 current_stage: str = ""):
         """
         Update progress for a tracked operation.
-        
+
         Args:
             operation_id: Operation ID from start_operation_tracking
             current_step: Current step number
@@ -365,51 +365,51 @@ class MonitoringDashboard:
         """
         if operation_id not in self.active_operations:
             return
-            
+
         progress_info = self.active_operations[operation_id]
         progress_info.current_step = current_step
         progress_info.current_stage = current_stage
-        
+
         # Estimate completion time
         if current_step > 0:
             elapsed = datetime.now() - progress_info.start_time
             estimated_total = elapsed * (progress_info.total_steps / current_step)
             progress_info.estimated_completion = progress_info.start_time + estimated_total
-            
+
         # Trigger progress callbacks
         for callback in self.progress_callbacks:
             try:
                 callback(operation_id, progress_info)
             except Exception as e:
                 print(f"Error in progress callback: {e}")
-                
+
     def complete_operation_tracking(self, operation_id: str):
         """Complete tracking for an operation."""
         if operation_id in self.active_operations:
             progress_info = self.active_operations.pop(operation_id)
             elapsed = datetime.now() - progress_info.start_time
-            
+
             print(f"✅ Completed: {progress_info.operation_name} "
                   f"({progress_info.total_steps}/{progress_info.total_steps}) "
                   f"in {elapsed.total_seconds():.1f}s")
-                  
+
     def _update_operation_progress(self):
         """Update progress display for active operations."""
         for operation_id, progress_info in self.active_operations.items():
             if progress_info.current_step > 0:
                 percent = (progress_info.current_step / progress_info.total_steps) * 100
                 elapsed = datetime.now() - progress_info.start_time
-                
+
                 # Simple progress display (could be enhanced with progress bars)
                 stage_info = f" - {progress_info.current_stage}" if progress_info.current_stage else ""
                 print(f"⏳ {progress_info.operation_name}: {percent:.1f}% "
                       f"({progress_info.current_step}/{progress_info.total_steps})"
                       f"{stage_info} [{elapsed.total_seconds():.1f}s]")
-                      
+
     def get_current_status(self) -> Dict[str, Any]:
         """Get current monitoring status and metrics."""
         current_utilization = self.resource_history[-1] if self.resource_history else None
-        
+
         status = {
             'monitoring_active': self.is_monitoring,
             'update_interval': self.update_interval,
@@ -418,7 +418,7 @@ class MonitoringDashboard:
             'total_alerts': len(self.alert_history),
             'data_points_collected': len(self.resource_history)
         }
-        
+
         if current_utilization:
             status['current_utilization'] = {
                 'cpu_percent': current_utilization.cpu_percent,
@@ -426,29 +426,29 @@ class MonitoringDashboard:
                 'gpu_memory_percent': current_utilization.gpu_memory_percent,
                 'gpu_utilization': current_utilization.gpu_utilization
             }
-            
+
         return status
-        
+
     def get_resource_trends(self, window_minutes: int = 5) -> Dict[str, Any]:
         """Get resource utilization trends over specified time window."""
         if not self.resource_history:
             return {}
-            
+
         # Filter data within time window
         cutoff_time = datetime.now() - timedelta(minutes=window_minutes)
         recent_data = [
-            util for util in self.resource_history 
+            util for util in self.resource_history
             if util.timestamp >= cutoff_time
         ]
-        
+
         if not recent_data:
             return {}
-            
+
         # Calculate trends
         cpu_values = [u.cpu_percent for u in recent_data]
         memory_values = [u.memory_percent for u in recent_data]
         gpu_memory_values = [u.gpu_memory_percent for u in recent_data]
-        
+
         return {
             'window_minutes': window_minutes,
             'data_points': len(recent_data),
@@ -471,15 +471,15 @@ class MonitoringDashboard:
                 'trend': 'increasing' if gpu_memory_values[-1] > gpu_memory_values[0] else 'decreasing'
             }
         }
-        
+
     def add_alert_callback(self, callback: Callable[[PerformanceAlert], None]):
         """Add callback function for alert notifications."""
         self.alert_callbacks.append(callback)
-        
+
     def add_progress_callback(self, callback: Callable[[str, ProgressInfo], None]):
         """Add callback function for progress updates."""
         self.progress_callbacks.append(callback)
-        
+
     def export_monitoring_data(self, filepath: str):
         """Export monitoring data to JSON file."""
         data = {
@@ -520,17 +520,17 @@ class MonitoringDashboard:
                 }
             }
         }
-        
+
         with open(filepath, 'w') as f:
             json.dump(data, f, indent=2)
-            
+
         print(f"Monitoring data exported to: {filepath}")
-        
+
     def __enter__(self):
         """Context manager entry."""
         self.start_monitoring()
         return self
-        
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.stop_monitoring()

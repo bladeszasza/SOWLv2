@@ -15,9 +15,9 @@ class PipelineConfig:
         binary (bool): Specifies if binary processing is enabled.
         overlay (bool): Determines if overlay functionality is active.
     """
-    merged: bool
-    binary: bool
-    overlay: bool
+    merged: bool = True
+    binary: bool = True
+    overlay: bool = True
 
 @dataclass
 class OptimizationConfig:
