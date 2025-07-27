@@ -1,0 +1,58 @@
+# EdgeTAM Real-Time Processing Configuration
+# Optimized for low-latency, real-time video processing
+# Best for: Live streams, security cameras, real-time applications
+
+# Basic settings
+prompt: ["person", "vehicle"]
+input: "rtmp://stream.url/live"  # Or webcam: 0
+output: "realtime_output"
+
+# Real-time optimized model selection
+edgetam: true
+edgetam-model: "facebook/edgetam-small"  # Fastest EdgeTAM variant
+edgetam-optimization-level: 3            # Maximum optimization
+
+# Detection settings
+threshold: 0.2                          # Slightly higher for stability
+fps: 30                                 # Real-time frame rate
+device: "cuda"
+
+# Aggressive optimization for speed
+optimization-level: 3
+optimization-preset: "speed"
+enable-mixed-precision: true
+disable-gpu-batching: false
+
+# Memory management for continuous processing
+memory-limit: 6.0
+streaming-chunk-size: 30               # 1 second chunks at 30fps
+enable-streaming-mode: true
+
+# Minimal output for speed
+merged: true
+binary: false                          # Skip binary masks for speed
+overlay: false                         # Skip individual overlays
+
+# Disable heavy features
+enable-vjepa2: false                   # Skip frame optimization
+use-temporal-detection: false          # Process each frame independently
+
+# Parallel processing
+max-workers: 2                         # Limited for real-time stability
+batch-size: 1                          # Process frames immediately
+
+# Performance monitoring
+benchmark: false                       # Disable for production
+collect-memory-stats: true
+collect-gpu-stats: false
+
+# Error handling for continuous operation
+continue-on-error: true
+max-consecutive-errors: 10
+error-recovery-strategy: "skip_frame"
+
+# Real-time specific settings
+real_time_mode: true
+max_latency_ms: 100
+frame_dropping_enabled: true
+buffer_size: 3

@@ -211,8 +211,9 @@ class IntelligentBatchOptimizer:
     def profile_and_optimize(self,
                            test_image_size: Tuple[int, int],
                            num_prompts: int,
-                           memory_limit: Optional[float] = None) -> BatchConfig:
-        """Enhanced profiling with adaptive optimization."""
+                           memory_limit: Optional[float] = None,
+                           model_type: str = "sam2") -> BatchConfig:
+        """Enhanced profiling with adaptive optimization and performance tuning."""
         if self.device == "cpu" or not self.gpu_profile:
             return BatchConfig(
                 detection_batch_size=1,
@@ -223,71 +224,106 @@ class IntelligentBatchOptimizer:
                 optimization_level=self.optimization_level
             )
 
-        # Use provided memory limit or calculate from available memory
-        available_memory = memory_limit or self.gpu_profile.available_memory
+        # Use provided memory limit or calculate from available memory with safety margin
+        available_memory = memory_limit or (self.gpu_profile.available_memory * 0.9)
         
-        # Adjust target memory usage based on optimization level
-        if self.optimization_level == OptimizationLevel.CONSERVATIVE:
-            target_memory_usage = 0.6
-            memory_safety_factor = 0.7
-        elif self.optimization_level == OptimizationLevel.BALANCED:
-            target_memory_usage = 0.75
-            memory_safety_factor = 0.8
-        else:  # AGGRESSIVE
-            target_memory_usage = 0.9
-            memory_safety_factor = 0.9
+        # Enhanced target memory usage with dynamic adjustment
+        target_configs = {
+            OptimizationLevel.CONSERVATIVE: {"target": 0.6, "safety": 0.8},
+            OptimizationLevel.BALANCED: {"target": 0.75, "safety": 0.85},
+            OptimizationLevel.AGGRESSIVE: {"target": 0.9, "safety": 0.95}
+        }
+        
+        config = target_configs[self.optimization_level]
+        target_memory_usage = config["target"]
+        memory_safety_factor = config["safety"]
 
-        # Calculate memory requirements with improved estimates
+        # Calculate memory requirements with model-specific optimizations
         pixels_per_image = test_image_size[0] * test_image_size[1]
         base_memory_per_image = pixels_per_image * 4 * 3 / 1e9  # RGB float32
 
-        # Enhanced memory estimation based on model characteristics
-        detection_base_memory = 2.5 if self.optimization_level == OptimizationLevel.AGGRESSIVE else 3.0
-        segmentation_base_memory = 4.5 if self.optimization_level == OptimizationLevel.AGGRESSIVE else 5.0
+        # Model-specific memory optimizations
+        model_optimizations = {
+            "sam2": {"detection_factor": 1.0, "segmentation_factor": 1.0, "base_overhead": 3.0},
+            "edgetam": {"detection_factor": 0.7, "segmentation_factor": 0.6, "base_overhead": 2.0},
+            "owl": {"detection_factor": 1.2, "segmentation_factor": 1.0, "base_overhead": 3.5}
+        }
         
-        # Detection batch size calculation
-        detection_memory_per_batch = detection_base_memory + base_memory_per_image * num_prompts
+        model_opt = model_optimizations.get(model_type, model_optimizations["sam2"])
+        
+        # Enhanced memory estimation with GPU architecture considerations
+        if self.gpu_profile.compute_capability[0] >= 8:  # Ampere and newer
+            memory_efficiency_factor = 1.2
+        elif self.gpu_profile.compute_capability[0] >= 7:  # Turing/Volta
+            memory_efficiency_factor = 1.1
+        else:
+            memory_efficiency_factor = 1.0
+        
+        # Adaptive memory allocation based on image size
+        if pixels_per_image > 2048 * 2048:  # Very large images
+            memory_allocation = {"detection": 0.25, "segmentation": 0.5, "frame": 0.25}
+        elif pixels_per_image > 1024 * 1024:  # Large images
+            memory_allocation = {"detection": 0.3, "segmentation": 0.45, "frame": 0.25}
+        else:  # Normal/small images
+            memory_allocation = {"detection": 0.35, "segmentation": 0.4, "frame": 0.25}
+        
+        # Calculate optimized batch sizes
+        effective_memory = available_memory * target_memory_usage * memory_safety_factor * memory_efficiency_factor
+        
+        # Detection batch size with model optimization
+        detection_memory_per_batch = (model_opt["base_overhead"] + base_memory_per_image * num_prompts) * model_opt["detection_factor"]
         detection_batch_size = max(1, int(
-            (available_memory * target_memory_usage * 0.3) / detection_memory_per_batch
+            (effective_memory * memory_allocation["detection"]) / detection_memory_per_batch
         ))
 
-        # Segmentation batch size calculation
-        segmentation_memory_per_image = segmentation_base_memory + base_memory_per_image * 2
+        # Segmentation batch size with model optimization
+        segmentation_memory_per_image = (4.5 + base_memory_per_image * 2) * model_opt["segmentation_factor"]
         segmentation_batch_size = max(1, int(
-            (available_memory * target_memory_usage * 0.4) / segmentation_memory_per_image
+            (effective_memory * memory_allocation["segmentation"]) / segmentation_memory_per_image
         ))
 
-        # Frame processing batch size
+        # Frame processing batch size with temporal optimization
         frame_memory_per_batch = base_memory_per_image * 16
         frame_batch_size = max(1, int(
-            (available_memory * target_memory_usage * 0.3) / frame_memory_per_batch
+            (effective_memory * memory_allocation["frame"]) / frame_memory_per_batch
         ))
 
-        # Apply optimization level constraints
-        max_detection = {
-            OptimizationLevel.CONSERVATIVE: 4,
-            OptimizationLevel.BALANCED: 8,
-            OptimizationLevel.AGGRESSIVE: 16
-        }[self.optimization_level]
+        # Apply intelligent constraints based on GPU capabilities
+        gpu_memory_gb = self.gpu_profile.total_memory
+        compute_units = self.gpu_profile.compute_units
         
-        max_segmentation = {
-            OptimizationLevel.CONSERVATIVE: 2,
-            OptimizationLevel.BALANCED: 4,
-            OptimizationLevel.AGGRESSIVE: 8
-        }[self.optimization_level]
+        # Scale limits based on GPU power
+        gpu_scale_factor = min(2.0, max(0.5, gpu_memory_gb / 8.0))  # Scale based on 8GB baseline
+        compute_scale_factor = min(1.5, max(0.7, compute_units / 80))  # Scale based on typical GPU
         
-        max_frame = {
-            OptimizationLevel.CONSERVATIVE: 8,
-            OptimizationLevel.BALANCED: 16,
-            OptimizationLevel.AGGRESSIVE: 32
-        }[self.optimization_level]
+        combined_scale = (gpu_scale_factor + compute_scale_factor) / 2
+        
+        # Enhanced optimization level constraints with GPU scaling
+        base_limits = {
+            OptimizationLevel.CONSERVATIVE: {"detection": 4, "segmentation": 2, "frame": 8},
+            OptimizationLevel.BALANCED: {"detection": 8, "segmentation": 4, "frame": 16},
+            OptimizationLevel.AGGRESSIVE: {"detection": 16, "segmentation": 8, "frame": 32}
+        }
+        
+        limits = base_limits[self.optimization_level]
+        scaled_limits = {k: max(1, int(v * combined_scale)) for k, v in limits.items()}
+
+        # Apply final constraints
+        detection_batch_size = min(detection_batch_size, scaled_limits["detection"])
+        segmentation_batch_size = min(segmentation_batch_size, scaled_limits["segmentation"])
+        frame_batch_size = min(frame_batch_size, scaled_limits["frame"])
+        
+        # Ensure minimum performance thresholds
+        detection_batch_size = max(1, detection_batch_size)
+        segmentation_batch_size = max(1, segmentation_batch_size)
+        frame_batch_size = max(1, frame_batch_size)
 
         return BatchConfig(
-            detection_batch_size=min(detection_batch_size, max_detection),
-            segmentation_batch_size=min(segmentation_batch_size, max_segmentation),
-            frame_batch_size=min(frame_batch_size, max_frame),
-            use_mixed_precision=self.gpu_profile.supports_mixed_precision,
-            enable_gradient_checkpointing=self.optimization_level != OptimizationLevel.AGGRESSIVE,
+            detection_batch_size=detection_batch_size,
+            segmentation_batch_size=segmentation_batch_size,
+            frame_batch_size=frame_batch_size,
+            use_mixed_precision=self.gpu_profile.supports_mixed_precision and self.optimization_level != OptimizationLevel.CONSERVATIVE,
+            enable_gradient_checkpointing=self.optimization_level == OptimizationLevel.CONSERVATIVE,
             optimization_level=self.optimization_level,
             memory_limit_gb=memory_limit
         )

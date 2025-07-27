@@ -1,0 +1,142 @@
+# Performance-Optimized Configuration
+# Fine-tuned for maximum performance across different hardware configurations
+# Auto-adapts to available resources while maintaining quality
+
+# Basic settings
+prompt: ["person", "car", "bicycle"]
+input: "input_video.mp4"
+output: "performance_output"
+
+# Optimized model selection with automatic fallback
+edgetam: true
+edgetam-model: "facebook/edgetam-base"
+edgetam-optimization-level: 2
+sam_model: "facebook/sam2.1-hiera-small"  # Fallback model
+
+# Performance-tuned detection settings
+threshold: 0.2
+fps: 15  # Balanced frame rate
+device: "cuda"
+
+# Aggressive optimization with safety margins
+optimization-level: 2
+optimization-preset: "balanced"
+enable-mixed-precision: true
+disable-gpu-batching: false
+
+# Intelligent memory management
+memory-limit: null  # Auto-detect
+streaming-chunk-size: 150
+enable-streaming-mode: false  # Auto-enable when needed
+progressive-loading: true
+memory-monitoring: true
+auto-memory-adjustment: true
+
+# Performance optimizations
+enable-model-caching: true
+cache-size-limit: 4.0
+model-preloading: false  # Load on demand for better memory usage
+async-processing: true
+
+# Advanced resource management
+resource-management:
+  enable-streaming: true
+  chunk-overlap: 3
+  memory-threshold: 0.8
+  cleanup-interval: 50
+  fallback-to-cpu: true
+
+# Optimized V-JEPA2 settings
+enable-vjepa2: true
+vjepa2-frames-per-clip: 16
+use-temporal-detection: true
+temporal-detection-frames: 4
+temporal-merge-threshold: 0.75
+vjepa2-importance-threshold: 0.7
+
+# Enhanced V-JEPA2 with performance tuning
+vjepa2-advanced:
+  motion-aware-scoring: true
+  content-analysis: true
+  adaptive-frame-spacing: true
+  temporal-consistency: true
+  similarity-threshold: 0.8
+  use-caching: true  # Enable result caching
+
+# Optimized parallel processing
+max-workers: 4
+batch-size: 8
+parallel-prompts: true
+parallel-frames: true
+
+# Intelligent batch optimization
+batch-optimization:
+  adaptive-batch-size: true
+  max-batch-size: 24
+  min-batch-size: 1
+  memory-based-adjustment: true
+  model-specific-tuning: true
+
+# Performance monitoring (lightweight)
+benchmark: false  # Disable for production
+collect-memory-stats: true
+collect-gpu-stats: false  # Disable for performance
+performance-profile: false
+
+# Streamlined output for performance
+merged: true
+binary: false
+overlay: true
+individual_masks: false
+confidence_maps: false
+
+# Optimized error handling
+error-handling:
+  continue-on-error: true
+  max-consecutive-errors: 3
+  retry-attempts: 2
+  fallback-enabled: true
+  error-logging: false  # Reduce I/O overhead
+
+# Performance-focused fallback
+fallback-config:
+  edgetam-to-sam2: true
+  large-to-small: true
+  gpu-to-cpu: true
+  quality-reduction: true
+
+# Content-aware optimization
+content-optimization:
+  enable: true
+  video-type-detection: true
+  adaptive-parameters: true
+  optimization-profiles:
+    static-video: "memory"
+    dynamic-video: "balanced"
+    fast-motion: "speed"
+
+# Hardware-specific optimizations
+hardware-optimizations:
+  enable-tensor-cores: true  # For RTX/A100 GPUs
+  use-cuda-graphs: false  # Experimental
+  optimize-memory-layout: true
+  prefetch-enabled: true
+  
+# Performance presets for different scenarios
+performance-presets:
+  real-time:
+    edgetam-optimization-level: 3
+    batch-size: 1
+    streaming-chunk-size: 25
+    fps: 10
+    
+  batch-processing:
+    batch-size: 16
+    streaming-chunk-size: 200
+    max-workers: 6
+    
+  memory-constrained:
+    memory-limit: 4.0
+    streaming-chunk-size: 50
+    batch-size: 2
+    enable-streaming-mode: true

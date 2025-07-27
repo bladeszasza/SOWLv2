@@ -333,26 +333,34 @@ class VJepa2VideoOptimizer:
         self,
         frames: List[Image.Image],
         motion_weight: float = 0.5,
-        adaptive_weights: bool = True
+        adaptive_weights: bool = True,
+        use_caching: bool = True
     ) -> Optional[List[float]]:
         """
-        Enhanced importance scoring that considers both feature variance and motion.
+        Optimized importance scoring with caching and parallel processing.
 
         Args:
             frames: List of PIL Images
             motion_weight: Weight for motion component (0-1), ignored if adaptive_weights=True
             adaptive_weights: Whether to use content-type adaptive weights
+            use_caching: Whether to use result caching for performance
 
         Returns:
             List of importance scores (0-1) for each frame
         """
-        # Get feature-based importance
+        # Check cache first if enabled
+        if use_caching:
+            cache_key = self._create_frames_cache_key(frames)
+            if hasattr(self, '_importance_cache') and cache_key in self._importance_cache:
+                return self._importance_cache[cache_key]
+        
+        # Get feature-based importance with optimization
         feature_importance = self.get_temporal_importance_scores(frames)
         if feature_importance is None:
             return None
 
-        # Analyze content type for adaptive weighting
-        content_type = self.analyze_content_type(frames) if adaptive_weights else ContentType.DYNAMIC
+        # Analyze content type for adaptive weighting (cached)
+        content_type = self._get_cached_content_type(frames) if adaptive_weights else ContentType.DYNAMIC
         weights = self.get_adaptive_scoring_weights(content_type) if adaptive_weights else {
             'feature_weight': 1 - motion_weight,
             'motion_weight': motion_weight,
@@ -360,47 +368,126 @@ class VJepa2VideoOptimizer:
             'temporal_consistency_weight': 0.0
         }
 
-        # Calculate advanced motion scores
-        motion_importance = self.calculate_advanced_motion_scores(frames)
+        # Parallel computation of different score components
+        import concurrent.futures
+        import threading
         
-        # Calculate temporal consistency scores
-        consistency_scores = self.calculate_temporal_consistency_scores(frames)
+        results = {}
         
-        # Calculate edge-based importance
-        edge_importance = []
-        for frame in frames:
-            gray_frame = np.array(frame.convert('L'))
-            edges = cv2.Canny(gray_frame, 50, 150)
-            edge_density = np.sum(edges > 0) / edges.size
-            edge_importance.append(edge_density)
+        def compute_motion_scores():
+            results['motion'] = self.calculate_advanced_motion_scores(frames)
+        
+        def compute_consistency_scores():
+            results['consistency'] = self.calculate_temporal_consistency_scores(frames)
+        
+        def compute_edge_scores():
+            edge_scores = []
+            for frame in frames:
+                gray_frame = np.array(frame.convert('L'))
+                edges = cv2.Canny(gray_frame, 50, 150)
+                edge_density = np.sum(edges > 0) / edges.size
+                edge_scores.append(edge_density)
+            results['edge'] = edge_scores
+        
+        # Execute computations in parallel for better performance
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [
+                executor.submit(compute_motion_scores),
+                executor.submit(compute_consistency_scores),
+                executor.submit(compute_edge_scores)
+            ]
+            concurrent.futures.wait(futures)
+        
+        motion_importance = results.get('motion', [0.0] * len(frames))
+        consistency_scores = results.get('consistency', [1.0] * len(frames))
+        edge_importance = results.get('edge', [0.0] * len(frames))
 
-        # Normalize all scores
-        def normalize_scores(scores):
-            max_score = max(scores) if scores else 1.0
-            return [s / max_score if max_score > 0 else 0.0 for s in scores]
+        # Optimized normalization
+        def normalize_scores_fast(scores):
+            if not scores:
+                return scores
+            scores_array = np.array(scores)
+            max_score = np.max(scores_array)
+            if max_score > 0:
+                return (scores_array / max_score).tolist()
+            return [0.0] * len(scores)
 
-        feature_importance = normalize_scores(feature_importance)
-        motion_importance = normalize_scores(motion_importance)
-        edge_importance = normalize_scores(edge_importance)
-        consistency_scores = normalize_scores(consistency_scores)
+        feature_importance = normalize_scores_fast(feature_importance)
+        motion_importance = normalize_scores_fast(motion_importance)
+        edge_importance = normalize_scores_fast(edge_importance)
+        consistency_scores = normalize_scores_fast(consistency_scores)
 
-        # Combine scores with adaptive weights
-        combined_scores = []
-        for i in range(len(frames)):
-            feature_score = feature_importance[i]
-            motion_score = motion_importance[i]
-            edge_score = edge_importance[i]
-            consistency_score = consistency_scores[i]
+        # Vectorized score combination for better performance
+        feature_array = np.array(feature_importance)
+        motion_array = np.array(motion_importance)
+        edge_array = np.array(edge_importance)
+        consistency_array = np.array(consistency_scores)
+        
+        combined_array = (
+            weights['feature_weight'] * feature_array +
+            weights['motion_weight'] * motion_array +
+            weights['edge_weight'] * edge_array +
+            weights['temporal_consistency_weight'] * consistency_array
+        )
+        
+        combined_scores = combined_array.tolist()
+        
+        # Cache result if caching is enabled
+        if use_caching:
+            if not hasattr(self, '_importance_cache'):
+                self._importance_cache = {}
             
-            combined = (
-                weights['feature_weight'] * feature_score +
-                weights['motion_weight'] * motion_score +
-                weights['edge_weight'] * edge_score +
-                weights['temporal_consistency_weight'] * consistency_score
-            )
-            combined_scores.append(combined)
+            # Limit cache size
+            if len(self._importance_cache) > 50:
+                # Remove oldest entry
+                oldest_key = next(iter(self._importance_cache))
+                del self._importance_cache[oldest_key]
+            
+            self._importance_cache[cache_key] = combined_scores
 
         return combined_scores
+    
+    def _create_frames_cache_key(self, frames: List[Image.Image]) -> str:
+        """Create cache key for frame sequence."""
+        # Create hash based on frame count, sizes, and sample pixels
+        if not frames:
+            return "empty"
+        
+        # Sample key frames for hashing
+        sample_indices = [0, len(frames)//2, len(frames)-1] if len(frames) > 2 else [0]
+        sample_data = []
+        
+        for idx in sample_indices:
+            if idx < len(frames):
+                frame = frames[idx]
+                # Sample a few pixels for quick hash
+                frame_array = np.array(frame.convert('L'))
+                h, w = frame_array.shape
+                samples = [
+                    frame_array[h//4, w//4],
+                    frame_array[h//2, w//2],
+                    frame_array[3*h//4, 3*w//4]
+                ]
+                sample_data.extend(samples)
+        
+        return f"frames_{len(frames)}_{hash(tuple(sample_data))}"
+    
+    def _get_cached_content_type(self, frames: List[Image.Image]) -> ContentType:
+        """Get content type with caching."""
+        if not hasattr(self, '_content_type_cache'):
+            self._content_type_cache = {}
+        
+        cache_key = self._create_frames_cache_key(frames)
+        
+        if cache_key not in self._content_type_cache:
+            # Limit cache size
+            if len(self._content_type_cache) > 20:
+                oldest_key = next(iter(self._content_type_cache))
+                del self._content_type_cache[oldest_key]
+            
+            self._content_type_cache[cache_key] = self.analyze_content_type(frames)
+        
+        return self._content_type_cache[cache_key]
 
     def get_adaptive_frame_spacing(self, frames: List[Image.Image], target_frames: int) -> List[int]:
         """

@@ -144,33 +144,37 @@ class AdvancedResourceManager:
         
     def optimize_batch_sizes(self, current_usage: float, 
                            image_size: Tuple[int, int] = (1024, 1024),
-                           num_prompts: int = 1) -> BatchConfig:
+                           num_prompts: int = 1,
+                           model_type: str = "sam2") -> BatchConfig:
         """
-        Dynamically optimize batch sizes based on current memory usage.
+        Dynamically optimize batch sizes with enhanced algorithms and model-specific tuning.
         
         Args:
             current_usage: Current memory utilization percentage
             image_size: Input image dimensions
             num_prompts: Number of detection prompts
+            model_type: Type of model being used (sam2, edgetam, etc.)
             
         Returns:
             BatchConfig: Optimized batch configuration
         """
-        # Determine processing mode based on memory pressure
-        if current_usage > 90:
-            mode = ProcessingMode.CPU_FALLBACK
-        elif current_usage > 80:
-            mode = ProcessingMode.STREAMING
-        elif current_usage > 70:
-            mode = ProcessingMode.MEMORY_EFFICIENT
-        else:
-            mode = ProcessingMode.NORMAL
+        # Enhanced processing mode determination with hysteresis
+        mode = self._determine_processing_mode_with_hysteresis(current_usage)
             
-        # Calculate base memory requirements
+        # Calculate base memory requirements with model-specific factors
         pixels = image_size[0] * image_size[1]
         base_memory_per_image = pixels * 4 * 3 / 1e9  # RGB float32 in GB
         
-        # Adjust batch sizes based on mode and available memory
+        # Model-specific memory multipliers
+        model_memory_factors = {
+            "sam2": {"detection": 1.0, "segmentation": 1.0},
+            "edgetam": {"detection": 0.7, "segmentation": 0.6},  # EdgeTAM is more efficient
+            "owl": {"detection": 1.2, "segmentation": 1.0}
+        }
+        
+        model_factor = model_memory_factors.get(model_type, {"detection": 1.0, "segmentation": 1.0})
+        
+        # CPU fallback configuration
         if mode == ProcessingMode.CPU_FALLBACK:
             return BatchConfig(
                 detection_batch_size=1,
@@ -181,46 +185,49 @@ class AdvancedResourceManager:
                 processing_mode=mode
             )
             
-        # Calculate available memory for processing
-        available_memory = self.total_gpu_memory * (1 - current_usage / 100)
+        # Calculate available memory with safety margin
+        safety_margins = {
+            ProcessingMode.NORMAL: 0.1,
+            ProcessingMode.MEMORY_EFFICIENT: 0.2,
+            ProcessingMode.STREAMING: 0.3
+        }
+        
+        safety_margin = safety_margins.get(mode, 0.1)
+        available_memory = self.total_gpu_memory * (1 - current_usage / 100) * (1 - safety_margin)
+        
         if self.memory_limit:
-            available_memory = min(available_memory, self.memory_limit)
+            available_memory = min(available_memory, self.memory_limit * (1 - safety_margin))
             
-        # Memory allocation strategy
-        if mode == ProcessingMode.MEMORY_EFFICIENT:
-            detection_memory_factor = 0.2
-            segmentation_memory_factor = 0.3
-            frame_memory_factor = 0.2
-        else:  # NORMAL mode
-            detection_memory_factor = 0.3
-            segmentation_memory_factor = 0.4
-            frame_memory_factor = 0.3
+        # Enhanced memory allocation strategy with adaptive factors
+        memory_allocation = self._get_adaptive_memory_allocation(mode, current_usage)
             
-        # Calculate optimal batch sizes
-        detection_memory_per_batch = 2.0 + base_memory_per_image * num_prompts
+        # Calculate optimal batch sizes with model-specific adjustments
+        detection_memory_per_batch = (2.0 + base_memory_per_image * num_prompts) * model_factor["detection"]
         detection_batch_size = max(1, int(
-            (available_memory * detection_memory_factor) / detection_memory_per_batch
+            (available_memory * memory_allocation["detection"]) / detection_memory_per_batch
         ))
         
-        segmentation_memory_per_image = 4.0 + base_memory_per_image * 2
+        segmentation_memory_per_image = (4.0 + base_memory_per_image * 2) * model_factor["segmentation"]
         segmentation_batch_size = max(1, int(
-            (available_memory * segmentation_memory_factor) / segmentation_memory_per_image
+            (available_memory * memory_allocation["segmentation"]) / segmentation_memory_per_image
         ))
         
         frame_memory_per_batch = base_memory_per_image * 16
         frame_batch_size = max(1, int(
-            (available_memory * frame_memory_factor) / frame_memory_per_batch
+            (available_memory * memory_allocation["frame"]) / frame_memory_per_batch
         ))
         
-        # Apply caps based on processing mode
-        if mode == ProcessingMode.MEMORY_EFFICIENT:
-            detection_batch_size = min(detection_batch_size, 4)
-            segmentation_batch_size = min(segmentation_batch_size, 2)
-            frame_batch_size = min(frame_batch_size, 8)
-        else:
-            detection_batch_size = min(detection_batch_size, 8)
-            segmentation_batch_size = min(segmentation_batch_size, 4)
-            frame_batch_size = min(frame_batch_size, 16)
+        # Apply intelligent caps with performance considerations
+        caps = self._get_performance_aware_caps(mode, image_size, model_type)
+        
+        detection_batch_size = min(detection_batch_size, caps["detection"])
+        segmentation_batch_size = min(segmentation_batch_size, caps["segmentation"])
+        frame_batch_size = min(frame_batch_size, caps["frame"])
+        
+        # Ensure minimum viable batch sizes
+        detection_batch_size = max(1, detection_batch_size)
+        segmentation_batch_size = max(1, segmentation_batch_size)
+        frame_batch_size = max(1, frame_batch_size)
             
         return BatchConfig(
             detection_batch_size=detection_batch_size,
@@ -230,6 +237,84 @@ class AdvancedResourceManager:
             enable_gradient_checkpointing=mode in [ProcessingMode.MEMORY_EFFICIENT, ProcessingMode.STREAMING],
             processing_mode=mode
         )
+    
+    def _determine_processing_mode_with_hysteresis(self, current_usage: float) -> ProcessingMode:
+        """Determine processing mode with hysteresis to prevent oscillation."""
+        # Get previous mode if available
+        previous_mode = getattr(self, '_previous_mode', ProcessingMode.NORMAL)
+        
+        # Define thresholds with hysteresis
+        if previous_mode == ProcessingMode.NORMAL:
+            cpu_threshold, streaming_threshold, efficient_threshold = 92, 82, 72
+        elif previous_mode == ProcessingMode.MEMORY_EFFICIENT:
+            cpu_threshold, streaming_threshold, efficient_threshold = 90, 80, 65
+        elif previous_mode == ProcessingMode.STREAMING:
+            cpu_threshold, streaming_threshold, efficient_threshold = 88, 75, 70
+        else:  # CPU_FALLBACK
+            cpu_threshold, streaming_threshold, efficient_threshold = 85, 78, 68
+        
+        # Determine new mode
+        if current_usage > cpu_threshold:
+            mode = ProcessingMode.CPU_FALLBACK
+        elif current_usage > streaming_threshold:
+            mode = ProcessingMode.STREAMING
+        elif current_usage > efficient_threshold:
+            mode = ProcessingMode.MEMORY_EFFICIENT
+        else:
+            mode = ProcessingMode.NORMAL
+        
+        self._previous_mode = mode
+        return mode
+    
+    def _get_adaptive_memory_allocation(self, mode: ProcessingMode, current_usage: float) -> Dict[str, float]:
+        """Get adaptive memory allocation factors based on mode and usage."""
+        base_allocations = {
+            ProcessingMode.NORMAL: {"detection": 0.35, "segmentation": 0.45, "frame": 0.2},
+            ProcessingMode.MEMORY_EFFICIENT: {"detection": 0.25, "segmentation": 0.35, "frame": 0.15},
+            ProcessingMode.STREAMING: {"detection": 0.2, "segmentation": 0.3, "frame": 0.1}
+        }
+        
+        allocation = base_allocations.get(mode, base_allocations[ProcessingMode.NORMAL])
+        
+        # Adjust based on current usage (more conservative as usage increases)
+        usage_factor = max(0.5, 1.0 - (current_usage - 50) / 100)
+        
+        return {k: v * usage_factor for k, v in allocation.items()}
+    
+    def _get_performance_aware_caps(self, mode: ProcessingMode, image_size: Tuple[int, int], 
+                                  model_type: str) -> Dict[str, int]:
+        """Get performance-aware batch size caps."""
+        # Base caps by mode
+        base_caps = {
+            ProcessingMode.NORMAL: {"detection": 12, "segmentation": 6, "frame": 24},
+            ProcessingMode.MEMORY_EFFICIENT: {"detection": 6, "segmentation": 3, "frame": 12},
+            ProcessingMode.STREAMING: {"detection": 4, "segmentation": 2, "frame": 8}
+        }
+        
+        caps = base_caps.get(mode, base_caps[ProcessingMode.NORMAL])
+        
+        # Adjust for image size (larger images need smaller batches)
+        pixels = image_size[0] * image_size[1]
+        if pixels > 2048 * 2048:  # Very large images
+            size_factor = 0.5
+        elif pixels > 1024 * 1024:  # Large images
+            size_factor = 0.7
+        else:  # Normal/small images
+            size_factor = 1.0
+        
+        # Adjust for model type
+        model_factors = {
+            "sam2": 1.0,
+            "edgetam": 1.4,  # EdgeTAM can handle larger batches
+            "owl": 0.8
+        }
+        
+        model_factor = model_factors.get(model_type, 1.0)
+        
+        # Apply adjustments
+        final_factor = size_factor * model_factor
+        
+        return {k: max(1, int(v * final_factor)) for k, v in caps.items()}
         
     def enable_streaming_mode(self, video_size: int, 
                             target_memory_usage: float = 0.7) -> StreamingConfig:
