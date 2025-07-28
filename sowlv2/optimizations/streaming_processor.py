@@ -215,6 +215,9 @@ class StreamingVideoProcessor:
                 print(f"Error loading frame {frame_path}: {e}")
                 continue
 
+        # Update memory usage
+        chunk_info.memory_usage = self._get_memory_usage()
+        
         return frames
 
     def _load_frames_from_video(self, video_path: str, chunk_info: ChunkInfo) -> List[Image.Image]:
@@ -368,13 +371,23 @@ class StreamingVideoProcessor:
             else:
                 # Subsequent chunks - handle overlap
                 if merge_func and chunk_result.overlap_results['before']:
-                    # Use custom merge function for overlap
-                    overlap_merged = merge_func(
-                        merged_results[-len(chunk_result.overlap_results['before']):],
-                        chunk_result.overlap_results['before']
-                    )
-                    # Replace overlapping results
-                    merged_results[-len(chunk_result.overlap_results['before']):] = overlap_merged
+                    # Get the previous chunk's overlap_after for merging
+                    prev_chunk = chunk_results[i-1]
+                    if prev_chunk.overlap_results['after']:
+                        # Merge the overlap regions
+                        overlap_merged = merge_func(
+                            prev_chunk.overlap_results['after'],
+                            chunk_result.overlap_results['before']
+                        )
+                        # Replace the overlapping results at the end of merged_results
+                        merged_results[-len(prev_chunk.overlap_results['after']):] = overlap_merged
+                    else:
+                        # Fallback to original logic if no overlap_after
+                        overlap_merged = merge_func(
+                            merged_results[-len(chunk_result.overlap_results['before']):],
+                            chunk_result.overlap_results['before']
+                        )
+                        merged_results[-len(chunk_result.overlap_results['before']):] = overlap_merged
 
                 # Add main results
                 merged_results.extend(chunk_result.results)

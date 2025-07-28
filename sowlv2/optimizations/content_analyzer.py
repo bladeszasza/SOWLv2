@@ -219,9 +219,12 @@ class ContentAnalyzer:
             rgb_frame = np.array(frame.convert('RGB'))
 
             # Edge density
-            edges = cv2.Canny(gray_frame, 50, 150)
-            edge_density = np.sum(edges > 0) / edges.size
-            edge_densities.append(edge_density)
+            try:
+                edges = cv2.Canny(gray_frame, 50, 150)
+                edge_density = np.sum(edges > 0) / edges.size
+                edge_densities.append(edge_density)
+            except Exception:
+                edge_densities.append(0.0)
 
             # Texture complexity using local binary patterns
             try:
@@ -373,11 +376,11 @@ class ContentAnalyzer:
         # Additional recommendations
         recommendations.update({
             'use_motion_prediction': avg_motion > 5.0,
-            'enable_scene_change_detection': temporal_characteristics['scene_change_rate'] > 0.1,
-            'use_adaptive_thresholding': scene_complexity['contrast_variance'] > 1000.0,
+            'enable_scene_change_detection': temporal_characteristics.get('scene_change_rate', 0.0) > 0.1,
+            'use_adaptive_thresholding': scene_complexity.get('contrast_variance', 0.0) > 1000.0,
             'enable_feature_reuse': temporal_consistency > 0.6,
             'recommended_detection_interval': max(1, int(10 / (avg_motion + 1))),
-            'use_temporal_smoothing': motion_characteristics['motion_variance'] > 50.0
+            'use_temporal_smoothing': motion_characteristics.get('motion_variance', 0.0) > 50.0
         })
 
         return recommendations

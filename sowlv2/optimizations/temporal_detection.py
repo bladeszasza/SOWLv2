@@ -314,8 +314,8 @@ def validate_and_merge_tracks(tracked_objects: List[TrackedObject],
                             merge_threshold: float) -> List[TrackedObject]:
     """Validate tracks and merge similar ones that might represent the same object."""
 
-    # Remove short tracks (likely false positives)
-    min_track_length = 2
+    # Remove very short tracks (likely false positives), but keep single-frame detections
+    min_track_length = 1
     valid_tracks = [obj for obj in tracked_objects if len(obj.detections) >= min_track_length]
 
     # Merge tracks that might represent the same object

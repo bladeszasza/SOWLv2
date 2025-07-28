@@ -48,9 +48,9 @@ class ResourceUtilization:
     gpu_memory_percent: float
     gpu_utilization: float
     disk_io_read: float  # MB/s
-    disk_io_write: float  # MB/s
-    network_io_sent: float  # MB/s
-    network_io_recv: float  # MB/s
+    disk_io_write: float = 0.0  # MB/s
+    network_io_sent: float = 0.0  # MB/s
+    network_io_recv: float = 0.0  # MB/s
     timestamp: datetime = field(default_factory=datetime.now)
 
 
@@ -99,6 +99,7 @@ class MonitoringDashboard:
 
         # Progress tracking
         self.active_operations: Dict[str, ProgressInfo] = {}
+        self.metrics_history: List[ResourceUtilization] = []
 
         # Callbacks for external integration
         self.alert_callbacks: List[Callable[[PerformanceAlert], None]] = []
@@ -126,6 +127,58 @@ class MonitoringDashboard:
             baseline['gpu_utilization'] = 0  # Will be updated during monitoring
 
         return baseline
+
+    def collect_resource_utilization(self) -> ResourceUtilization:
+        """Collect current resource utilization."""
+        # Get current disk and network IO for calculation
+        current_disk_io = psutil.disk_io_counters()
+        current_network_io = psutil.net_io_counters()
+        
+        # Use baseline as previous values for calculation
+        last_disk_io = current_disk_io  # For simplicity, use current values
+        last_network_io = current_network_io
+        time_delta = 1.0  # 1 second interval
+        
+        return self._collect_resource_utilization(last_disk_io, last_network_io, time_delta)
+
+    def update_progress(self, operation_id: str, progress: ProgressInfo):
+        """Update progress for an operation."""
+        self.active_operations[operation_id] = progress
+        
+        # Trigger progress callbacks
+        for callback in self.progress_callbacks:
+            try:
+                callback(operation_id, progress)
+            except Exception as e:
+                print(f"Error in progress callback: {e}")
+
+    def check_alerts(self, utilization: ResourceUtilization) -> List[str]:
+        """Check for alerts and return list of alert messages."""
+        self._check_alerts(utilization)
+        # Return current alert messages
+        return [alert.message for alert in self.active_alerts]
+
+    def get_dashboard_data(self) -> Dict[str, Any]:
+        """Get current dashboard data."""
+        current_utilization = self.collect_resource_utilization()
+        
+        return {
+            'resource_utilization': current_utilization,
+            'active_operations': dict(self.active_operations),
+            'recent_alerts': [alert.__dict__ for alert in self.active_alerts],
+            'metrics_history': self.metrics_history[-100:],  # Last 100 entries
+            'is_monitoring': self.is_monitoring
+        }
+
+    def clear_completed_operations(self):
+        """Clear completed operations from active tracking."""
+        completed_ops = []
+        for op_id, progress in self.active_operations.items():
+            if progress.current_step >= progress.total_steps or progress.current_stage == "completed":
+                completed_ops.append(op_id)
+        
+        for op_id in completed_ops:
+            del self.active_operations[op_id]
 
     def start_monitoring(self):
         """Start real-time monitoring in a background thread."""

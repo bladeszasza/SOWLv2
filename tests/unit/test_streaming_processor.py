@@ -530,7 +530,7 @@ class TestStreamingVideoProcessor:
                 chunk_id=1,
                 start_frame=10,
                 end_frame=20,
-                results=["E", "F", "G"],
+                results=["F", "G"],  # Only non-overlapping results
                 overlap_results={'before': ["C", "D"], 'after': []},
                 processing_time=1.2,
                 memory_peak=0.6
@@ -543,7 +543,7 @@ class TestStreamingVideoProcessor:
         
         merged = processor.merge_chunk_results(chunk_results, custom_merge_func)
         
-        assert len(merged) == 5  # 3 from first + 2 merged + 3 from second - 2 overlap
+        assert len(merged) == 5  # 3 from first + 2 merged + 2 from second (non-overlapping)
         assert "C+C" in merged  # Merged overlap result
         assert "D+D" in merged  # Merged overlap result
     
@@ -755,8 +755,11 @@ class TestStreamingVideoProcessor:
         
         test_frames = [Image.new('RGB', (50, 50)) for _ in range(4)]
         
+        call_count = 0
         def failing_processing_func(frames_batch):
-            if len(frames_batch) == 2:  # Fail on first chunk
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:  # Fail on first chunk only
                 raise Exception("Processing failed")
             return ["success"]
         

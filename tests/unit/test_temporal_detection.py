@@ -564,4 +564,4 @@ class TestDetectionValidationReport:
         assert quality_metrics['high_quality_tracks'] == 1  # Only high_quality_obj > 0.7
         assert quality_metrics['long_tracks'] == 1  # Only high_quality_obj >= 5 frames
         assert quality_metrics['quality_ratio'] == 0.5  # 1/2
-        assert quality_metrics['average_confidence'] == 0.775  # (0.9 + 0.625) / 2
+        assert quality_metrics['average_confidence'] == 0.7625  # (0.9 + 0.625) / 2

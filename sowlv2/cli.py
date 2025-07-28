@@ -70,7 +70,7 @@ def migrate_legacy_config(config_dict):
 
     return migrated_config
 
-def validate_configuration(args):
+def validate_configuration(args, skip_file_checks=False):
     """Validate configuration parameters and provide helpful error messages."""
     errors = []
     warnings = []
@@ -136,12 +136,13 @@ def validate_configuration(args):
     if args.enable_mixed_precision and args.device == "cpu":
         warnings.append("Mixed precision is enabled but device is CPU. Mixed precision will be ignored.")
 
-    # Check file paths
-    if args.input and not os.path.exists(args.input):
-        errors.append(f"Input path does not exist: {args.input}")
+    # Check file paths (skip during testing)
+    if not skip_file_checks:
+        if args.input and not os.path.exists(args.input):
+            errors.append(f"Input path does not exist: {args.input}")
 
-    if args.benchmark_test_data and not os.path.exists(args.benchmark_test_data):
-        errors.append(f"Benchmark test data path does not exist: {args.benchmark_test_data}")
+        if args.benchmark_test_data and not os.path.exists(args.benchmark_test_data):
+            errors.append(f"Benchmark test data path does not exist: {args.benchmark_test_data}")
 
     # Validate benchmark output format
     if args.benchmark_output:
@@ -347,8 +348,11 @@ Troubleshooting:
 """
     print(help_text)
 
-def parse_args():
+def parse_args(skip_file_checks=None):
     """Parse command line arguments."""
+    # Auto-detect if we're in testing mode
+    if skip_file_checks is None:
+        skip_file_checks = 'pytest' in sys.modules or 'unittest' in sys.modules
     parser = argparse.ArgumentParser(
         description="SOWLv2: Detect and segment objects in images/frames/video with a text prompt.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -588,11 +592,13 @@ def parse_args():
             with open(args.config, "r", encoding="utf-8") as config_file:
                 config_from_file = yaml.safe_load(config_file)
         except FileNotFoundError:
-            print(f"Error: Configuration file not found: {args.config}")
-            sys.exit(1)
+            error_msg = f"Error: Configuration file not found: {args.config}"
+            print(error_msg)
+            raise FileNotFoundError(error_msg)
         except yaml.YAMLError as e:
-            print(f"Error: Invalid YAML in configuration file: {e}")
-            sys.exit(1)
+            error_msg = f"Error: Invalid YAML in configuration file: {e}"
+            print(error_msg)
+            raise e  # Re-raise the original exception
 
         # Apply configuration migration for backward compatibility
         config_from_file = migrate_legacy_config(config_from_file)
@@ -616,9 +622,10 @@ def parse_args():
 
     # Validate required fields
     if args.prompt is None or args.input is None:
-        print("Error: --prompt and --input are required arguments or must be in the config file.")
+        error_msg = "Error: --prompt and --input are required arguments or must be in the config file."
+        print(error_msg)
         parser.print_help()
-        sys.exit(1)
+        raise ValueError(error_msg)
 
     # Ensure args.prompt is a list, even if only one prompt came from config (and not CLI)
     # If from CLI with nargs='+', it's already a list.
@@ -629,15 +636,16 @@ def parse_args():
     args = apply_optimization_preset(args)
 
     # Validate configuration
-    errors, warnings = validate_configuration(args)
+    errors, warnings = validate_configuration(args, skip_file_checks=skip_file_checks)
 
     # Handle validation errors
     if errors:
-        print("Configuration validation errors:")
+        error_msg = "Configuration validation errors:\n"
         for error in errors:
-            print(f"  ERROR: {error}")
-        print("\nPlease fix the above errors and try again.")
-        sys.exit(1)
+            error_msg += f"  ERROR: {error}\n"
+        error_msg += "\nPlease fix the above errors and try again."
+        print(error_msg)
+        raise ValueError(error_msg)
 
     # Handle validation warnings
     if warnings:

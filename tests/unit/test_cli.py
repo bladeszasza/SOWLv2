@@ -77,12 +77,12 @@ class TestCLIArgumentParsing:
         """Test that required arguments are properly validated."""
         # Test missing prompt (when no config file)
         with patch('sys.argv', ['sowlv2-detect', '--input', 'test.jpg', '--output', 'output/']):
-            with pytest.raises(SystemExit):
+            with pytest.raises(ValueError):
                 parse_args()
 
         # Test missing input (when no config file)
         with patch('sys.argv', ['sowlv2-detect', '--prompt', 'cat', '--output', 'output/']):
-            with pytest.raises(SystemExit):
+            with pytest.raises(ValueError):
                 parse_args()
 
 
