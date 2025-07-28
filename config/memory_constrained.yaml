@@ -1,0 +1,79 @@
+# Memory-Constrained Configuration
+# Optimized for systems with limited GPU memory (4GB or less)
+# Best for: Entry-level GPUs, shared systems, cloud instances with memory limits
+
+# Basic settings
+prompt: "person"                               # Single prompt to reduce memory
+input: "video.mp4"
+output: "memory_efficient_output"
+
+# Memory-efficient model selection
+edgetam: true
+edgetam-model: "facebook/edgetam-small"        # Smallest, most memory-efficient
+edgetam-optimization-level: 1                  # Conservative optimization
+
+# Conservative detection settings
+threshold: 0.3                                 # Higher threshold = fewer detections
+fps: 15                                        # Reduced frame rate
+device: "cuda"
+
+# Memory optimization settings
+optimization-level: 1
+optimization-preset: "memory"
+enable-mixed-precision: false                 # Can cause memory fragmentation
+disable-gpu-batching: false
+
+# Strict memory management
+memory-limit: 3.5                             # Conservative limit for 4GB GPU
+streaming-chunk-size: 20                      # Very small chunks
+enable-streaming-mode: true                   # Always use streaming
+progressive-loading: true
+memory-monitoring: true
+auto-memory-adjustment: true
+
+# Minimal output to save memory
+merged: true
+binary: false                                 # Skip binary masks
+overlay: false                                # Skip overlays
+individual_masks: false
+
+# Disable memory-intensive features
+enable-vjepa2: false                          # Skip V-JEPA2 optimization
+use-temporal-detection: false                 # Process frames independently
+enable-model-caching: false                  # Disable model caching
+
+# Conservative parallel processing
+max-workers: 1                                # Single worker to minimize memory
+batch-size: 1                                 # Process one frame at a time
+
+# Memory monitoring
+benchmark: false                              # Disable benchmarking
+collect-memory-stats: true
+collect-gpu-stats: false
+memory-profile: true
+
+# Aggressive cleanup settings
+cleanup_settings:
+  intermediate_cleanup: true
+  force_garbage_collection: true
+  clear_cache_frequently: true
+  unload_unused_models: true
+
+# Fallback configuration
+fallback_settings:
+  enable_cpu_fallback: true
+  cpu_fallback_threshold: 0.9                # Switch to CPU at 90% memory
+  automatic_quality_reduction: true
+  emergency_cleanup: true
+
+# Error handling for memory issues
+continue-on-error: true
+memory-error-recovery: true
+auto-batch-size-reduction: true
+max-memory-retries: 3
+
+# System resource limits
+resource_limits:
+  max_gpu_memory_gb: 3.5
+  max_cpu_memory_gb: 8.0
+  swap_usage_limit: 2.0

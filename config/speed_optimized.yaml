@@ -1,0 +1,80 @@
+# Speed-Optimized Configuration
+# Optimized for maximum processing speed while maintaining good quality
+# Best for: Batch processing, time-sensitive applications, high-throughput scenarios
+
+# Basic settings
+prompt: ["person", "car"]                      # Limited prompts for speed
+input: "batch_videos/"                         # Directory for batch processing
+output: "speed_output"
+
+# Speed-optimized model selection
+edgetam: true
+edgetam-model: "facebook/edgetam-base"         # Good balance of speed and quality
+edgetam-optimization-level: 3                  # Maximum EdgeTAM optimization
+
+# Speed-focused detection settings
+threshold: 0.25                                # Balanced threshold
+fps: 10                                        # Reduced frame rate for speed
+device: "cuda"
+
+# Aggressive optimization
+optimization-level: 3
+optimization-preset: "speed"
+enable-mixed-precision: true                  # FP16 for speed
+disable-gpu-batching: false
+
+# Optimized memory settings for speed
+memory-limit: 10.0                            # Use more memory for speed
+streaming-chunk-size: 200                     # Larger chunks for efficiency
+enable-streaming-mode: false                  # Only for very large videos
+
+# Streamlined output
+merged: true
+binary: false                                 # Skip for speed
+overlay: true                                 # Keep overlays for visualization
+individual_masks: false
+
+# V-JEPA2 for intelligent frame selection (speed-focused)
+enable-vjepa2: true
+vjepa2-frames-per-clip: 16
+use-temporal-detection: true
+temporal-detection-frames: 3                  # Fewer frames for speed
+temporal-merge-threshold: 0.7
+vjepa2-importance-threshold: 0.8              # Process fewer frames
+
+# Aggressive parallel processing
+max-workers: 6                                # More workers for speed
+batch-size: 16                                # Large batches for GPU efficiency
+parallel-prompts: true
+parallel-frames: true
+
+# Speed monitoring
+benchmark: true
+benchmark-output: "speed_benchmark.json"
+compare-models: false
+benchmark-iterations: 1
+collect-memory-stats: false                   # Skip for speed
+collect-gpu-stats: true
+performance-profile: false
+
+# Speed optimization features
+speed_optimizations:
+  model_preloading: true
+  async_processing: true
+  prefetch_frames: 20
+  gpu_memory_preallocation: true
+  batch_optimization: true
+
+# Parallel processing configuration
+parallel_config:
+  enable_multi_gpu: false                     # Single GPU optimization
+  gpu_memory_fraction: 0.9
+  allow_memory_growth: true
+  inter_op_parallelism: 4
+  intra_op_parallelism: 8
+
+# Error handling (permissive for speed)
+continue-on-error: true
+max-consecutive-errors: 5
+error-recovery-strategy: "skip_and_continue"
+fast-error-recovery: true

@@ -1,0 +1,170 @@
+# Comprehensive SOWLv2 Configuration Example
+# This file demonstrates all available configuration options including EdgeTAM integration
+
+# Basic input/output configuration
+prompt: ["person", "car", "bicycle", "dog"]  # Can be single string or list
+input: "path/to/input/video.mp4"             # Input file or directory
+output: "comprehensive_output"                # Output directory
+
+# Model configuration
+owl_model: "google/owlv2-base-patch16-ensemble"  # OWL detection model
+sam_model: "facebook/sam2.1-hiera-small"        # SAM2 segmentation model
+threshold: 0.15                                  # Detection confidence threshold
+fps: 30                                         # Video sampling rate
+device: "cuda"                                  # Processing device
+
+# Pipeline output configuration
+merged: true      # Generate merged overlays
+binary: true      # Generate binary masks
+overlay: true     # Generate individual overlays
+individual_masks: false  # Generate separate mask files
+confidence_maps: false   # Generate confidence score maps
+
+# EdgeTAM configuration (alternative to SAM2)
+edgetam: false                        # Use EdgeTAM for faster segmentation
+edgetam-model: "facebook/edgetam-base" # EdgeTAM model variant
+edgetam-optimization-level: 1          # EdgeTAM optimization (0-3)
+
+# Available EdgeTAM models:
+# - facebook/edgetam-small  (fastest, 90% quality)
+# - facebook/edgetam-base   (balanced, 95% quality) 
+# - facebook/edgetam-large  (slower, 98% quality)
+
+# Global optimization settings
+optimization-level: 1                 # Global optimization level (0-3)
+optimization-preset: "balanced"       # Preset: speed, balanced, quality, memory
+
+# Memory management
+memory-limit: 8.0                     # GPU memory limit in GB
+streaming-chunk-size: 100             # Frames per streaming chunk
+enable-streaming-mode: false          # Force streaming for all videos
+progressive-loading: true             # Load frames progressively
+memory-monitoring: true               # Monitor memory usage
+auto-memory-adjustment: true          # Automatically adjust settings
+
+# Performance optimizations
+enable-mixed-precision: true          # Use FP16 for faster inference
+disable-gpu-batching: false          # Disable GPU batching
+enable-model-caching: true           # Cache models for faster switching
+cache-size-limit: 6.0               # Model cache size limit in GB
+model-preloading: false              # Preload models at startup
+async-processing: true               # Enable asynchronous processing
+
+# Advanced resource management
+resource-management:
+  enable-streaming: true
+  chunk-overlap: 5                   # Frames overlap between chunks
+  memory-threshold: 0.8              # Trigger optimization at 80% usage
+  cleanup-interval: 100              # Cleanup every N frames
+  fallback-to-cpu: true              # Fallback to CPU on GPU OOM
+
+# V-JEPA2 video optimization
+enable-vjepa2: true                   # Enable V-JEPA2 optimization
+vjepa2-frames-per-clip: 16           # Frames per V-JEPA2 clip
+use-temporal-detection: true          # Enable temporal object tracking
+temporal-detection-frames: 5          # Number of key frames for detection
+temporal-merge-threshold: 0.7         # IoU threshold for temporal merging
+vjepa2-importance-threshold: 0.7      # Frame importance threshold
+
+# Enhanced V-JEPA2 settings
+vjepa2-advanced:
+  motion-aware-scoring: true          # Use motion for importance scoring
+  content-analysis: true              # Analyze video content type
+  adaptive-frame-spacing: true        # Adjust frame spacing dynamically
+  temporal-consistency: true          # Ensure temporal consistency
+  similarity-threshold: 0.8           # Frame similarity threshold
+
+# Parallel processing configuration
+max-workers: 4                       # Maximum parallel workers
+batch-size: 6                        # Batch size for GPU processing
+parallel-prompts: true               # Process prompts in parallel
+parallel-frames: true                # Process frames in parallel
+
+# Intelligent batch optimization
+batch-optimization:
+  adaptive-batch-size: true          # Automatically adjust batch size
+  max-batch-size: 32                 # Maximum batch size
+  min-batch-size: 1                  # Minimum batch size
+  memory-based-adjustment: true      # Adjust based on memory usage
+
+# Benchmarking and performance monitoring
+benchmark: true                       # Enable comprehensive benchmarking
+benchmark-output: "benchmark_results.html"  # Output file for results
+compare-models: false                 # Compare SAM2 vs EdgeTAM performance
+benchmark-iterations: 3               # Number of iterations for averaging
+collect-memory-stats: true           # Monitor memory usage
+collect-gpu-stats: true              # Monitor GPU utilization
+benchmark-test-data: null            # Custom test dataset path
+performance-profile: false           # Detailed line-by-line profiling
+export-metrics: "all"                # Export format: json, csv, html, all
+
+# Real-time monitoring
+monitoring:
+  enable: true                       # Enable real-time monitoring
+  metrics-interval: 5                # Update interval in seconds
+  display-progress: true             # Show progress bar
+  alert-thresholds:
+    memory-usage: 0.9                # Alert at 90% memory usage
+    processing-time: 2.0             # Alert if frame takes >2s
+
+# Error handling and recovery
+error-handling:
+  continue-on-error: true            # Continue processing on errors
+  max-consecutive-errors: 5          # Stop after N consecutive errors
+  retry-attempts: 3                  # Retry failed operations
+  fallback-enabled: true             # Enable model fallback
+  error-logging: true                # Log detailed error information
+
+# Model fallback configuration
+fallback-config:
+  edgetam-to-sam2: true             # Fallback from EdgeTAM to SAM2
+  large-to-small: true              # Fallback to smaller models
+  gpu-to-cpu: true                  # Fallback to CPU processing
+  quality-reduction: true           # Reduce quality on resource constraints
+
+# Content-aware optimization
+content-optimization:
+  enable: true                      # Enable content analysis
+  video-type-detection: true        # Detect video content type
+  adaptive-parameters: true         # Adjust parameters based on content
+  optimization-profiles:
+    static-video: "memory"          # Profile for static content
+    dynamic-video: "balanced"       # Profile for dynamic content
+    fast-motion: "speed"            # Profile for fast motion
+
+# Advanced configuration examples:
+
+# For real-time processing:
+# optimization-preset: "speed"
+# edgetam: true
+# edgetam-model: "facebook/edgetam-small"
+# edgetam-optimization-level: 3
+# enable-mixed-precision: true
+# streaming-chunk-size: 25
+# batch-size: 1
+
+# For maximum quality:
+# optimization-preset: "quality"
+# edgetam: false
+# sam_model: "facebook/sam2.1-hiera-large"
+# optimization-level: 0
+# threshold: 0.05
+# temporal-merge-threshold: 0.9
+# enable-mixed-precision: false
+
+# For memory-constrained systems:
+# optimization-preset: "memory"
+# edgetam: true
+# edgetam-model: "facebook/edgetam-small"
+# memory-limit: 4.0
+# enable-streaming-mode: true
+# streaming-chunk-size: 20
+# cache-size-limit: 2.0
+# batch-size: 1
+
+# For EdgeTAM vs SAM2 comparison:
+# benchmark: true
+# compare-models: true
+# benchmark-output: "model_comparison.html"
+# edgetam: true
+# benchmark-iterations: 5

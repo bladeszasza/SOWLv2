@@ -1,0 +1,117 @@
+# EdgeTAM vs SAM2 Comparison Configuration
+# Designed for benchmarking and comparing EdgeTAM and SAM2 performance
+# Best for: Performance analysis, model selection, research comparisons
+
+# Basic settings
+prompt: ["person", "car", "bicycle"]
+input: "comparison_test_video.mp4"
+output: "comparison_results"
+
+# Model comparison settings (will run both models)
+edgetam: true                                  # Enable EdgeTAM
+edgetam-model: "facebook/edgetam-base"
+sam_model: "facebook/sam2.1-hiera-small"      # Comparable SAM2 model
+
+# Standardized settings for fair comparison
+threshold: 0.15                                # Same threshold for both
+fps: 30                                        # Process all frames
+device: "cuda"
+
+# Balanced optimization for comparison
+optimization-level: 2
+optimization-preset: "balanced"
+enable-mixed-precision: true
+
+# Memory settings
+memory-limit: 8.0
+streaming-chunk-size: 100
+enable-streaming-mode: false
+
+# Complete output for comparison
+merged: true
+binary: true
+overlay: true
+individual_masks: true
+
+# V-JEPA2 settings (same for both models)
+enable-vjepa2: true
+vjepa2-frames-per-clip: 16
+use-temporal-detection: true
+temporal-detection-frames: 5
+temporal-merge-threshold: 0.7
+
+# Standard parallel processing
+max-workers: 4
+batch-size: 8
+
+# Comprehensive benchmarking
+benchmark: true
+benchmark-output: "edgetam_vs_sam2_comparison.html"
+compare-models: true                           # Key setting for comparison
+benchmark-iterations: 3                       # Multiple runs for accuracy
+collect-memory-stats: true
+collect-gpu-stats: true
+performance-profile: true
+export-metrics: "all"
+
+# Detailed comparison metrics
+comparison_metrics:
+  - "processing_time"
+  - "memory_usage"
+  - "gpu_utilization"
+  - "throughput_fps"
+  - "model_loading_time"
+  - "segmentation_quality"
+  - "temporal_consistency"
+
+# Quality assessment
+quality_metrics:
+  enable: true
+  iou_calculation: true
+  boundary_accuracy: true
+  temporal_stability: true
+  
+# Test configurations for comparison
+test_configurations:
+  - name: "EdgeTAM Small"
+    edgetam: true
+    edgetam-model: "facebook/edgetam-small"
+    optimization-level: 3
+    
+  - name: "EdgeTAM Base"
+    edgetam: true
+    edgetam-model: "facebook/edgetam-base"
+    optimization-level: 2
+    
+  - name: "EdgeTAM Large"
+    edgetam: true
+    edgetam-model: "facebook/edgetam-large"
+    optimization-level: 1
+    
+  - name: "SAM2 Tiny"
+    edgetam: false
+    sam_model: "facebook/sam2.1-hiera-tiny"
+    optimization-level: 2
+    
+  - name: "SAM2 Small"
+    edgetam: false
+    sam_model: "facebook/sam2.1-hiera-small"
+    optimization-level: 2
+    
+  - name: "SAM2 Base"
+    edgetam: false
+    sam_model: "facebook/sam2.1-hiera-base"
+    optimization-level: 1
+
+# Comparison report settings
+report_settings:
+  generate_charts: true
+  include_system_info: true
+  detailed_analysis: true
+  recommendations: true
+  export_raw_data: true
+
+# Error handling (strict for accurate comparison)
+continue-on-error: false
+validation_checks: true
+result-verification: true

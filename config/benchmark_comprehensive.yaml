@@ -1,0 +1,137 @@
+# Comprehensive Benchmarking Configuration
+# Designed for thorough performance analysis and system evaluation
+# Best for: System optimization, performance research, hardware evaluation
+
+# Test data configuration
+prompt: ["person", "car", "bicycle", "motorcycle", "bus", "truck", "dog", "cat"]
+input: "benchmark_dataset/"                    # Directory with test videos
+output: "benchmark_results"
+
+# Model configurations to test
+test_models:
+  edgetam_small:
+    edgetam: true
+    edgetam-model: "facebook/edgetam-small"
+    optimization-level: 3
+    
+  edgetam_base:
+    edgetam: true
+    edgetam-model: "facebook/edgetam-base"
+    optimization-level: 2
+    
+  sam2_tiny:
+    edgetam: false
+    sam_model: "facebook/sam2.1-hiera-tiny"
+    optimization-level: 2
+    
+  sam2_small:
+    edgetam: false
+    sam_model: "facebook/sam2.1-hiera-small"
+    optimization-level: 2
+
+# Benchmark settings
+threshold: 0.15
+fps: 30
+device: "cuda"
+
+# Optimization levels to test
+optimization_levels: [0, 1, 2, 3]
+
+# Memory limits to test
+memory_limits: [4.0, 6.0, 8.0, 12.0]
+
+# Batch sizes to test
+batch_sizes: [1, 2, 4, 8, 16, 32]
+
+# Comprehensive benchmarking
+benchmark: true
+benchmark-output: "comprehensive_benchmark.html"
+compare-models: true
+benchmark-iterations: 5                       # Multiple runs for statistical accuracy
+collect-memory-stats: true
+collect-gpu-stats: true
+performance-profile: true
+export-metrics: "all"
+
+# Detailed metrics collection
+metrics_to_collect:
+  timing:
+    - "total_processing_time"
+    - "model_loading_time"
+    - "detection_time"
+    - "segmentation_time"
+    - "post_processing_time"
+    - "io_time"
+    
+  memory:
+    - "peak_gpu_memory"
+    - "average_gpu_memory"
+    - "peak_cpu_memory"
+    - "memory_efficiency"
+    - "cache_hit_rate"
+    
+  throughput:
+    - "frames_per_second"
+    - "objects_per_second"
+    - "masks_per_second"
+    - "batch_efficiency"
+    
+  quality:
+    - "detection_accuracy"
+    - "segmentation_iou"
+    - "temporal_consistency"
+    - "boundary_precision"
+
+# System profiling
+system_profiling:
+  enable: true
+  cpu_profiling: true
+  gpu_profiling: true
+  memory_profiling: true
+  io_profiling: true
+  network_profiling: false
+
+# Stress testing
+stress_testing:
+  enable: true
+  max_video_size: "4K"
+  max_duration: 3600                          # 1 hour
+  concurrent_processes: 4
+  memory_pressure_test: true
+  thermal_throttling_test: true
+
+# Performance regression testing
+regression_testing:
+  enable: true
+  baseline_results: "baseline_benchmark.json"
+  performance_threshold: 0.05                 # 5% regression threshold
+  alert_on_regression: true
+
+# Hardware-specific tests
+hardware_tests:
+  multi_gpu: false                            # Test multi-GPU if available
+  cpu_fallback: true                          # Test CPU fallback performance
+  mixed_precision: true                       # Test FP16 vs FP32
+  memory_bandwidth: true                      # Test memory bandwidth impact
+
+# Output configuration
+output_formats:
+  - "html"                                    # Interactive HTML report
+  - "json"                                    # Raw data
+  - "csv"                                     # Spreadsheet format
+  - "pdf"                                     # Printable report
+
+# Report customization
+report_config:
+  include_charts: true
+  include_system_info: true
+  include_recommendations: true
+  include_raw_data: true
+  interactive_plots: true
+  comparison_tables: true
+
+# Error handling for benchmarking
+continue-on-error: true                       # Continue testing other configs
+log-errors: true
+error-analysis: true
+timeout-per-test: 1800                       # 30 minutes per test

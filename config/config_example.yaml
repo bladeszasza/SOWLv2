@@ -1,7 +1,32 @@
-# Sample configuration for SOWLv2
-prompt: "plant"
-owl_model: "google/owlv2-base-patch16-ensemble"
+# Basic SOWLv2 Configuration Template
+# Copy this file and modify for your use case
+
+# Required settings
+prompt: "your object prompt here"     # What to detect (e.g., "person", "car")
+input: "path/to/your/input"          # Input file or directory
+output: "output"                     # Output directory
+
+# Basic model settings
+threshold: 0.1                       # Detection confidence threshold
+device: "cuda"                       # Use "cpu" if no GPU available
+
+# Choose segmentation model (pick one)
+# Option 1: Use SAM2 (higher quality, slower)
+edgetam: false
 sam_model: "facebook/sam2.1-hiera-small"
-threshold: 0.1
-fps: 24
-device: "cuda"
+
+# Option 2: Use EdgeTAM (faster, good quality)
+# edgetam: true
+# edgetam-model: "facebook/edgetam-base"
+
+# Quick optimization presets (uncomment one)
+optimization-preset: "balanced"     # Good balance of speed and quality
+# optimization-preset: "speed"      # Prioritize speed
+# optimization-preset: "quality"    # Prioritize quality  
+# optimization-preset: "memory"     # Minimize memory usage
+
+# Optional: Enable benchmarking to see performance
+# benchmark: true
+# benchmark-output: "results.json"
+
+# For advanced users: see comprehensive_example.yaml for all options

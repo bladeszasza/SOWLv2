@@ -1,0 +1,76 @@
+# Quality-Focused Configuration
+# Optimized for maximum segmentation accuracy and quality
+# Best for: Research, detailed analysis, archival processing
+
+# Basic settings
+prompt: ["person", "car", "bicycle", "motorcycle", "bus", "truck"]
+input: "high_quality_video.mp4"
+output: "quality_output"
+
+# High-quality model selection
+edgetam: false                                    # Use SAM2 for maximum quality
+sam_model: "facebook/sam2.1-hiera-large"        # Largest, most accurate model
+owl_model: "google/owlv2-large-patch14-ensemble" # High-accuracy detection
+
+# Quality-focused detection settings
+threshold: 0.05                                  # Lower threshold for more detections
+fps: null                                       # Process all frames
+device: "cuda"
+
+# Conservative optimization for quality preservation
+optimization-level: 1
+optimization-preset: "quality"
+enable-mixed-precision: false                   # Disable for maximum precision
+disable-gpu-batching: false
+
+# Memory settings (quality processing needs more memory)
+memory-limit: 12.0
+streaming-chunk-size: 50                        # Smaller chunks for quality
+enable-streaming-mode: false                    # Only if video is very large
+
+# Complete output generation
+merged: true
+binary: true                                    # Generate all mask types
+overlay: true
+individual_masks: true
+confidence_maps: true
+
+# V-JEPA2 for intelligent processing (but with quality settings)
+enable-vjepa2: true
+vjepa2-frames-per-clip: 32                      # Larger clips for better analysis
+use-temporal-detection: true
+temporal-detection-frames: 10                   # More frames for temporal analysis
+temporal-merge-threshold: 0.9                   # Stricter merging for accuracy
+vjepa2-importance-threshold: 0.5                # Process more frames
+
+# Conservative parallel processing
+max-workers: 2                                  # Fewer workers for stability
+batch-size: 4                                   # Moderate batch size
+
+# Comprehensive benchmarking
+benchmark: true
+benchmark-output: "quality_benchmark.html"
+compare-models: false                           # Focus on SAM2 quality
+benchmark-iterations: 1                        # Single run for quality assessment
+collect-memory-stats: true
+collect-gpu-stats: true
+performance-profile: true                       # Detailed profiling
+export-metrics: "all"
+
+# Quality assurance settings
+quality_validation: true
+confidence_filtering: true
+post_processing: true
+mask_refinement: true
+
+# Advanced quality settings
+segmentation_quality:
+  edge_refinement: true
+  multi_scale_processing: true
+  temporal_consistency: true
+  noise_reduction: true
+
+# Error handling (strict for quality)
+continue-on-error: false                        # Stop on errors for quality control
+validation_checks: true
+output_verification: true
